@@ -2,7 +2,7 @@
   // Cloudflare Workers configuration for FC-CMS (@opennextjs/cloudflare).
   // Full walkthrough: docs/deploy-cloudflare.md
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "fitclass-complaints",
+  "name": "tms",
   "main": ".open-next/worker.js",
   "compatibility_date": "2024-12-30",
   "compatibility_flags": [
@@ -16,7 +16,7 @@
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "fitclass-complaints"
+      "service": "tms"
     }
   ],
   // next/image optimization via the Cloudflare Images binding (free tier).
@@ -32,7 +32,7 @@
     {
       "binding": "DB",
       "database_name": "fitclass",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+      "database_id": "0123b3e3-e5b8-405b-8ffb-9f3e49797c1b"
     }
   ],
   // Server-side env vars. Secrets (SESSION_SECRET) are added with:
