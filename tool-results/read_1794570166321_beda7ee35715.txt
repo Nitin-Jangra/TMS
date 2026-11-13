@@ -1,0 +1,1631 @@
+     1→# MASTER DEVELOPMENT PROMPT
+     2→# FITCLASS COMPLAINT MANAGEMENT SYSTEM (FC-CMS)
+     3→## Complete Application Development, Security Architecture & Supabase Dummy Database
+     4→
+     5→---
+     6→
+     7→# 1. PROJECT OVERVIEW
+     8→
+     9→Build a complete, production-quality, standalone Complaint & Ticket Management System for FitClass Gym.
+    10→
+    11→The application will allow FitClass customers to register complaints through a public complaint portal, receive a unique ticket number, track their complaint status, and reopen resolved complaints within a configurable period.
+    12→
+    13→The system will automatically distribute complaints among eligible support employees of the respective branch using an equal, branch-wise round-robin assignment algorithm.
+    14→
+    15→Central support, branch managers and support employees will manage complaints through dedicated dashboards with role-based permissions.
+    16→
+    17→**IMPORTANT DEVELOPMENT DECISION:**
+    18→
+    19→For the initial development and testing phase, use a completely separate Supabase development project containing dummy data.
+    20→
+    21→Do not connect to the actual FitClass production database, actual CRM, or real customer records.
+    22→
+    23→Build the architecture so that the development Supabase project can later be replaced with a fresh production Supabase project through environment configuration and database migrations without rewriting business logic.
+    24→
+    25→Do not build only a frontend prototype. Implement the frontend, backend, database, authentication, authorization, APIs, notifications, assignment engine, background jobs, security controls and automated tests.
+    26→
+    27→---
+    28→
+    29→# 2. TECHNOLOGY STACK
+    30→
+    31→Use the following technologies:
+    32→
+    33→### Frontend
+    34→- React.js
+    35→- TypeScript
+    36→- Vite
+    37→- Bootstrap 5
+    38→- React Router
+    39→- TanStack Query
+    40→- React Hook Form
+    41→- Zod validation
+    42→- Lucide icons
+    43→
+    44→### Backend
+    45→- Node.js
+    46→- Express.js
+    47→- TypeScript
+    48→- REST API architecture
+    49→- Zod request validation
+    50→- Structured application logging
+    51→
+    52→### Database and infrastructure
+    53→- Supabase PostgreSQL
+    54→- Supabase Auth for development authentication
+    55→- Supabase Storage for private attachments
+    56→- PostgreSQL functions and triggers
+    57→- PostgreSQL Row Level Security
+    58→- Supabase CLI for database migrations
+    59→
+    60→### Additional services
+    61→- Email notification provider with a development testing mode
+    62→- Durable background job processing
+    63→- API rate limiting
+    64→- Automated testing using Vitest and Supertest
+    65→- Playwright for frontend end-to-end testing
+    66→
+    67→Keep all external integrations replaceable through adapters.
+    68→
+    69→---
+    70→
+    71→# 3. DEVELOPMENT ENVIRONMENTS
+    72→
+    73→Create two completely separate environments.
+    74→
+    75→### A. Development environment
+    76→
+    77→Use a dedicated Supabase development project.
+    78→
+    79→Populate it with dummy information:
+    80→- Dummy FitClass branches.
+    81→- Dummy employees.
+    82→- Dummy support agents.
+    83→- Dummy customers.
+    84→- Dummy complaints.
+    85→- Dummy ticket assignments.
+    86→- Dummy ticket history.
+    87→- Dummy email notification records.
+    88→
+    89→Use a development email testing provider or sandbox. Never send test emails to real FitClass customers.
+    90→
+    91→### B. Production-ready architecture
+    92→
+    93→Prepare the application for a future production Supabase project.
+    94→
+    95→Production migration must involve:
+    96→- Applying version-controlled database migrations.
+    97→- Applying production security policies.
+    98→- Configuring production authentication.
+    99→- Connecting actual FitClass CRM APIs.
+   100→- Synchronizing actual branch and employee information.
+   101→- Configuring official support email.
+   102→- Configuring production notification providers.
+   103→
+   104→Never copy dummy customers, dummy employees or test complaints into production.
+   105→
+   106→### Environment variables
+   107→
+   108→Create separate development and production configuration files.
+   109→
+   110→Backend:
+   111→
+   112→```env
+   113→NODE_ENV=development
+   114→PORT=5000
+   115→
+   116→SUPABASE_URL=
+   117→SUPABASE_ANON_KEY=
+   118→SUPABASE_SERVICE_ROLE_KEY=
+   119→DATABASE_URL=
+   120→
+   121→CRM_BASE_URL=
+   122→CRM_API_KEY=
+   123→
+   124→CENTRAL_SUPPORT_EMAIL=
+   125→EMAIL_PROVIDER_API_KEY=
+   126→
+   127→PUBLIC_APP_URL=
+   128→ADMIN_APP_URL=
+   129→
+   130→REDIS_URL=
+   131→
+   132→RATE_LIMIT_WINDOW=
+   133→RATE_LIMIT_MAX=
+   134→```
+   135→
+   136→Frontend:
+   137→
+   138→```env
+   139→VITE_API_BASE_URL=
+   140→VITE_APP_NAME=FitClass CMS
+   141→```
+   142→
+   143→Never expose Supabase service-role keys, database passwords, email provider secrets or CRM credentials in frontend code or Git repositories.
+   144→
+   145→The production application must never use development credentials.
+   146→
+   147→---
+   148→
+   149→# 4. PRODUCT MODULES
+   150→
+   151→Build the following independent modules:
+   152→
+   153→1. Customer Complaint Portal.
+   154→2. Customer Ticket Tracking Portal.
+   155→3. Authentication and Authorization.
+   156→4. Central Support Dashboard.
+   157→5. Branch Manager Dashboard.
+   158→6. Support Employee Dashboard.
+   159→7. Ticket Management Engine.
+   160→8. Branch-wise Round-Robin Assignment Engine.
+   161→9. Employee Availability Management.
+   162→10. Email Notification Engine.
+   163→11. Customer Ticket Reopening.
+   164→12. Automatic Ticket Closure Engine.
+   165→13. SLA and Escalation Engine.
+   166→14. Reporting and Analytics.
+   167→15. Audit and Activity Logs.
+   168→16. System Configuration.
+   169→17. CRM Integration Adapter.
+   170→18. API Management and Security.
+   171→
+   172→All modules must be connected through documented APIs and shared business logic.
+   173→
+   174→---
+   175→
+   176→# 5. CUSTOMER COMPLAINT PORTAL
+   177→
+   178→Create a public, mobile-responsive customer portal.
+   179→
+   180→The landing page must display two primary options:
+   181→
+   182→**Option 1: Register Complaint**
+   183→
+   184→**Option 2: Track Complaint**
+   185→
+   186→### Complaint registration form
+   187→
+   188→Required fields:
+   189→
+   190→| Field | Type |
+   191→|---|---|
+   192→| Customer Name | Text |
+   193→| Mobile Number | Phone |
+   194→| Email Address | Email |
+   195→| Branch | Dynamic dropdown |
+   196→| Complaint Category | Dropdown |
+   197→| Complaint Description | Multiline text |
+   198→| Attachment | Optional file upload |
+   199→| Privacy Consent | Mandatory checkbox |
+   200→
+   201→### Functional requirements
+   202→
+   203→- Customers should not need to create an account.
+   204→- Branch options must load dynamically through an API.
+   205→- Only active branches should be selectable.
+   206→- Validate all mandatory fields.
+   207→- Validate mobile and email formats.
+   208→- Allow optional supporting images and documents.
+   209→- Prevent repeated submissions using idempotency keys.
+   210→- Save the complaint before initiating notifications.
+   211→- Generate a unique ticket ID automatically.
+   212→- Display the generated ticket number after successful submission.
+   213→
+   214→### Ticket ID format
+   215→
+   216→```text
+   217→FC-2026-000001
+   218→FC-2026-000002
+   219→FC-2026-000003
+   220→```
+   221→
+   222→Generate ticket numbers using a transaction-safe PostgreSQL sequence.
+   223→
+   224→Ticket IDs must be unique and must never be reused.
+   225→
+   226→---
+   227→
+   228→# 6. CUSTOMER EMAIL NOTIFICATIONS
+   229→
+   230→Immediately after successful complaint registration, trigger three notification events:
+   231→
+   232→### A. Customer acknowledgement
+   233→
+   234→Send an email containing:
+   235→
+   236→- Customer name.
+   237→- Ticket ID.
+   238→- Branch name.
+   239→- Complaint registration confirmation.
+   240→- A professional apology.
+   241→- Instructions for tracking the complaint.
+   242→
+   243→Use this message:
+   244→
+   245→"We sincerely apologize for the inconvenience you have experienced. Your complaint has been successfully registered with FitClass. Our support team will review your concern and work towards resolving it as soon as possible."
+   246→
+   247→### B. Central support notification
+   248→
+   249→Send the complete complaint details to a configurable support email.
+   250→
+   251→Initially, use a development/test email configuration.
+   252→
+   253→Later, the email address must be replaceable with the official FitClass support email without changing application code.
+   254→
+   255→### C. Branch notification
+   256→
+   257→Send the complaint details to the notification email configured for the selected branch.
+   258→
+   259→If a branch email is unavailable, alert central support and retain the notification in the failed/pending queue.
+   260→
+   261→### Notification reliability
+   262→
+   263→- Maintain notification delivery logs.
+   264→- Implement retry mechanisms.
+   265→- Prevent duplicate emails.
+   266→- Use a transactional outbox pattern.
+   267→- Do not roll back an already-created ticket if email delivery fails.
+   268→- Never expose internal notes in customer emails.
+   269→
+   270→---
+   271→
+   272→# 7. TICKET STATUS MANAGEMENT
+   273→
+   274→Implement exactly these five primary statuses:
+   275→
+   276→```text
+   277→NEW_COMPLAINT
+   278→IN_PROGRESS
+   279→ON_HOLD
+   280→RESOLVED
+   281→CLOSED
+   282→```
+   283→
+   284→### Status definitions
+   285→
+   286→**NEW_COMPLAINT**
+   287→- Ticket has been registered.
+   288→- Ticket has been assigned or is awaiting assignment.
+   289→- Initial status remains New Complaint until support begins handling it.
+   290→
+   291→**IN_PROGRESS**
+   292→- Assigned support person is actively investigating the complaint.
+   293→
+   294→**ON_HOLD**
+   295→- Support person is waiting for information, action or resolution.
+   296→- A reason must be provided.
+   297→- Support person can resume the ticket.
+   298→
+   299→**RESOLVED**
+   300→- Support person has provided a solution.
+   301→- Resolution message is mandatory.
+   302→- Customer is notified.
+   303→- Reopening countdown starts.
+   304→
+   305→**CLOSED**
+   306→- Ticket is automatically closed after the configured reopening window expires.
+   307→- Closed tickets become permanently read-only.
+   308→
+   309→### Allowed status transitions
+   310→
+   311→```text
+   312→NEW_COMPLAINT → IN_PROGRESS
+   313→
+   314→IN_PROGRESS → ON_HOLD
+   315→IN_PROGRESS → RESOLVED
+   316→
+   317→ON_HOLD → IN_PROGRESS
+   318→ON_HOLD → RESOLVED
+   319→
+   320→RESOLVED → IN_PROGRESS (Customer Reopening)
+   321→
+   322→RESOLVED → CLOSED (Automatic System Closure)
+   323→```
+   324→
+   325→Reject every other transition.
+   326→
+   327→### Important closed-ticket restriction
+   328→
+   329→Once a ticket becomes CLOSED:
+   330→
+   331→- No support employee can update it.
+   332→- No branch manager can update it.
+   333→- No central support agent can update it.
+   334→- No Root Admin can modify its status.
+   335→- No API endpoint can reopen it.
+   336→- No normal application operation can modify its content or assignment.
+   337→
+   338→Closed tickets must remain accessible as read-only historical records.
+   339→
+   340→Implement this restriction at the database level, not just in frontend controls.
+   341→
+   342→---
+   343→
+   344→# 8. BRANCH-WISE ROUND-ROBIN ASSIGNMENT ENGINE
+   345→
+   346→This is a core business requirement.
+   347→
+   348→Every branch must have an independent assignment queue.
+   349→
+   350→### Example
+   351→
+   352→Sector 48:
+   353→- Employee A.
+   354→- Employee B.
+   355→- Employee C.
+   356→- Employee D.
+   357→
+   358→Assignment:
+   359→
+   360→```text
+   361→Ticket 001 → Employee A
+   362→Ticket 002 → Employee B
+   363→Ticket 003 → Employee C
+   364→Ticket 004 → Employee D
+   365→Ticket 005 → Employee A
+   366→Ticket 006 → Employee B
+   367→```
+   368→
+   369→### Assignment rules
+   370→
+   371→1. Every newly submitted complaint enters the assignment engine.
+   372→2. The engine identifies the selected branch.
+   373→3. Fetch active employees from the dummy employee master.
+   374→4. Identify employees eligible for complaint assignment.
+   375→5. Assign the ticket to the next eligible employee.
+   376→6. Update the persistent branch assignment cursor.
+   377→7. Record the assignment in the database.
+   378→8. Send an assignment notification.
+   379→9. Repeat the cycle for the next complaint.
+   380→
+   381→### Equal distribution rules
+   382→
+   383→- Use FIFO round-robin.
+   384→- Each eligible employee receives an equal number of tickets over a complete assignment cycle.
+   385→- Maintain a separate cursor for each branch.
+   386→- Never mix assignment queues between branches.
+   387→- Assignment must be concurrency-safe.
+   388→- Maintain complete assignment history.
+   389→- Reopened complaints should retain their original assignee if still eligible.
+   390→- If the original assignee is unavailable, assign through the branch queue.
+   391→
+   392→### Employee availability
+   393→
+   394→An employee is eligible only if:
+   395→- Active in the employee master.
+   396→- Has the correct support role.
+   397→- Belongs to the relevant branch.
+   398→- Complaint assignment availability is enabled.
+   399→
+   400→If unavailable, skip that employee.
+   401→
+   402→Do not use workload-based distribution or weighted round-robin. The finalized requirement is equal distribution.
+   403→
+   404→### No eligible employee
+   405→
+   406→If no eligible employee is available:
+   407→- Create the complaint normally.
+   408→- Preserve NEW_COMPLAINT status.
+   409→- Put it into the unassigned queue.
+   410→- Notify branch manager and central support.
+   411→- Retry assignment when an eligible employee becomes available.
+   412→
+   413→Implement assignment using PostgreSQL transactions and row-level locking.
+   414→
+   415→---
+   416→
+   417→# 9. CUSTOMER TICKET TRACKING
+   418→
+   419→Create a dedicated Track Complaint page.
+   420→
+   421→Customers must be able to enter:
+   422→
+   423→1. Ticket ID.
+   424→2. Registered mobile number.
+   425→
+   426→No account registration is required.
+   427→
+   428→### Tracking process
+   429→
+   430→- Validate ticket ID format.
+   431→- Normalize the supplied mobile number.
+   432→- Match the ticket ID and mobile number against the same ticket.
+   433→- Return only customer-visible information.
+   434→- Display the current status.
+   435→- Display ticket registration date.
+   436→- Display the latest update.
+   437→- Display customer-visible status history.
+   438→- Display resolution details when resolved.
+   439→- Display closure information when closed.
+   440→
+   441→### Customer-facing status timeline
+   442→
+   443→```text
+   444→New Complaint
+   445→      ↓
+   446→In Progress
+   447→      ↓
+   448→On Hold (when applicable)
+   449→      ↓
+   450→In Progress
+   451→      ↓
+   452→Resolved
+   453→      ↓
+   454→Closed
+   455→```
+   456→
+   457→The actual timeline must reflect the real event history rather than assuming every ticket passed through every status.
+   458→
+   459→### Tracking security
+   460→
+   461→- Never allow tracking using a mobile number alone.
+   462→- Use generic error messages for invalid ticket/mobile combinations.
+   463→- Apply IP and ticket-based rate limits.
+   464→- Add abuse detection and temporary throttling.
+   465→- Do not expose customer information belonging to another ticket.
+   466→- Do not expose employee-only information.
+   467→- Do not expose internal notes.
+   468→- Do not expose database IDs or private storage paths.
+   469→
+   470→The initial finalized tracking method is Ticket ID + Registered Mobile Number. Design the verification layer so OTP can be added later without changing the ticket model.
+   471→
+   472→---
+   473→
+   474→# 10. CUSTOMER TICKET REOPENING
+   475→
+   476→A customer must be able to reopen a resolved ticket using the same ticket ID.
+   477→
+   478→### Reopening requirements
+   479→
+   480→- Reopening is permitted only when the ticket is RESOLVED.
+   481→- The reopening deadline must not have expired.
+   482→- Verify the original registered mobile number.
+   483→- Require a reopening reason.
+   484→- Keep the original ticket ID.
+   485→- Do not create a duplicate complaint.
+   486→- Change the status to IN_PROGRESS.
+   487→- Record the reopening event.
+   488→- Preserve all previous status history.
+   489→- Notify the customer and assigned support employee.
+   490→
+   491→### Reopening deadline
+   492→
+   493→The reopening window must be configurable by Root Admin.
+   494→
+   495→Do not hardcode 24, 48 or 72 hours.
+   496→
+   497→Store the calculated `auto_close_at` timestamp on each ticket when it becomes RESOLVED.
+   498→
+   499→Existing resolved tickets must retain their calculated deadlines when the global configuration changes, unless an authorized Root Admin explicitly applies a new policy.
+   500→
+   501→### Reopening after closure
+   502→
+   503→Once CLOSED, a ticket cannot be reopened by anyone.
+   504→
+   505→Display:
+   506→
+   507→"Your ticket has already been closed and can no longer be reopened. Please submit a new complaint if you need further assistance."
+   508→
+   509→---
+   510→
+   511→# 11. AUTOMATIC TICKET CLOSURE
+   512→
+   513→Build a durable background closure engine.
+   514→
+   515→When a ticket becomes RESOLVED:
+   516→
+   517→1. Record resolution timestamp.
+   518→2. Fetch the active closure policy.
+   519→3. Calculate the reopening deadline.
+   520→4. Store the deadline in the ticket record.
+   521→5. Send customer resolution email.
+   522→6. Schedule automatic closure.
+   523→
+   524→When the deadline expires:
+   525→
+   526→1. Fetch the ticket.
+   527→2. Confirm that its status is still RESOLVED.
+   528→3. Confirm that the current time has reached its stored deadline.
+   529→4. Lock the ticket row.
+   530→5. Change the status to CLOSED.
+   531→6. Record status history.
+   532→7. Record audit event.
+   533→8. Send closure notification.
+   534→9. Mark the closure job completed.
+   535→
+   536→The closure worker must be idempotent.
+   537→
+   538→If the customer reopens the ticket before closure, cancel or invalidate the pending closure job.
+   539→
+   540→Protect against simultaneous reopening and automatic closure using database transactions and row-level locking.
+   541→
+   542→Do not rely on JavaScript timers or in-memory scheduling.
+   543→
+   544→---
+   545→
+   546→# 12. ROOT ADMIN CONFIGURATION PANEL
+   547→
+   548→Build a complete system configuration module.
+   549→
+   550→Root Admin must be able to configure:
+   551→
+   552→- Central support email.
+   553→- Branch notification emails.
+   554→- Ticket ID prefix.
+   555→- Ticket numbering configuration.
+   556→- Complaint categories.
+   557→- Priority options.
+   558→- Employee availability.
+   559→- Reopening window.
+   560→- Automatic closure settings.
+   561→- Email templates.
+   562→- Notification preferences.
+   563→- API rate limits.
+   564→- File upload restrictions.
+   565→- SLA response time.
+   566→- SLA resolution time.
+   567→- Escalation policies.
+   568→- System maintenance mode.
+   569→
+   570→All configuration changes must be audited with:
+   571→- Previous value.
+   572→- New value.
+   573→- Changed by.
+   574→- Timestamp.
+   575→- Change reason where appropriate.
+   576→
+   577→Root Admin cannot override the permanent closed-ticket restriction.
+   578→
+   579→---
+   580→
+   581→# 13. USER ROLES AND ACCESS CONTROL
+   582→
+   583→Implement hierarchical Role-Based Access Control.
+   584→
+   585→### Role 1: Root Admin
+   586→
+   587→Complete access to:
+   588→- All branches.
+   589→- All tickets.
+   590→- All employees.
+   591→- All configurations.
+   592→- Reports.
+   593→- System settings.
+   594→- Permissions.
+   595→
+   596→Cannot modify closed ticket records.
+   597→
+   598→### Role 2: Central Support Admin
+   599→
+   600→Can:
+   601→- View complaints across authorized branches.
+   602→- Assign and reassign complaints.
+   603→- Monitor branch performance.
+   604→- Manage escalations.
+   605→- View reports.
+   606→- Manage support operations within granted permissions.
+   607→
+   608→Cannot modify closed ticket records.
+   609→
+   610→### Role 3: Central Support Agent
+   611→
+   612→Can:
+   613→- View permitted tickets.
+   614→- Handle assigned tickets.
+   615→- Add customer replies.
+   616→- Add internal notes.
+   617→- Update permitted ticket statuses.
+   618→- Escalate complaints.
+   619→
+   620→### Role 4: Branch Manager
+   621→
+   622→Can:
+   623→- View all tickets for their own branch.
+   624→- View branch employees.
+   625→- Manage employee availability.
+   626→- Monitor branch complaints.
+   627→- Assign or reassign tickets within the branch, where permitted.
+   628→- View branch reports.
+   629→- Escalate tickets to central support.
+   630→
+   631→Cannot access other branches without explicit permission.
+   632→
+   633→### Role 5: Branch Support Employee
+   634→
+   635→Can:
+   636→- View their assigned tickets.
+   637→- View customer complaint details.
+   638→- Update ticket status.
+   639→- Add internal notes.
+   640→- Send customer-facing replies.
+   641→- Resolve complaints with a resolution message.
+   642→
+   643→Cannot:
+   644→- View another employee's restricted tickets.
+   645→- Modify system configurations.
+   646→- Change round-robin cursors.
+   647→- Change their own availability without permission.
+   648→- Access other branches.
+   649→
+   650→### Role 6: Customer
+   651→
+   652→Can:
+   653→- Register complaints.
+   654→- Track their own ticket.
+   655→- View customer-visible updates.
+   656→- Reopen eligible resolved tickets.
+   657→- View resolution information.
+   658→
+   659→Cannot:
+   660→- Access admin dashboards.
+   661→- Access other tickets.
+   662→- Access internal notes.
+   663→- Modify employee assignments.
+   664→- Directly modify ticket statuses.
+   665→
+   666→---
+   667→
+   668→# 14. COMPLETE SECURITY REQUIREMENTS
+   669→
+   670→Treat security as a core architectural requirement.
+   671→
+   672→Implement security at the frontend, backend, API, database and infrastructure layers.
+   673→
+   674→## A. Authentication security
+   675→
+   676→- Use Supabase Auth for dummy development staff accounts.
+   677→- Use secure session handling.
+   678→- Verify JWT signatures, issuer, audience and expiry on the backend.
+   679→- Never trust frontend-supplied role or employee IDs.
+   680→- Implement secure password policies.
+   681→- Add login rate limiting.
+   682→- Add account lockout or progressive throttling after repeated failures.
+   683→- Support secure password reset.
+   684→- Provide logout and session revocation.
+   685→- Use MFA for Root Admin and privileged production accounts.
+   686→- Keep customer public access separate from employee authentication.
+   687→
+   688→Production staff authentication should be integrated with FitClass CRM through a replaceable authentication adapter.
+   689→
+   690→## B. Authorization security
+   691→
+   692→Implement RBAC with resource-level checks.
+   693→
+   694→Every protected request must validate:
+   695→- User identity.
+   696→- Tenant membership.
+   697→- Role.
+   698→- Permission.
+   699→- Branch access.
+   700→- Ticket ownership or assignment.
+   701→- Current ticket status.
+   702→
+   703→Use deny-by-default authorization.
+   704→
+   705→Do not depend on frontend visibility controls.
+   706→
+   707→An employee must not access a ticket simply by changing the ticket ID in the API URL.
+   708→
+   709→## C. PostgreSQL Row Level Security
+   710→
+   711→Enable RLS on all sensitive tables.
+   712→
+   713→Implement policies for:
+   714→- Complaint tickets.
+   715→- Ticket assignments.
+   716→- Ticket messages.
+   717→- Ticket attachments.
+   718→- Ticket history.
+   719→- Employee availability.
+   720→- Configuration records.
+   721→- Notification records.
+   722→- Audit logs.
+   723→
+   724→Public anonymous users must not have direct database access to complaint records.
+   725→
+   726→Use a secure backend service for public complaint submission and tracking.
+   727→
+   728→Never expose the service-role key in frontend code.
+   729→
+   730→The database must enforce tenant and branch restrictions wherever feasible.
+   731→
+   732→## D. API security
+   733→
+   734→Implement:
+   735→- HTTPS-only production traffic.
+   736→- Strict CORS allowlist.
+   737→- Request body size limits.
+   738→- Input validation.
+   739→- Output filtering.
+   740→- API rate limiting.
+   741→- Secure HTTP headers.
+   742→- SQL injection prevention.
+   743→- XSS prevention.
+   744→- CSRF protection where cookie-based sessions are used.
+   745→- Request timeouts.
+   746→- Secure error handling.
+   747→- API versioning.
+   748→- Idempotency keys.
+   749→- Abuse monitoring.
+   750→
+   751→Never return stack traces, database errors, credentials or internal implementation details to clients.
+   752→
+   753→## E. Customer tracking security
+   754→
+   755→Ticket ID + mobile number must both match.
+   756→
+   757→Additional controls:
+   758→- Normalize mobile numbers.
+   759→- Rate-limit failed tracking attempts.
+   760→- Use generic invalid-ticket responses.
+   761→- Apply progressive delays or temporary throttling.
+   762→- Avoid logging full phone numbers.
+   763→- Avoid placing phone numbers in URL query parameters.
+   764→- Return only minimum required customer data.
+   765→- Keep internal messages private.
+   766→
+   767→Plan an optional OTP verification upgrade.
+   768→
+   769→## F. File upload security
+   770→
+   771→- Private storage buckets.
+   772→- Allowlisted MIME types.
+   773→- File signature verification.
+   774→- Maximum file size limits.
+   775→- Random server-generated filenames.
+   776→- Malware scanning before staff access.
+   777→- Short-lived signed URLs.
+   778→- No public attachment links.
+   779→- Prevent path traversal and malicious file uploads.
+   780→
+   781→## G. Database and operational security
+   782→
+   783→- Keep credentials in secret management.
+   784→- Separate development and production projects.
+   785→- Use least-privilege database roles.
+   786→- Encrypt communication.
+   787→- Maintain database backups.
+   788→- Implement audit logging.
+   789→- Protect closed tickets from modification.
+   790→- Apply database migration version control.
+   791→- Configure data retention.
+   792→- Avoid unnecessary sensitive data collection.
+   793→- Monitor unusual access and assignment patterns.
+   794→
+   795→Never allow ordinary support agents to edit or delete audit history.
+   796→
+   797→---
+   798→
+   799→# 15. CENTRAL SUPPORT DASHBOARD
+   800→
+   801→Create a complete central support dashboard.
+   802→
+   803→### Dashboard statistics
+   804→
+   805→- Total complaints.
+   806→- New complaints.
+   807→- In Progress.
+   808→- On Hold.
+   809→- Resolved.
+   810→- Closed.
+   811→- Unassigned tickets.
+   812→- Overdue tickets.
+   813→- Average response time.
+   814→- Average resolution time.
+   815→
+   816→### Ticket filters
+   817→
+   818→- All tickets.
+   819→- New Complaints.
+   820→- In Progress.
+   821→- On Hold.
+   822→- Resolved.
+   823→- Closed.
+   824→- Unassigned.
+   825→- Overdue.
+   826→
+   827→### Additional filters
+   828→
+   829→- Branch.
+   830→- Assigned employee.
+   831→- Complaint category.
+   832→- Priority.
+   833→- Date range.
+   834→- Ticket number.
+   835→- Customer name.
+   836→
+   837→### Central support actions
+   838→
+   839→- View complaint.
+   840→- Assign employee.
+   841→- Reassign employee.
+   842→- Transfer branch.
+   843→- Add internal notes.
+   844→- Send customer reply.
+   845→- Monitor SLA.
+   846→- View ticket history.
+   847→- View assignment history.
+   848→- Export authorized reports.
+   849→
+   850→---
+   851→
+   852→# 16. BRANCH MANAGER DASHBOARD
+   853→
+   854→Create a separate dashboard for each branch manager.
+   855→
+   856→Features:
+   857→- Branch complaint overview.
+   858→- New complaints.
+   859→- In Progress complaints.
+   860→- On Hold complaints.
+   861→- Resolved complaints.
+   862→- Closed complaints.
+   863→- Unassigned tickets.
+   864→- Employee assignment management.
+   865→- Employee availability settings.
+   866→- Employee ticket statistics.
+   867→- Escalation management.
+   868→- Branch-level reports.
+   869→
+   870→Branch managers must not access other branches unless separately authorized.
+   871→
+   872→---
+   873→
+   874→# 17. SUPPORT EMPLOYEE DASHBOARD
+   875→
+   876→Create a focused support employee workspace.
+   877→
+   878→### Dashboard widgets
+   879→
+   880→- My Total Tickets.
+   881→- New Complaints.
+   882→- In Progress.
+   883→- On Hold.
+   884→- Resolved.
+   885→- Closed.
+   886→
+   887→### Navigation
+   888→
+   889→- Dashboard.
+   890→- All Assigned Tickets.
+   891→- New Complaints.
+   892→- In Progress.
+   893→- On Hold.
+   894→- Resolved.
+   895→- Closed.
+   896→- Profile.
+   897→
+   898→### Ticket details
+   899→
+   900→Show:
+   901→- Ticket ID.
+   902→- Customer name.
+   903→- Phone number.
+   904→- Email.
+   905→- Branch.
+   906→- Complaint category.
+   907→- Complaint description.
+   908→- Attachments.
+   909→- Submission date.
+   910→- Assignment date.
+   911→- Status.
+   912→- Customer-visible updates.
+   913→- Internal notes.
+   914→- Status history.
+   915→- Resolution details.
+   916→
+   917→### Employee actions
+   918→
+   919→- Start working on ticket.
+   920→- Put ticket On Hold with a mandatory reason.
+   921→- Resume ticket.
+   922→- Add internal note.
+   923→- Reply to customer.
+   924→- Resolve ticket with mandatory resolution message.
+   925→
+   926→Closed tickets must be displayed as read-only.
+   927→
+   928→---
+   929→
+   930→# 18. DATABASE ARCHITECTURE
+   931→
+   932→Create a normalized PostgreSQL schema.
+   933→
+   934→Use UUID primary keys and appropriate indexes.
+   935→
+   936→Do not use hardcoded employee or branch IDs.
+   937→
+   938→Use CRM external identifiers for branch and employee references.
+   939→
+   940→Create these tables:
+   941→
+   942→### Core tables
+   943→
+   944→1. `complaint_tickets`
+   945→2. `complaint_categories`
+   946→3. `ticket_sequences`
+   947→4. `ticket_status_history`
+   948→5. `ticket_assignments`
+   949→6. `ticket_messages`
+   950→7. `ticket_attachments`
+   951→8. `ticket_notifications`
+   952→9. `ticket_audit_logs`
+   953→
+   954→### Assignment tables
+   955→
+   956→10. `branch_assignment_cursors`
+   957→11. `support_employee_availability`
+   958→
+   959→### Closure and reopening tables
+   960→
+   961→12. `ticket_closure_policies`
+   962→13. `ticket_closure_jobs`
+   963→14. `ticket_reopen_history`
+   964→
+   965→### SLA and reporting tables
+   966→
+   967→15. `ticket_sla_policies`
+   968→16. `ticket_sla_tracking`
+   969→
+   970→### Configuration tables
+   971→
+   972→17. `branch_notification_settings`
+   973→18. `complaint_system_settings`
+   974→19. `system_configuration_audit`
+   975→
+   976→### Security and operational tables
+   977→
+   978→20. `ticket_idempotency`
+   979→21. `ticket_customer_access_logs`
+   980→22. `notification_outbox`
+   981→23. `job_execution_logs`
+   982→
+   983→Add:
+   984→- Foreign keys for internal relationships.
+   985→- Tenant-consistency constraints.
+   986→- Unique constraints.
+   987→- Appropriate composite indexes.
+   988→- Status transition validation.
+   989→- Updated timestamp triggers.
+   990→- Audit triggers or controlled audit functions.
+   991→- RLS policies.
+   992→- Database functions for ticket generation and assignment.
+   993→
+   994→Keep CRM-owned branch and employee data as external references, not duplicate authoritative records.
+   995→
+   996→All migrations must be version controlled.
+   997→
+   998→---
+   999→
+  1000→# 19. API ARCHITECTURE
+  1001→
+  1002→Base URL:
+  1003→
+  1004→```text
+  1005→/api/v1
+  1006→```
+  1007→
+  1008→### Public APIs
+  1009→
+  1010→```text
+  1011→GET    /public/branches
+  1012→GET    /public/categories
+  1013→POST   /public/complaints
+  1014→POST   /public/tickets/track
+  1015→POST   /public/tickets/:ticketId/reopen
+  1016→```
+  1017→
+  1018→### Support APIs
+  1019→
+  1020→```text
+  1021→GET    /support/dashboard/summary
+  1022→GET    /support/tickets
+  1023→GET    /support/tickets/:ticketId
+  1024→PATCH  /support/tickets/:ticketId/status
+  1025→POST   /support/tickets/:ticketId/resolve
+  1026→POST   /support/tickets/:ticketId/notes
+  1027→POST   /support/tickets/:ticketId/replies
+  1028→GET    /support/tickets/:ticketId/history
+  1029→```
+  1030→
+  1031→### Assignment APIs
+  1032→
+  1033→```text
+  1034→GET    /support/assignment/unassigned
+  1035→GET    /support/assignment/eligible-employees/:branchId
+  1036→PATCH  /support/employees/:employeeId/availability
+  1037→```
+  1038→
+  1039→### Branch APIs
+  1040→
+  1041→```text
+  1042→GET    /branch/dashboard
+  1043→GET    /branch/tickets
+  1044→GET    /branch/employees
+  1045→GET    /branch/reports
+  1046→```
+  1047→
+  1048→### Root Admin APIs
+  1049→
+  1050→```text
+  1051→GET    /admin/settings
+  1052→PUT    /admin/settings
+  1053→GET    /admin/settings/closure-policy
+  1054→PUT    /admin/settings/closure-policy
+  1055→GET    /admin/audit-logs
+  1056→GET    /admin/reports
+  1057→```
+  1058→
+  1059→### API requirements
+  1060→
+  1061→- Use consistent JSON response formats.
+  1062→- Validate every request.
+  1063→- Enforce role and resource permissions.
+  1064→- Apply pagination to list endpoints.
+  1065→- Support search and filtering.
+  1066→- Return appropriate HTTP status codes.
+  1067→- Maintain request correlation IDs.
+  1068→- Prevent duplicate operations through idempotency.
+  1069→- Never expose private database information.
+  1070→
+  1071→Document all APIs using OpenAPI/Swagger.
+  1072→
+  1073→---
+  1074→
+  1075→# 20. EMAIL NOTIFICATION ENGINE
+  1076→
+  1077→Build an independent notification module.
+  1078→
+  1079→Notification events:
+  1080→
+  1081→1. Complaint Registered.
+  1082→2. Complaint Assigned.
+  1083→3. Ticket Status Updated.
+  1084→4. Ticket Put On Hold.
+  1085→5. Ticket Resolved.
+  1086→6. Ticket Reopened.
+  1087→7. Ticket Closed.
+  1088→8. Ticket Escalated.
+  1089→9. Assignment Failed.
+  1090→
+  1091→Recipients:
+  1092→- Customer.
+  1093→- Configured central support email.
+  1094→- Branch notification email.
+  1095→- Assigned support employee.
+  1096→- Relevant branch manager.
+  1097→
+  1098→Create customizable email templates.
+  1099→
+  1100→Implement:
+  1101→- Delivery tracking.
+  1102→- Retry with exponential backoff.
+  1103→- Failed notification logs.
+  1104→- Duplicate prevention.
+  1105→- Template variables.
+  1106→- Email provider abstraction.
+  1107→
+  1108→Do not send notifications for internal notes.
+  1109→
+  1110→Use development email testing mode until production credentials are configured.
+  1111→
+  1112→---
+  1113→
+  1114→# 21. SLA AND ESCALATION ENGINE
+  1115→
+  1116→Implement configurable SLA policies.
+  1117→
+  1118→Allow Root Admin to configure:
+  1119→- First response target.
+  1120→- Resolution target.
+  1121→- Priority.
+  1122→- Category.
+  1123→- Business hours.
+  1124→- Working days.
+  1125→- Holidays.
+  1126→- Escalation rules.
+  1127→
+  1128→Proposed initial test values:
+  1129→
+  1130→| Priority | Response target | Resolution target |
+  1131→|---|---:|---:|
+  1132→| Critical | 15 minutes | 4 hours |
+  1133→| High | 1 hour | 24 hours |
+  1134→| Medium | 4 business hours | 48 business hours |
+  1135→| Low | 8 business hours | 72 business hours |
+  1136→
+  1137→These are dummy development settings and must be configurable.
+  1138→
+  1139→SLA status must be visible in the central and branch dashboards.
+  1140→
+  1141→---
+  1142→
+  1143→# 22. AUDIT AND ACTIVITY LOGGING
+  1144→
+  1145→Record all important actions.
+  1146→
+  1147→For each event store:
+  1148→- Event ID.
+  1149→- Tenant ID.
+  1150→- Ticket ID.
+  1151→- Actor ID.
+  1152→- Actor role.
+  1153→- Action.
+  1154→- Previous value.
+  1155→- New value.
+  1156→- Timestamp.
+  1157→- Request correlation ID.
+  1158→- IP address where appropriate.
+  1159→
+  1160→Track:
+  1161→- Ticket creation.
+  1162→- Ticket assignment.
+  1163→- Reassignment.
+  1164→- Branch transfer.
+  1165→- Status changes.
+  1166→- Internal notes.
+  1167→- Customer replies.
+  1168→- Resolution.
+  1169→- Reopening.
+  1170→- Automatic closure.
+  1171→- Configuration changes.
+  1172→- Employee availability changes.
+  1173→- Authorization failures.
+  1174→
+  1175→Audit records must be protected from normal application users and support employees.
+  1176→
+  1177→Do not store passwords, access tokens, full OTPs or unnecessary sensitive information in logs.
+  1178→
+  1179→---
+  1180→
+  1181→# 23. FRONTEND DESIGN REQUIREMENTS
+  1182→
+  1183→Build a premium enterprise SaaS interface using FitClass branding.
+  1184→
+  1185→### Brand direction
+  1186→
+  1187→- Navy blue.
+  1188→- White.
+  1189→- Subtle blue accents.
+  1190→- Clean typography.
+  1191→- Professional layouts.
+  1192→- Consistent spacing.
+  1193→- Rounded cards.
+  1194→- Subtle shadows.
+  1195→- Responsive navigation.
+  1196→
+  1197→### Customer portal
+  1198→
+  1199→Create:
+  1200→- Support landing page.
+  1201→- Register Complaint page.
+  1202→- Complaint success page.
+  1203→- Track Complaint page.
+  1204→- Ticket progress page.
+  1205→- Reopen confirmation page.
+  1206→- Error and empty states.
+  1207→
+  1208→### Admin dashboard
+  1209→
+  1210→Create:
+  1211→- Root Admin dashboard.
+  1212→- Central support dashboard.
+  1213→- Branch manager dashboard.
+  1214→- Support employee dashboard.
+  1215→- Ticket detail page.
+  1216→- Assignment management.
+  1217→- Employee availability.
+  1218→- Email configuration.
+  1219→- Closure policy settings.
+  1220→- SLA settings.
+  1221→- Reports.
+  1222→- Audit log viewer.
+  1223→
+  1224→### UI expectations
+  1225→
+  1226→- Mobile-first responsive design.
+  1227→- Desktop and tablet support.
+  1228→- Loading indicators.
+  1229→- Skeleton states.
+  1230→- Empty states.
+  1231→- Validation messages.
+  1232→- Confirmation dialogs.
+  1233→- Toast notifications.
+  1234→- Searchable tables.
+  1235→- Pagination.
+  1236→- Sorting.
+  1237→- Filters.
+  1238→- Accessible controls.
+  1239→- Consistent status badges.
+  1240→
+  1241→Do not use static or decorative controls that do not work.
+  1242→
+  1243→---
+  1244→
+  1245→# 24. PROJECT STRUCTURE
+  1246→
+  1247→Use a maintainable monorepo structure.
+  1248→
+  1249→```text
+  1250→fitclass-cms/
+  1251→│
+  1252→├── apps/
+  1253→│   ├── customer-portal/
+  1254→│   ├── support-dashboard/
+  1255→│   └── api/
+  1256→│
+  1257→├── packages/
+  1258→│   ├── shared-types/
+  1259→│   ├── api-contracts/
+  1260→│   ├── validation/
+  1261→│   └── permissions/
+  1262→│
+  1263→├── database/
+  1264→│   ├── migrations/
+  1265→│   ├── seed/
+  1266→│   ├── functions/
+  1267→│   ├── triggers/
+  1268→│   └── policies/
+  1269→│
+  1270→├── services/
+  1271→│   ├── assignment-worker/
+  1272→│   ├── notification-worker/
+  1273→│   └── closure-worker/
+  1274→│
+  1275→├── infrastructure/
+  1276→│   ├── deployment/
+  1277→│   └── monitoring/
+  1278→│
+  1279→├── docs/
+  1280→│   ├── architecture.md
+  1281→│   ├── functional-requirements.md
+  1282→│   ├── database-schema.md
+  1283→│   ├── api-specification.md
+  1284→│   ├── security.md
+  1285→│   ├── testing.md
+  1286→│   └── migration-guide.md
+  1287→│
+  1288→├── .env.example
+  1289→├── package.json
+  1290→└── README.md
+  1291→```
+  1292→
+  1293→---
+  1294→
+  1295→# 25. DUMMY DATABASE SEED DATA
+  1296→
+  1297→Populate the development Supabase database with realistic dummy data.
+  1298→
+  1299→### Branches
+  1300→
+  1301→```text
+  1302→BR001 - Sector 48
+  1303→BR002 - Sector 49
+  1304→BR003 - Gurugram Central
+  1305→BR004 - Sohna Road
+  1306→```
+  1307→
+  1308→### Dummy users
+  1309→
+  1310→Create:
+  1311→- One Root Admin.
+  1312→- One Central Support Admin.
+  1313→- Two Central Support Agents.
+  1314→- One Branch Manager per branch.
+  1315→- At least four Support Employees per branch.
+  1316→
+  1317→Create distinct user identities and roles for each.
+  1318→
+  1319→### Complaint categories
+  1320→
+  1321→```text
+  1322→Equipment Issues
+  1323→Membership Issues
+  1324→Billing and Payments
+  1325→Trainer Complaints
+  1326→Cleanliness
+  1327→Locker Issues
+  1328→Staff Behaviour
+  1329→Facility Maintenance
+  1330→General Feedback
+  1331→Other
+  1332→```
+  1333→
+  1334→### Dummy complaints
+  1335→
+  1336→Create sample tickets with all five statuses.
+  1337→
+  1338→Populate:
+  1339→- Assignment history.
+  1340→- Status history.
+  1341→- Reopening history.
+  1342→- Internal notes.
+  1343→- Customer replies.
+  1344→- Notification records.
+  1345→- Audit records.
+  1346→
+  1347→Use clearly identifiable test accounts and non-real contact information.
+  1348→
+  1349→Never use actual customer data.
+  1350→
+  1351→---
+  1352→
+  1353→# 26. AUTOMATED TESTING
+  1354→
+  1355→Testing is mandatory.
+  1356→
+  1357→Build automated tests for every important business rule.
+  1358→
+  1359→### Customer tests
+  1360→
+  1361→- Valid complaint registration.
+  1362→- Invalid customer information.
+  1363→- Inactive branch selection.
+  1364→- Duplicate submission prevention.
+  1365→- Ticket ID generation.
+  1366→- Ticket tracking.
+  1367→- Invalid phone verification.
+  1368→- Customer reopening.
+  1369→- Reopening deadline expiry.
+  1370→
+  1371→### Assignment tests
+  1372→
+  1373→- Four employees and eight tickets.
+  1374→- Equal distribution.
+  1375→- Independent branch queues.
+  1376→- Unavailable employee skipping.
+  1377→- All employees unavailable.
+  1378→- Employee reactivation.
+  1379→- Concurrent complaint submission.
+  1380→- Persistent cursor after restart.
+  1381→- Reassignment history.
+  1382→
+  1383→### Status tests
+  1384→
+  1385→- New Complaint to In Progress.
+  1386→- In Progress to On Hold.
+  1387→- On Hold to In Progress.
+  1388→- In Progress to Resolved.
+  1389→- Resolved to In Progress through customer reopening.
+  1390→- Resolved to Closed through automatic closure.
+  1391→- Invalid transitions.
+  1392→- Attempts to change closed tickets.
+  1393→
+  1394→### Security tests
+  1395→
+  1396→- Unauthenticated admin access.
+  1397→- Unauthorized branch access.
+  1398→- Cross-tenant access attempts.
+  1399→- Employee access to another employee's restricted ticket.
+  1400→- Customer access to another customer's ticket.
+  1401→- Internal note exposure.
+  1402→- Service-role key exposure.
+  1403→- SQL injection attempts.
+  1404→- XSS payloads.
+  1405→- Rate limit enforcement.
+  1406→- Privilege escalation.
+  1407→- Closed-ticket modification.
+  1408→- RLS bypass attempts.
+  1409→- Attachment access restrictions.
+  1410→
+  1411→### Concurrency tests
+  1412→
+  1413→- Multiple simultaneous ticket submissions.
+  1414→- Simultaneous branch assignments.
+  1415→- Reopening at the same time as automatic closure.
+  1416→- Duplicate background job execution.
+  1417→- Multiple employees updating a ticket.
+  1418→- Notification retry after backend restart.
+  1419→
+  1420→### Testing standards
+  1421→
+  1422→- Minimum 80% unit test coverage for core business logic.
+  1423→- All critical authorization tests must pass.
+  1424→- No unresolved critical or high-severity security findings.
+  1425→- All database migrations must execute successfully on a clean database.
+  1426→- All major customer and support workflows must pass end-to-end tests.
+  1427→
+  1428→---
+  1429→
+  1430→# 27. DEVELOPMENT EXECUTION PHASES
+  1431→
+  1432→Build the application incrementally.
+  1433→
+  1434→### Phase 1 – Foundation
+  1435→- Repository setup.
+  1436→- React frontend.
+  1437→- Express backend.
+  1438→- Supabase development project.
+  1439→- Database connection.
+  1440→- Database migrations.
+  1441→- Environment configuration.
+  1442→
+  1443→### Phase 2 – Database and authentication
+  1444→- Core database tables.
+  1445→- Dummy users.
+  1446→- Role definitions.
+  1447→- Authentication.
+  1448→- Authorization.
+  1449→- RLS policies.
+  1450→
+  1451→### Phase 3 – Customer portal
+  1452→- Complaint registration.
+  1453→- Branch selection.
+  1454→- Ticket generation.
+  1455→- Ticket success page.
+  1456→- Customer tracking.
+  1457→
+  1458→### Phase 4 – Notification engine
+  1459→- Customer acknowledgement.
+  1460→- Central email.
+  1461→- Branch email.
+  1462→- Assignment notification.
+  1463→- Notification logging and retry.
+  1464→
+  1465→### Phase 5 – Assignment engine
+  1466→- Branch-wise employee queues.
+  1467→- Equal round robin.
+  1468→- Availability management.
+  1469→- Persistent cursor.
+  1470→- Concurrency protection.
+  1471→- Unassigned queue.
+  1472→
+  1473→### Phase 6 – Support dashboard
+  1474→- Central dashboard.
+  1475→- Branch manager dashboard.
+  1476→- Employee dashboard.
+  1477→- Ticket details.
+  1478→- Search and filters.
+  1479→- Status management.
+  1480→- Internal notes and replies.
+  1481→
+  1482→### Phase 7 – Reopening and closure
+  1483→- Customer reopening.
+  1484→- Configurable closure policy.
+  1485→- Automatic closure worker.
+  1486→- Closed-ticket restrictions.
+  1487→- Audit history.
+  1488→
+  1489→### Phase 8 – SLA and analytics
+  1490→- SLA configuration.
+  1491→- Escalation.
+  1492→- Branch reports.
+  1493→- Employee reports.
+  1494→- Ticket analytics.
+  1495→
+  1496→### Phase 9 – Security and testing
+  1497→- Security testing.
+  1498→- API testing.
+  1499→- RLS verification.
+  1500→- Concurrency testing.
+  1501→- End-to-end testing.
+  1502→- Performance testing.
+  1503→
+  1504→### Phase 10 – Documentation and migration readiness
+  1505→- OpenAPI documentation.
+  1506→- Database migration documentation.
+  1507→- Environment setup.
+  1508→- Deployment documentation.
+  1509→- Production migration guide.
+  1510→
+  1511→---
+  1512→
+  1513→# 28. PRODUCTION MIGRATION REQUIREMENTS
+  1514→
+  1515→Prepare the application for a future production database from the beginning.
+  1516→
+  1517→When moving from development to production:
+  1518→
+  1519→1. Create a new Supabase production project.
+  1520→2. Apply all version-controlled SQL migrations.
+  1521→3. Deploy database functions and triggers.
+  1522→4. Apply RLS policies.
+  1523→5. Configure authentication.
+  1524→6. Configure production secrets.
+  1525→7. Connect the actual FitClass CRM adapter.
+  1526→8. Synchronize actual branches and employees.
+  1527→9. Configure official support email.
+  1528→10. Configure production email provider.
+  1529→11. Configure private storage.
+  1530→12. Run security and integration tests.
+  1531→13. Change deployment environment variables.
+  1532→14. Perform production smoke testing.
+  1533→
+  1534→Do not migrate dummy customer records, dummy employees or dummy complaints.
+  1535→
+  1536→The frontend and backend business logic must work without modification when switching between compatible development and production configurations.
+  1537→
+  1538→---
+  1539→
+  1540→# 29. DEVELOPMENT RULES FOR THE AI CODING AGENT
+  1541→
+  1542→Follow these rules throughout development:
+  1543→
+  1544→1. First inspect the existing repository and understand its current architecture.
+  1545→2. Do not unnecessarily replace working code.
+  1546→3. Do not create duplicate modules.
+  1547→4. Maintain separation between frontend, backend and database.
+  1548→5. Use TypeScript consistently.
+  1549→6. Use reusable components.
+  1550→7. Keep business logic out of React components.
+  1551→8. Use database migrations for schema changes.
+  1552→9. Keep seed data separate from migrations.
+  1553→10. Enforce permissions in the backend and database.
+  1554→11. Use transactions for ticket creation, assignment, reopening and closure.
+  1555→12. Implement idempotency for ticket creation and notification events.
+  1556→13. Never hardcode credentials.
+  1557→14. Never expose service-role keys.
+  1558→15. Do not bypass RLS to make frontend features work.
+  1559→16. Do not use fake API responses once a module is integrated with the dummy database.
+  1560→17. Do not implement non-functional buttons or placeholder business logic.
+  1561→18. Maintain complete error handling.
+  1562→19. Write automated tests alongside implementation.
+  1563→20. Update technical documentation after every major phase.
+  1564→
+  1565→If a feature depends on an external CRM API that is not yet available, create a clearly isolated mock adapter with the same interface expected from the production adapter.
+  1566→
+  1567→Do not invent real CRM endpoints.
+  1568→
+  1569→---
+  1570→
+  1571→# 30. DEFINITION OF COMPLETE APPLICATION
+  1572→
+  1573→The application will be considered development-complete only when:
+  1574→
+  1575→- Customer can register a complaint.
+  1576→- Unique ticket ID is generated.
+  1577→- Customer receives an acknowledgement email in the test environment.
+  1578→- Central support receives the complaint notification.
+  1579→- Branch receives the complaint notification.
+  1580→- Round-robin assignment works correctly.
+  1581→- Employees receive assigned tickets.
+  1582→- Employee dashboards display assigned tickets.
+  1583→- Branch managers can manage their branch tickets.
+  1584→- Central support can monitor all authorized branches.
+  1585→- Customer can track tickets using ticket ID and phone number.
+  1586→- Employees can manage ticket status.
+  1587→- Customer can reopen eligible resolved tickets.
+  1588→- Automatic closure works according to configuration.
+  1589→- Closed tickets cannot be modified by any role.
+  1590→- Filters work correctly.
+  1591→- Audit history is maintained.
+  1592→- RLS and authorization tests pass.
+  1593→- API documentation is complete.
+  1594→- All critical automated tests pass.
+  1595→- Database migration documentation is available.
+  1596→- Development and production configurations are separate.
+  1597→
+  1598→---
+  1599→
+  1600→# 31. FIRST EXECUTION INSTRUCTION
+  1601→
+  1602→Do not attempt to generate the entire application in one unverified code-generation step.
+  1603→
+  1604→Start by performing the following tasks:
+  1605→
+  1606→1. Inspect the existing project or create the repository if it does not exist.
+  1607→2. Prepare the monorepo architecture.
+  1608→3. Create the separate Supabase development project connection.
+  1609→4. Configure environment variables.
+  1610→5. Implement the initial database migrations.
+  1611→6. Implement authentication and authorization foundations.
+  1612→7. Create dummy branches, users and employees.
+  1613→8. Verify database connectivity and RLS policies.
+  1614→9. Create the customer portal UI.
+  1615→10. Implement complaint registration and ticket generation.
+  1616→11. Run tests and verify each phase before continuing.
+  1617→
+  1618→Maintain a development progress document containing:
+  1619→- Completed modules.
+  1620→- Pending modules.
+  1621→- Database migrations.
+  1622→- API endpoints.
+  1623→- Test results.
+  1624→- Known issues.
+  1625→- Security findings.
+  1626→
+  1627→Never mark a feature complete unless it is implemented and tested.
+  1628→
+  1629→**FINAL OBJECTIVE:**
+  1630→
+  1631→Deliver a complete, secure, modular and production-migration-ready FitClass Complaint Management System using a separate dummy Supabase development database, with fully functional customer, support, branch manager and Root Admin experiences.
