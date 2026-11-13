@@ -34,7 +34,7 @@ export default function AdminSettingsPage() {
     const [sRes, bRes, cRes, pRes] = await Promise.all([
       fetch("/api/v1/admin/settings"),
       fetch("/api/v1/admin/branches"),
-      fetch("/api/v1/public/categories").then((r) => r.json()),
+      fetch("/api/v1/public/categories"),
       fetch("/api/v1/admin/sla"),
     ]);
     const [sBody, bBody, cBody, pBody] = await Promise.all([sRes.json(), bRes.json(), cRes.json(), pRes.json()]);

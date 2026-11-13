@@ -50,6 +50,7 @@ export default function MailboxPage() {
     }
   }, [page]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount data loading
   useEffect(() => { load(); }, [load]);
 
   async function retry(id: string) {

@@ -68,7 +68,6 @@ function ListInner() {
     p.set("page", String(page));
     p.set("pageSize", "15");
     return p.toString();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, q, page]);
 
   const load = useCallback(async () => {
@@ -85,6 +84,7 @@ function ListInner() {
     setLoading(false);
   }, [query]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount data loading
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => setMeta((m) => ({ ...m, branches: d.data?.branches ?? [] })));

@@ -57,6 +57,7 @@ export default function AuditPage() {
     } else setLogs([]);
   }, [page, action, query]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount data loading
   useEffect(() => { load(); }, [load]);
 
   return (

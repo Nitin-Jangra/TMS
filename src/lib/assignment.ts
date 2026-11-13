@@ -107,7 +107,7 @@ export async function assignTicketRoundRobin(
         availabilityEnabled: true,
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: { id: true, name: true },
+      select: { id: true, name: true, email: true },
     });
 
     if (employees.length === 0) return { alreadyAssigned: false as const, employee: null };
@@ -152,6 +152,10 @@ export async function assignTicketRoundRobin(
   if (!result.employee) return null;
 
   const { ticket } = await getTicketContext(ticketId);
+  const employeeRecord = await db.staffUser.findUnique({
+    where: { id: result.employee.id },
+    select: { id: true, name: true, email: true },
+  });
   await logAudit({
     ticketId,
     actor,
@@ -165,7 +169,7 @@ export async function assignTicketRoundRobin(
     ticketNumber: ticket.ticketNumber,
     event: "ASSIGNED",
     recipientKind: "ASSIGNEE",
-    variables: notificationVariables({ ticket: { ...ticket, assignee: { name: result.employee.name, email: "" } } }),
+    variables: notificationVariables({ ticket: { ...ticket, assignee: { name: result.employee.name, email: employeeRecord?.email || "" } } }),
   });
   return result.employee;
 }
@@ -174,7 +178,7 @@ export async function assignTicketRoundRobin(
 export async function notifyAssignmentFailed(ticketId: string): Promise<void> {
   const { ticket, manager } = await getTicketContext(ticketId);
   const variables = {
-    ...notificationVariables({ ...ticket, assignee: null }),
+    ...notificationVariables({ ticket: { ...ticket, assignee: null } }),
     branchManagerEmail: manager?.email || "",
   };
   const base = { ticketId, ticketNumber: ticket.ticketNumber, event: "ASSIGNMENT_FAILED" as const };
