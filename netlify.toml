@@ -1,0 +1,29 @@
+# Netlify deployment configuration for FC-CMS (Next.js 16 + Supabase PostgreSQL).
+# Docs: docs/deployment-guide.md
+
+[build]
+  # Plain next build here (not `npm run build`, which copies standalone output
+  # used only for long-running local production runs). @prisma generate runs
+  # automatically via the package.json postinstall hook.
+  command = "npx next build"
+  publish = ".next"
+
+# The official Next.js runtime handles SSR, API routes and App Router.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Serverless lambdas must not run in-process 60s timers. The sweeps are
+  # triggered externally by the scheduled function below instead.
+  DISABLE_BACKGROUND_WORKERS = "1"
+
+# Scheduled function: runs the closure + assignment sweeps every 15 minutes so
+# auto-closure and round-robin retries work on serverless. Requires the
+# FCMS_API_KEY and FCMS_BASE_URL environment variables in the Netlify UI
+# (create the key in Root Admin → Integration API Keys, scope must include write).
+[[functions]]
+  directory = "netlify/functions"
+
+[functions."fcms-workers"]
+  schedule = "*/15 * * * *"

@@ -6,6 +6,15 @@
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Serverless hosting (Netlify / Vercel lambdas) must not run in-process
+  // timers — every cold start would spawn one. Set DISABLE_BACKGROUND_WORKERS=1
+  // there and trigger the sweeps externally instead (Netlify Scheduled
+  // Function → POST /api/v1/integration/workers/run, or the admin panel button).
+  if (process.env.DISABLE_BACKGROUND_WORKERS === "1") {
+    console.log("[fcms] background workers disabled (DISABLE_BACKGROUND_WORKERS=1) — trigger sweeps externally");
+    return;
+  }
+
   const g = globalThis as unknown as { __fcmsWorker?: boolean };
   if (g.__fcmsWorker) return;
   g.__fcmsWorker = true;

@@ -20,6 +20,11 @@ bunx vitest run        # run the 11 core business-rule tests
 bun run lint           # ESLint
 ```
 
+**Hosting & integration:** see `docs/deployment-guide.md` for step-by-step
+**local setup → GitHub → Supabase (testing DB) → Netlify (testing host)**, including the
+scheduled-worker function and how to drive FC-CMS from another app (CRM / LMS / mobile) through
+its API.
+
 ## Role-based dashboards (who sees what)
 
 | Persona | Login? | Entry | Visibility |

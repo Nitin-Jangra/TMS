@@ -78,6 +78,7 @@ and an `x-correlation-id` response header.
 | PATCH | `/api/v1/integration/tickets/{ticketNumber}` | write | status transition (closed rejected) |
 | POST | `/api/v1/integration/complaints` | write | create on behalf; `Idempotency-Key` supported |
 | GET | `/api/v1/integration/stats` | read | branch × status matrix + SLA averages |
+| POST | `/api/v1/integration/workers/run` | write | trigger closure + assignment sweeps (schedulers: Netlify Scheduled Function, Supabase cron) |
 
 ## Error codes
 
