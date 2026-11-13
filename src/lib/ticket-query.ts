@@ -11,6 +11,7 @@ export interface TicketFilters {
   priority?: string;
   unassigned?: boolean;
   overdue?: boolean;
+  mine?: boolean;
   q?: string;
   from?: string;
   to?: string;
@@ -25,18 +26,21 @@ export function parseFilters(searchParams: URLSearchParams): TicketFilters {
     priority: searchParams.get("priority") || undefined,
     unassigned: searchParams.get("unassigned") === "true" || undefined,
     overdue: searchParams.get("overdue") === "true" || undefined,
+    mine: searchParams.get("mine") === "true" || undefined,
     q: searchParams.get("q") || undefined,
     from: searchParams.get("from") || undefined,
     to: searchParams.get("to") || undefined,
   };
 }
 
-/** Deny-by-default role scoping: support agents see only their own tickets, branch managers only their branch. */
+/**
+ * Deny-by-default role scoping:
+ * - SUPPORT_AGENT  → every complaint raised in their own branch (branch-wide view).
+ * - BRANCH_MANAGER → every complaint in their own branch.
+ * - Central roles  → the whole tenant (all branches).
+ */
 export function roleScope(user: SessionUser): { branchId?: string; assignedToId?: string } {
-  if (user.role === "SUPPORT_AGENT") {
-    return { branchId: user.branchId || undefined, assignedToId: user.id };
-  }
-  if (user.role === "BRANCH_MANAGER") {
+  if (user.role === "SUPPORT_AGENT" || user.role === "BRANCH_MANAGER") {
     return { branchId: user.branchId || undefined };
   }
   return {};

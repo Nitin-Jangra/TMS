@@ -9,7 +9,9 @@ export async function GET() {
   return handleErrors(async () => {
     const user = await requireUser();
     if (user.role === "SUPPORT_AGENT") {
-      const summary = await getEmployeeSummary(user.id);
+      // Branch-wide view of every complaint raised in the agent's branch,
+      // plus a personal "assigned to me" breakdown.
+      const summary = await getEmployeeSummary(user);
       return ok({ scope: "EMPLOYEE", user, ...summary });
     }
     if (user.role === "BRANCH_MANAGER") {

@@ -32,6 +32,8 @@ interface Meta {
   branches: { id: string; name: string }[];
   categories: { id: string; name: string }[];
   isCentral: boolean;
+  role?: string;
+  branchName?: string | null;
 }
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
@@ -52,6 +54,7 @@ function ListInner() {
     priority: "",
     unassigned: searchParams.get("unassigned") === "true" ? "true" : "",
     overdue: searchParams.get("overdue") === "true" ? "true" : "",
+    mine: searchParams.get("mine") === "true" ? "true" : "",
     sort: "newest",
   });
   const page = Math.max(1, Number(searchParams.get("page") || "1"));
@@ -64,6 +67,7 @@ function ListInner() {
     if (filters.priority) p.set("priority", filters.priority);
     if (filters.unassigned === "true") p.set("unassigned", "true");
     if (filters.overdue === "true") p.set("overdue", "true");
+    if (filters.mine === "true") p.set("mine", "true");
     if (q.trim()) p.set("q", q.trim());
     p.set("page", String(page));
     p.set("pageSize", "15");
@@ -89,7 +93,12 @@ function ListInner() {
   useEffect(() => {
     fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => setMeta((m) => ({ ...m, branches: d.data?.branches ?? [] })));
     fetch("/api/v1/public/categories").then((r) => r.json()).then((d) => setMeta((m) => ({ ...m, categories: d.data?.categories ?? [] })));
-    fetch("/api/v1/auth/me").then((r) => r.json()).then((d) => setMeta((m) => ({ ...m, isCentral: ["ROOT_ADMIN", "CENTRAL_ADMIN", "CENTRAL_AGENT"].includes(d.data?.user?.role) })));
+    fetch("/api/v1/auth/me").then((r) => r.json()).then((d) => setMeta((m) => ({
+      ...m,
+      isCentral: ["ROOT_ADMIN", "CENTRAL_ADMIN", "CENTRAL_AGENT"].includes(d.data?.user?.role),
+      role: d.data?.user?.role,
+      branchName: d.data?.user?.branchName ?? null,
+    })));
   }, []);
 
   // keep URL shareable
@@ -102,7 +111,14 @@ function ListInner() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#0a2350]">Tickets</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{total} ticket{total === 1 ? "" : "s"} in scope · page {page} of {totalPages}</p>
+          <p className="mt-0.5 text-sm text-slate-500">
+            {meta.role === "SUPPORT_AGENT" || meta.role === "BRANCH_MANAGER"
+              ? `Complaints raised in your branch${meta.branchName ? ` — ${meta.branchName}` : ""} · `
+              : meta.isCentral
+                ? "All branches (tenant-wide) · "
+                : ""}
+            {total} ticket{total === 1 ? "" : "s"} · page {page} of {totalPages}
+          </p>
         </div>
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
@@ -151,6 +167,11 @@ function ListInner() {
               {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>)}
             </SelectContent>
           </Select>
+          {meta.role === "SUPPORT_AGENT" ? (
+            <Button variant={filters.mine === "true" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setFilters((f) => ({ ...f, mine: f.mine === "true" ? "" : "true" }))}>
+              Assigned to me
+            </Button>
+          ) : null}
           <Button variant={filters.unassigned === "true" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setFilters((f) => ({ ...f, unassigned: f.unassigned === "true" ? "" : "true" }))}>
             Unassigned
           </Button>
@@ -158,7 +179,7 @@ function ListInner() {
             <TriangleAlert className="mr-1 h-3 w-3" aria-hidden /> Overdue
           </Button>
           {activeFilters > 0 ? (
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilters({ status: "", branchId: "", categoryId: "", priority: "", unassigned: "", overdue: "", sort: "newest" }); setQ(""); }}>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilters({ status: "", branchId: "", categoryId: "", priority: "", unassigned: "", overdue: "", mine: "", sort: "newest" }); setQ(""); }}>
               Clear all
             </Button>
           ) : null}
@@ -232,6 +253,7 @@ function ListInner() {
         Tip: click any row to open the ticket. Use the{" "}
         <Link href="/staff/assignment" className="text-[#2c6bdf] hover:underline">assignment queue</Link> to
         manually assign unallocated complaints.
+        {meta.role === "SUPPORT_AGENT" ? " Your view covers every complaint raised in your branch; use “Assigned to me” for your own work queue." : ""}
       </p>
     </div>
   );

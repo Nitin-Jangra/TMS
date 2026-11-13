@@ -144,21 +144,39 @@ export async function getCentralSummary(): Promise<{
   };
 }
 
-/** Support employee workspace summary (own tickets). */
-export async function getEmployeeSummary(userId: string): Promise<{
+/**
+ * Support employee workspace summary. Visibility is branch-wide: every
+ * complaint raised in the agent's own branch, plus a personal "assigned to me"
+ * breakdown for their own work queue.
+ */
+export async function getEmployeeSummary(user: SessionUser): Promise<{
+  branchId: string | null;
+  branchName: string | null;
   counts: StatusCounts & { total: number; unassigned: number; overdue: number };
+  mine: { total: number; open: number; resolved: number };
 }> {
-  const tickets = await db.ticket.findMany({
-    where: { assignedToId: userId },
-    select: { status: true, slaResolutionDueAt: true },
-  });
+  const overview = await getMasterOverview();
+  const branch = overview.branches.find((b) => b.branchId === user.branchId);
+
   const counts = EMPTY_COUNTS() as StatusCounts & { total: number; unassigned: number; overdue: number };
-  counts.total = tickets.length;
-  for (const t of tickets) {
-    counts[t.status] = (counts[t.status] || 0) + 1;
-    if (isTicketOverdue(t)) counts.overdue += 1;
+  if (branch) {
+    for (const s of TICKET_STATUSES) counts[s] = branch.counts[s] || 0;
+    counts.total = branch.total;
+    counts.unassigned = branch.unassigned;
+    counts.overdue = branch.overdue;
   }
-  return { counts };
+
+  const mineTickets = await db.ticket.findMany({
+    where: { assignedToId: user.id },
+    select: { status: true },
+  });
+  const mine = {
+    total: mineTickets.length,
+    open: mineTickets.filter((t) => t.status === "NEW_COMPLAINT" || t.status === "IN_PROGRESS" || t.status === "ON_HOLD").length,
+    resolved: mineTickets.filter((t) => t.status === "RESOLVED" || t.status === "CLOSED").length,
+  };
+
+  return { branchId: user.branchId, branchName: branch?.branchName ?? null, counts, mine };
 }
 
 /** Branch manager dashboard summary. */

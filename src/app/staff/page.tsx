@@ -1,7 +1,11 @@
 "use client";
 
-// Role-aware dashboard: support employee workspace, branch manager overview,
-// or central support summary. Data comes from /api/v1/support/dashboard/summary.
+// Role-aware dashboard:
+// - SUPPORT_AGENT → every complaint raised in their own branch + a personal
+//   "assigned to me" work queue.
+// - BRANCH_MANAGER → their branch overview.
+// - Central roles → the whole tenant.
+// Data comes from /api/v1/support/dashboard/summary.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -9,13 +13,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/staff-nav";
 import { TICKET_STATUSES } from "@/lib/types";
-import { AlertCircle, ArrowRight, Clock3, Inbox, TriangleAlert, Users } from "lucide-react";
+import { AlertCircle, ArrowRight, Clock3, Inbox, TicketCheck, TriangleAlert, Users } from "lucide-react";
 
 interface Summary {
   scope: "EMPLOYEE" | "BRANCH" | "CENTRAL";
   user: { name: string; role: string; branchName?: string | null };
   counts: Record<string, number>;
   branchName?: string;
+  mine?: { total: number; open: number; resolved: number };
   employees?: { id: string; name: string; availabilityEnabled: boolean; isActive: boolean; openCount: number }[];
   branchBreakdown?: { branchName: string; open: number; total: number }[];
   avgFirstResponseMinutes?: number | null;
@@ -60,14 +65,22 @@ export default function StaffDashboardPage() {
 
   const c = data.counts;
   const scopeLabel =
-    data.scope === "EMPLOYEE" ? "My workspace" : data.scope === "BRANCH" ? `Branch — ${data.branchName}` : "Central support";
+    data.scope === "EMPLOYEE"
+      ? `My branch — ${data.branchName || data.user.branchName || "—"}`
+      : data.scope === "BRANCH"
+        ? `Branch — ${data.branchName}`
+        : "Central support · all branches (tenant-wide)";
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#0a2350]">
-            {data.scope === "EMPLOYEE" ? "My Tickets" : data.scope === "BRANCH" ? "Branch Overview" : "Central Support Overview"}
+            {data.scope === "EMPLOYEE"
+              ? `Branch Dashboard — ${data.branchName || data.user.branchName || ""}`
+              : data.scope === "BRANCH"
+                ? "Branch Overview"
+                : "Central Support Overview"}
           </h1>
           <p className="mt-0.5 text-sm text-slate-500">
             {scopeLabel} · Welcome back, {data.user.name.split(" ")[0]}
@@ -154,6 +167,31 @@ export default function StaffDashboardPage() {
               </ul>
               <Link href="/admin" className="mt-3 inline-flex items-center text-xs font-medium text-[#2c6bdf] hover:underline">
                 Master complaint panel <ArrowRight className="ml-1 h-3 w-3" aria-hidden />
+              </Link>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {data.scope === "EMPLOYEE" && data.mine ? (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#0a2350]"><TicketCheck className="h-4 w-4 text-[#2c6bdf]" aria-hidden />Assigned to me</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-md bg-slate-50 px-2 py-2.5">
+                  <p className="text-xl font-bold tabular-nums text-[#0a2350]">{data.mine.open}</p>
+                  <p className="text-[11px] text-slate-500">Open with me</p>
+                </div>
+                <div className="rounded-md bg-emerald-50 px-2 py-2.5">
+                  <p className="text-xl font-bold tabular-nums text-emerald-700">{data.mine.resolved}</p>
+                  <p className="text-[11px] text-emerald-600">Resolved / closed</p>
+                </div>
+                <div className="rounded-md bg-slate-50 px-2 py-2.5">
+                  <p className="text-xl font-bold tabular-nums text-[#0a2350]">{data.mine.total}</p>
+                  <p className="text-[11px] text-slate-500">All time</p>
+                </div>
+              </div>
+              <Link href="/staff/tickets?mine=true" className="mt-3 inline-flex items-center text-xs font-medium text-[#2c6bdf] hover:underline">
+                Open my work queue <ArrowRight className="ml-1 h-3 w-3" aria-hidden />
               </Link>
             </CardContent>
           </Card>

@@ -505,12 +505,12 @@ export function canAccessTicket(user: SessionUser, ticket: { branchId: string; a
     case "ROOT_ADMIN":
     case "CENTRAL_ADMIN":
     case "CENTRAL_AGENT":
+      // Tenant-wide visibility — all tickets, all branches.
       return true;
     case "BRANCH_MANAGER":
-      return user.branchId === ticket.branchId;
     case "SUPPORT_AGENT":
-      // Support employees see their own assigned tickets.
-      return user.branchId === ticket.branchId && ticket.assignedToId === user.id;
+      // Branch-level visibility — only complaints raised in their own branch.
+      return !!user.branchId && user.branchId === ticket.branchId;
     default:
       return false;
   }

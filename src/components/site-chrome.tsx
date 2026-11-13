@@ -1,8 +1,11 @@
 // Public site header + sticky footer used across customer-facing pages.
+// Customers never log in: the "Complaint" button is their single entry point
+// and offers exactly two options — register or track. Staff use "Staff login".
 
 import Link from "next/link";
 import { ShieldCheck, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
+import { ComplaintChooser } from "@/components/complaint-chooser";
 
 export function SiteHeader() {
   return (
@@ -15,18 +18,7 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-1.5" aria-label="Support navigation">
-          <Link
-            href="/complaint"
-            className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-[#0a2350] sm:block"
-          >
-            Register
-          </Link>
-          <Link
-            href="/track"
-            className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-[#0a2350] sm:block"
-          >
-            Track
-          </Link>
+          <ComplaintChooser variant="header" />
           <Link
             href="/login"
             className="flex items-center gap-1.5 rounded-md bg-[#0a2350] px-3.5 py-1.5 text-sm font-medium text-white hover:bg-[#10306b]"

@@ -20,6 +20,20 @@ bunx vitest run        # run the 11 core business-rule tests
 bun run lint           # ESLint
 ```
 
+## Role-based dashboards (who sees what)
+
+| Persona | Login? | Entry | Visibility |
+|---|---|---|---|
+| **Customer (user)** | **No login** | Click **Complaint** on the home page / header → exactly two options: **Register a complaint** or **Track a complaint** | Own tickets only, via Ticket ID + registered mobile at `/track` |
+| **Root Admin** | Yes (`/login`) | Auto-redirected to `/admin` — Master Complaint Panel | **All tickets across the whole tenant**: per-branch counts, status matrix, which lead is assigned to whom, SLA averages, worker triggers |
+| Central Support Admin / Agent | Yes | `/staff` — Central Support Overview | All branches (tenant-wide) with branch snapshot + branch filter on the tickets list |
+| Branch Manager | Yes | `/staff` — Branch Overview | **Only complaints raised in their own branch** + team availability + assignment queue |
+| **Customer Support (Support Agent)** | Yes (`/login`) | `/staff` — Branch Dashboard (their branch) | **Only complaints raised in their own branch** (every status, every assignee). "Assigned to me" card + `mine=true` filter isolate their personal work queue |
+
+Round-robin assignment runs per branch and is unchanged; support agents can open and interact with
+any complaint in their branch (reply, internal note, start, hold, resolve), while closed tickets
+remain read-only for every role.
+
 ## Test login accounts (development only)
 
 | Role | Email | Password |
@@ -65,8 +79,9 @@ recorded as SKIPPED in the mailbox; customer + assignee emails still work.
 2. Open the customer portal in another tab → **Register Complaint** → pick Sector 48 → submit.
 3. The ticket is auto-assigned to the **next** support employee in rotation (cursor → next).
 4. Register 2 more complaints — watch the rotation cycle equally across all available agents.
-5. Log in as `support.b001.a@fitclass.dev` → **My Tickets** → open a ticket → Start / Hold / Reply /
-   Internal note / **Resolve** (mandatory message).
+5. Log in as `support.b001.a@fitclass.dev` → **Branch Dashboard** shows every complaint raised in
+   Sector 48; the **Assigned to me** card isolates your own queue → open a ticket → Start / Hold /
+   Reply / Internal note / **Resolve** (mandatory message).
 6. Track the ticket at `/track` with the ticket ID + registered mobile → **Reopen** within 72 h.
 7. To test automatic closure: Admin → Closure policy → set window to 1 hour → resolve a ticket →
    "Run closure + assignment workers now" (or wait 60 s for the background sweep) → the ticket

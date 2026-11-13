@@ -1,7 +1,10 @@
-// Customer support landing page: Register Complaint / Track Complaint.
+// Customer landing page — no login required. One "Complaint" entry point that
+// surfaces exactly two options: Register a complaint / Track a complaint.
+// Staff (admin + customer support) sign in via /login instead.
 
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { ComplaintChooser } from "@/components/complaint-chooser";
 import { ClipboardPlus, Search, Clock3, ShieldCheck, BellRing, RefreshCcw } from "lucide-react";
 
 const features = [
@@ -16,7 +19,7 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
       <main className="flex-1">
-        {/* Hero */}
+        {/* Hero with the single "Complaint" entry point */}
         <section className="brand-gradient text-white">
           <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
             <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium tracking-wide text-blue-100">
@@ -27,13 +30,16 @@ export default function HomePage() {
               How can we help you today?
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-blue-100 sm:text-base">
-              Register a new complaint or follow up on an existing ticket. Our branch support
-              teams review every complaint and work towards a quick resolution.
+              No account needed. Click <strong className="font-semibold text-white">Complaint</strong> below and choose
+              one of the two options — register a new complaint or track an existing one.
             </p>
+            <div className="mt-6">
+              <ComplaintChooser variant="hero" />
+            </div>
           </div>
         </section>
 
-        {/* Two primary options */}
+        {/* The two options, also directly reachable */}
         <section className="mx-auto -mt-8 max-w-6xl px-4 pb-4" aria-label="Support options">
           <div className="grid gap-4 md:grid-cols-2">
             <Link
@@ -43,7 +49,7 @@ export default function HomePage() {
               <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-[#0a2350] text-white">
                 <ClipboardPlus className="h-5 w-5" aria-hidden />
               </span>
-              <h2 className="text-lg font-semibold text-[#0a2350]">Register Complaint</h2>
+              <h2 className="text-lg font-semibold text-[#0a2350]">Register a complaint</h2>
               <p className="mt-1.5 flex-1 text-sm leading-relaxed text-slate-500">
                 Facing an issue at your FitClass branch? Tell us what happened and get a unique
                 ticket number immediately — no account required.
@@ -57,7 +63,7 @@ export default function HomePage() {
               <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-[#2c6bdf] text-white">
                 <Search className="h-5 w-5" aria-hidden />
               </span>
-              <h2 className="text-lg font-semibold text-[#0a2350]">Track Complaint</h2>
+              <h2 className="text-lg font-semibold text-[#0a2350]">Track a complaint</h2>
               <p className="mt-1.5 flex-1 text-sm leading-relaxed text-slate-500">
                 Check the live status of your ticket, read updates from the support team, and
                 reopen a resolved ticket within the reopening window.
