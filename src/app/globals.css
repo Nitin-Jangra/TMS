@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  /* FitClass brand: navy blue + white + subtle blue accents (light theme) */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0a2350;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f7;
+  --secondary-foreground: #0a2350;
+  --muted: #f1f5f9;
+  --muted-foreground: #5b6b80;
+  --accent: #eaf1fb;
+  --accent-foreground: #0a2350;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #2c6bdf;
+  --chart-1: #2c6bdf;
+  --chart-2: #0a2350;
+  --chart-3: #64748b;
+  --chart-4: #10b981;
+  --chart-5: #f59e0b;
+  --sidebar: #0a2350;
+  --sidebar-foreground: #d7e3f4;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #0a2350;
+  --sidebar-accent: #12306b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #12306b;
+  --sidebar-ring: #2c6bdf;
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: #e6edf6;
+  --card: #101a2e;
+  --card-foreground: #e6edf6;
+  --popover: #101a2e;
+  --popover-foreground: #e6edf6;
+  --primary: #3f7ae0;
+  --primary-foreground: #ffffff;
+  --secondary: #1a2740;
+  --secondary-foreground: #e6edf6;
+  --muted: #16223a;
+  --muted-foreground: #94a7c0;
+  --accent: #1a2740;
+  --accent-foreground: #e6edf6;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #1f2c47;
+  --input: #2a3a5c;
+  --ring: #3f7ae0;
+  --chart-1: #3f7ae0;
+  --chart-2: #7fa7f0;
+  --chart-3: #64748b;
+  --chart-4: #34d399;
+  --chart-5: #fbbf24;
+  --sidebar: #0a1428;
+  --sidebar-foreground: #c6d6ec;
+  --sidebar-primary: #3f7ae0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #14213a;
+  --sidebar-accent-foreground: #e6edf6;
+  --sidebar-border: #1f2c47;
+  --sidebar-ring: #3f7ae0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* FitClass brand helpers */
+.brand-gradient {
+  background: linear-gradient(135deg, #0a2350 0%, #10306b 55%, #1c4297 100%);
+}
+.brand-subtle {
+  background: linear-gradient(180deg, #f2f6fc 0%, #ffffff 100%);
+}
+.brand-ring {
+  box-shadow: 0 1px 2px rgba(10, 35, 80, 0.06), 0 8px 24px rgba(10, 35, 80, 0.08);
+}
+
+/* Thin styled scrollbars for long lists */
+.thin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

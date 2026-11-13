@@ -1,0 +1,380 @@
+// FitClass Complaint Management System (FC-CMS)
+// Prisma schema — SQLite for development sandbox.
+// The schema is written to be portable to Supabase PostgreSQL:
+// no SQLite-only types, no JSON columns (JSON stored as strings),
+// enums modelled as strings so they map 1:1 to Postgres enums.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Organization
+// ---------------------------------------------------------------------------
+
+model Branch {
+  id                String   @id @default(cuid())
+  code              String   @unique // BR001 ...
+  name              String
+  city              String?
+  address           String?
+  // Notification email for this branch. BLANK by design until FitClass
+  // provides the real mailbox (configurable later in Root Admin settings).
+  notificationEmail String   @default("")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tickets      Ticket[]
+  staff        StaffUser[]
+  cursor       BranchCursor?
+  crmExternalId String? @default("") // placeholder for CRM sync (branch reference in CRM)
+}
+
+// ---------------------------------------------------------------------------
+// Staff (development auth uses local credentials; production swaps in the
+// CRM auth adapter without changing this table's business usage)
+// ---------------------------------------------------------------------------
+
+model StaffUser {
+  id                  String   @id @default(cuid())
+  name                String
+  email               String   @unique
+  phone               String   @default("")
+  passwordHash        String
+  role                String // ROOT_ADMIN | CENTRAL_ADMIN | CENTRAL_AGENT | BRANCH_MANAGER | SUPPORT_AGENT
+  branchId            String?
+  designation         String   @default("")
+  isActive            Boolean  @default(true)
+  // Round-robin eligibility switches
+  availabilityEnabled Boolean  @default(true)
+  crmExternalId       String?  @default("") // placeholder for CRM sync (employee reference in CRM)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  branch          Branch?        @relation(fields: [branchId], references: [id])
+  assignedTickets Ticket[]       @relation("Assignee")
+  assignmentRecords TicketAssignment[]
+  statusChanges   TicketStatusHistory[]
+  auditLogs       AuditLog[]
+  messages        TicketMessage[]
+
+  @@index([branchId, role])
+}
+
+// ---------------------------------------------------------------------------
+// Categories & ticket numbering
+// ---------------------------------------------------------------------------
+
+model ComplaintCategory {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  tickets Ticket[]
+}
+
+model TicketSequence {
+  id         String   @id @default(cuid())
+  prefix     String   @default("FC")
+  year       Int
+  lastNumber Int      @default(0)
+
+  @@unique([prefix, year])
+}
+
+// ---------------------------------------------------------------------------
+// Tickets
+// ---------------------------------------------------------------------------
+
+model Ticket {
+  id             String   @id @default(cuid())
+  ticketNumber   String   @unique // FC-2026-000001
+  customerName   String
+  customerPhone  String // normalized digits (E.164-ish without +)
+  customerEmail  String
+  branchId       String
+  categoryId     String
+  description    String
+  status         String   @default("NEW_COMPLAINT")
+  priority       String   @default("MEDIUM")
+  source         String   @default("PORTAL") // PORTAL | API_CRM | API_LMS | SEED
+  assignedToId   String?
+  assignedAt     DateTime?
+  firstResponseAt DateTime?
+  resolvedAt     DateTime?
+  // calculated when the ticket becomes RESOLVED; drives reopen deadline
+  autoCloseAt    DateTime?
+  closedAt       DateTime?
+  reopenCount    Int      @default(0)
+  lastReopenedAt DateTime?
+  escalatedAt    DateTime?
+  slaResponseDueAt  DateTime?
+  slaResolutionDueAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  branch      Branch             @relation(fields: [branchId], references: [id])
+  category    ComplaintCategory  @relation(fields: [categoryId], references: [id])
+  assignee    StaffUser?         @relation("Assignee", fields: [assignedToId], references: [id])
+
+  statusHistory  TicketStatusHistory[]
+  assignments    TicketAssignment[]
+  messages       TicketMessage[]
+  attachments    TicketAttachment[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  reopenHistory  TicketReopenHistory[]
+  closureJobs    TicketClosureJob[]
+  slaTracking    SlaTracking?
+}
+
+model TicketStatusHistory {
+  id          String   @id @default(cuid())
+  ticketId    String
+  fromStatus  String?
+  toStatus    String
+  changedById String?
+  changedByName String @default("System")
+  note        String   @default("")
+  createdAt   DateTime @default(now())
+
+  ticket   Ticket     @relation(fields: [ticketId], references: [id])
+  changedBy StaffUser? @relation(fields: [changedById], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketAssignment {
+  id          String   @id @default(cuid())
+  ticketId    String
+  assignedToId String
+  assignedById String?
+  method      String // ROUND_ROBIN | MANUAL | REOPEN | TRANSFER | RETRY
+  isCurrent   Boolean  @default(true)
+  note        String   @default("")
+  createdAt   DateTime @default(now())
+
+  ticket      Ticket     @relation(fields: [ticketId], references: [id])
+  assignee    StaffUser  @relation(fields: [assignedToId], references: [id])
+
+  @@index([ticketId])
+  @@index([assignedToId])
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorType String // CUSTOMER | SUPPORT | SYSTEM
+  visibility String // PUBLIC | INTERNAL
+  authorId   String?
+  authorName String
+  body       String
+  createdAt  DateTime @default(now())
+
+  ticket   Ticket     @relation(fields: [ticketId], references: [id])
+  author   StaffUser? @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketAttachment {
+  id           String   @id @default(cuid())
+  ticketId     String
+  originalName String
+  storedName   String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// Notification outbox (transactional outbox pattern; dev adapter "sends")
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id             String   @id @default(cuid())
+  ticketId       String?
+  event          String // COMPLAINT_REGISTERED | ASSIGNED | STATUS_UPDATED | ON_HOLD | RESOLVED | REOPENED | CLOSED | ESCALATED | ASSIGNMENT_FAILED | CLOSURE_SCHEDULED
+  recipientKind  String // CUSTOMER | CENTRAL_SUPPORT | BRANCH | ASSIGNEE | BRANCH_MANAGER
+  recipientEmail String
+  subject        String
+  body           String
+  status         String   @default("PENDING") // PENDING | SENT | FAILED | SKIPPED
+  attempts       Int      @default(0)
+  lastError      String   @default("")
+  createdAt      DateTime @default(now())
+  sentAt         DateTime?
+
+  ticket Ticket? @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  ticketId      String?
+  actorId       String?
+  actorRole     String   @default("SYSTEM")
+  actorName     String   @default("System")
+  action        String
+  previousValue String   @default("")
+  newValue      String   @default("")
+  details       String   @default("")
+  correlationId String   @default("")
+  ip            String   @default("")
+  createdAt     DateTime @default(now())
+
+  ticket Ticket?     @relation(fields: [ticketId], references: [id])
+  actor  StaffUser?  @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId])
+  @@index([action])
+}
+
+// ---------------------------------------------------------------------------
+// Settings & config audit
+// ---------------------------------------------------------------------------
+
+model SystemSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+model ConfigAudit {
+  id            String   @id @default(cuid())
+  settingKey    String
+  previousValue String
+  newValue      String
+  changedById   String?
+  changedByName String
+  reason        String   @default("")
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Round-robin cursors (one independent queue per branch)
+// ---------------------------------------------------------------------------
+
+model BranchCursor {
+  branchId       String   @id
+  lastEmployeeId String   @default("")
+  lastAssignedAt DateTime?
+  updatedAt      DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Closure & reopening
+// ---------------------------------------------------------------------------
+
+model TicketClosureJob {
+  id         String   @id @default(cuid())
+  ticketId   String
+  runAt      DateTime
+  status     String   @default("SCHEDULED") // SCHEDULED | COMPLETED | CANCELLED | FAILED
+  attempts   Int      @default(0)
+  lastError  String   @default("")
+  executedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@index([status, runAt])
+  @@index([ticketId])
+}
+
+model TicketReopenHistory {
+  id             String   @id @default(cuid())
+  ticketId       String
+  reason         String
+  previousStatus String
+  reopenedAt     DateTime @default(now())
+  assignedTo     String?  // employee id retained/reassigned after reopen
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// SLA
+// ---------------------------------------------------------------------------
+
+model SlaPolicy {
+  id                    String  @id @default(cuid())
+  priority              String  @unique // CRITICAL | HIGH | MEDIUM | LOW
+  responseTargetMinutes Int
+  resolutionTargetMinutes Int
+  isActive              Boolean @default(true)
+}
+
+model SlaTracking {
+  id                    String   @id @default(cuid())
+  ticketId              String   @unique
+  priority              String
+  responseTargetMinutes Int
+  resolutionTargetMinutes Int
+  firstResponseMetAt    DateTime?
+  firstResponseBreached Boolean  @default(false)
+  resolutionBreached    Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Security & operations
+// ---------------------------------------------------------------------------
+
+model IdempotencyKey {
+  key       String   @id
+  ticketId  String
+  createdAt DateTime @default(now())
+}
+
+model CustomerAccessLog {
+  id        String   @id @default(cuid())
+  ip        String   @default("")
+  action    String // TRACK | REOPEN | COMPLAINT
+  success   Boolean
+  ticketId  String?
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([ip, action, createdAt])
+}
+
+// API clients for CRM / LMS integration (key stored as sha256 hash;
+// the dev seed also keeps the plaintext so the Root Admin panel can show it)
+model ApiClient {
+  id         String   @id @default(cuid())
+  name       String
+  keyPrefix  String
+  apiKey     String   @default("") // dev-mode convenience; production stores hash only
+  apiKeyHash String   @unique
+  scopes     String   @default("read,write") // csv: read | write
+  isActive   Boolean  @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+}
