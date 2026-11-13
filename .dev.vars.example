@@ -1,0 +1,3 @@
+# Local variables for `opennextjs-cloudflare preview` (wrangler dev).
+# Copy to `.dev.vars` — this example file is committed, .dev.vars is not.
+NEXTJS_ENV=development

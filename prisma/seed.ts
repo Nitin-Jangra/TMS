@@ -14,9 +14,14 @@ import { scryptSync, randomBytes, createHmac, randomUUID } from "crypto";
 const db = new PrismaClient();
 
 function hashPassword(password: string): string {
+  // Same self-describing format as src/lib/auth.ts (scrypt$N$r:salt:hash).
+  // Set FCMS_SCRYPT_N=1024 to pre-hash for the Cloudflare Workers free plan
+  // (10 ms CPU limit) — normally left at the default for local development.
+  const n = Math.max(1024, Number(process.env.FCMS_SCRYPT_N || 16384));
+  const r = Math.max(1, Number(process.env.FCMS_SCRYPT_R || 8));
   const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `scrypt:${salt}:${hash}`;
+  const hash = scryptSync(password, salt, 64, { N: n, r, p: 1 }).toString("hex");
+  return `scrypt$${n}$${r}:${salt}:${hash}`;
 }
 
 function hashApiKey(key: string): string {

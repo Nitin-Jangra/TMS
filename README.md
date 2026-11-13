@@ -20,10 +20,13 @@ bunx vitest run        # run the 11 core business-rule tests
 bun run lint           # ESLint
 ```
 
-**Hosting & integration:** see `docs/deployment-guide.md` for step-by-step
-**local setup → GitHub → Supabase (testing DB) → Netlify (testing host)**, including the
-scheduled-worker function and how to drive FC-CMS from another app (CRM / LMS / mobile) through
-its API.
+**Hosting & integration:** two free paths are documented:
+
+- `docs/deploy-cloudflare.md` — **Cloudflare Workers + D1 (all-Cloudflare, free tier)**: one
+  account, `bun run cf:deploy`, workers.dev URL in minutes, plus the APK/CRM API walkthrough.
+- `docs/deployment-guide.md` — **GitHub → Supabase (Postgres) → Netlify**, including the
+  scheduled-worker function and how to drive FC-CMS from another app (CRM / LMS / mobile) through
+  its API.
 
 ## Role-based dashboards (who sees what)
 

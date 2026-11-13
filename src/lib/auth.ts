@@ -17,19 +17,47 @@ function sessionSecret(): string {
 
 // ---------------------------------------------------------------------------
 // Passwords (scrypt; no plaintext storage)
+//
+// Stored format (self-describing cost):
+//   scrypt$<N>$<r>:<salt>:<hash>      e.g. scrypt$16384$8:a1b2…:9f3e…
+// Legacy format still verified:
+//   scrypt:<salt>:<hash>              defaults to N=16384, r=8
+//
+// Cost is embedded because deployments differ: Cloudflare Workers free plan
+// enforces a 10 ms CPU budget per request, so the hosted seed uses lower
+// parameters (N=1024) than local development. Every hash carries its own
+// cost, so old and new hashes verify side by side with zero configuration.
 // ---------------------------------------------------------------------------
 
+const SCRYPT_KEYLEN = 64;
+const DEFAULT_SCRYPT_N = 16384;
+const DEFAULT_SCRYPT_R = 8;
+
+function parseScryptParams(stored: string): { n: number; r: number } {
+  const scheme = stored.split(":")[0] || "";
+  const match = /^scrypt\$(\d+)\$(\d+)$/.exec(scheme);
+  if (match) {
+    const n = Math.max(1024, Number(match[1]));
+    const r = Math.max(1, Number(match[2]));
+    return { n, r };
+  }
+  return { n: DEFAULT_SCRYPT_N, r: DEFAULT_SCRYPT_R };
+}
+
 export function hashPassword(password: string): string {
+  const n = Math.max(1024, Number(process.env.FCMS_SCRYPT_N || DEFAULT_SCRYPT_N));
+  const r = Math.max(1, Number(process.env.FCMS_SCRYPT_R || DEFAULT_SCRYPT_R));
   const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `scrypt:${salt}:${hash}`;
+  const hash = scryptSync(password, salt, SCRYPT_KEYLEN, { N: n, r, p: 1 }).toString("hex");
+  return `scrypt$${n}$${r}:${salt}:${hash}`;
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
   try {
-    const [scheme, salt, hash] = (stored || "").split(":");
-    if (scheme !== "scrypt" || !salt || !hash) return false;
-    const candidate = scryptSync(password, salt, 64);
+    const [scheme, salt, hash] = (stored || ":").split(":");
+    if (!scheme.startsWith("scrypt") || !salt || !hash) return false;
+    const { n, r } = parseScryptParams(stored);
+    const candidate = scryptSync(password, salt, SCRYPT_KEYLEN, { N: n, r, p: 1 });
     const expected = Buffer.from(hash, "hex");
     return candidate.length === expected.length && timingSafeEqual(candidate, expected);
   } catch {

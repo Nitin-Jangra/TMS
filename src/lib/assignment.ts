@@ -10,7 +10,7 @@
 // - If no eligible employee exists the ticket stays NEW_COMPLAINT in the
 //   unassigned queue and branch manager + central support are notified.
 
-import { db } from "@/lib/db";
+import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
 
@@ -93,7 +93,7 @@ export async function assignTicketRoundRobin(
   actor: AssignmentActor | null,
   method: "ROUND_ROBIN" | "RETRY" | "REOPEN" = "ROUND_ROBIN",
 ): Promise<{ id: string; name: string } | null> {
-  const result = await db.$transaction(async (tx) => {
+  const result = await runInTransaction(async (tx) => {
     const ticket = await tx.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new AssignmentError("Ticket not found.");
     if (ticket.status === "CLOSED") throw new AssignmentError("Closed tickets cannot be assigned or reassigned.");
@@ -207,7 +207,7 @@ export async function manuallyAssignTicket(
     throw new AssignmentError("Employee belongs to a different branch. Use branch transfer instead.");
   }
 
-  await db.$transaction(async (tx) => {
+  await runInTransaction(async (tx) => {
     await tx.ticketAssignment.updateMany({ where: { ticketId, isCurrent: true }, data: { isCurrent: false } });
     await tx.ticketAssignment.create({
       data: { ticketId, assignedToId: toEmployeeId, assignedById: actor.id, method: "MANUAL", isCurrent: true, note },
@@ -244,7 +244,7 @@ export async function transferTicketBranch(
   const branch = await db.branch.findUnique({ where: { id: toBranchId } });
   if (!branch || !branch.isActive) throw new AssignmentError("Target branch not found or inactive.");
 
-  await db.$transaction(async (tx) => {
+  await runInTransaction(async (tx) => {
     await tx.ticketAssignment.updateMany({ where: { ticketId, isCurrent: true }, data: { isCurrent: false } });
     await tx.ticket.update({ where: { id: ticketId }, data: { branchId: toBranchId, assignedToId: null, assignedAt: null } });
   });

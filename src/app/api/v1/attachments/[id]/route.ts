@@ -1,14 +1,12 @@
 // Staff-only attachment download. Public/anonymous access is never allowed;
 // files are streamed from private storage only after session + RBAC checks.
+// Bytes come from disk locally or from D1 (AttachmentData) on Cloudflare.
 
 import { fail, handleErrors } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canAccessTicket } from "@/lib/tickets";
-import { readFile } from "fs/promises";
-import path from "path";
-
-const UPLOAD_DIR = path.join(process.cwd(), "db", "uploads");
+import { getAttachmentBytes } from "@/lib/attachment-store";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   return handleErrors(async () => {
@@ -21,7 +19,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     // Path traversal protection: storedName is a server-generated UUID file.
     if (!/^[a-f0-9-]{36}\.bin$/.test(attachment.storedName)) return fail("NOT_FOUND", "Attachment not found.", 404);
-    const buffer = await readFile(path.join(UPLOAD_DIR, attachment.storedName));
+    const buffer = await getAttachmentBytes(attachment.storedName);
+    if (!buffer) return fail("NOT_FOUND", "Attachment content is missing.", 404);
     return new Response(new Uint8Array(buffer), {
       headers: {
         "content-type": attachment.mimeType || "application/octet-stream",

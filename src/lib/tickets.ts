@@ -3,7 +3,7 @@
 // reopening, and ticket messages. Closed tickets are read-only at this layer
 // AND re-verified in every mutating API call — defence in depth.
 
-import { db } from "@/lib/db";
+import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
 import { getReopenWindowHours, isAutoClosureEnabled } from "@/lib/settings";
@@ -115,7 +115,7 @@ export async function createComplaint(
 
   const phone = normalizePhone(input.customerPhone);
 
-  const ticket = await db.$transaction(async (tx) => {
+  const ticket = await runInTransaction(async (tx) => {
     const ticketNumber = await nextTicketNumber(tx);
     const now = new Date();
     const created = await tx.ticket.create({
@@ -214,7 +214,7 @@ export async function applyStatusChange(
     if (enabled) autoCloseAt = new Date(now.getTime() + reopenHours * 3600 * 1000);
   }
 
-  await db.$transaction(async (tx) => {
+  await runInTransaction(async (tx) => {
     await tx.ticket.update({
       where: { id: ticketId },
       data: {
@@ -438,7 +438,7 @@ export async function reopenTicket(
 
   const now = new Date();
 
-  await db.$transaction(async (tx) => {
+  await runInTransaction(async (tx) => {
     await tx.ticket.update({
       where: { id: ticket.id },
       data: {

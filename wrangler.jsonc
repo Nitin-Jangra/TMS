@@ -1,0 +1,50 @@
+{
+  // Cloudflare Workers configuration for FC-CMS (@opennextjs/cloudflare).
+  // Full walkthrough: docs/deploy-cloudflare.md
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fitclass-complaints",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-12-30",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "fitclass-complaints"
+    }
+  ],
+  // next/image optimization via the Cloudflare Images binding (free tier).
+  "images": {
+    "binding": "IMAGES"
+  },
+  // Database: Cloudflare D1 (SQLite at the edge, free tier).
+  //  1. wrangler d1 create fitclass
+  //  2. paste the printed database_id below
+  //  3. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0001_schema.sql
+  //  4. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0002_seed_data.sql
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fitclass",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    }
+  ],
+  // Server-side env vars. Secrets (SESSION_SECRET) are added with:
+  //   wrangler secret put SESSION_SECRET
+  "vars": {
+    // Workers isolates are ephemeral — no in-process background timers.
+    // Trigger the closure/assignment sweeps with the Root Admin panel
+    // "Run workers now" button, or any external cron:
+    //   POST {BASE_URL}/api/v1/integration/workers/run  (header: x-api-key)
+    "DISABLE_BACKGROUND_WORKERS": "1"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

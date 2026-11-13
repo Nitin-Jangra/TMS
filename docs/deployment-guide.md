@@ -4,6 +4,10 @@ Everything you need to (1) run FC-CMS on your machine, (2) host it for testing w
 **GitHub + Netlify + Supabase**, and (3) drive it from **another app (CRM / LMS / mobile)
 through its API**.
 
+> **Prefer all-Cloudflare?** The repo also ships a complete Cloudflare Workers + D1 deployment
+> (free tier, one account, no card) — see `docs/deploy-cloudflare.md` for the step-by-step guide,
+> the `bun run cf:deploy` command, and the APK/CRM integration walkthrough.
+
 ```
 Browser / Android app ──HTTPS──▶ Netlify (Next.js SSR + API routes)
                                      │

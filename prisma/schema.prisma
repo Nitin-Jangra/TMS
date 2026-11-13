@@ -6,6 +6,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Prisma 6.19: driver adapters are GA — PrismaClient can run over
+  // Cloudflare D1 via @prisma/adapter-d1 (see src/lib/db.ts). Local
+  // development keeps using the normal SQLite query engine.
 }
 
 datasource db {
@@ -197,6 +200,14 @@ model TicketAttachment {
   ticket Ticket @relation(fields: [ticketId], references: [id])
 
   @@index([ticketId])
+}
+
+// Binary payloads for attachments. Local development stores files on disk
+// (db/uploads); the Cloudflare Workers deployment has no writable filesystem,
+// so bytes live here in D1 instead (2 MB row limit, see AttachmentData docs).
+model AttachmentData {
+  id      String @id // same id as the TicketAttachment row it belongs to
+  content Bytes
 }
 
 // ---------------------------------------------------------------------------

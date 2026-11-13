@@ -4,7 +4,7 @@
 // deadline inside the transaction with row locking semantics. JavaScript
 // timers only TRIGGER the sweep; they never hold schedule state.
 
-import { db } from "@/lib/db";
+import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
 
@@ -25,7 +25,7 @@ export async function runClosureSweep(): Promise<{ closed: number; checked: numb
   let closed = 0;
   for (const job of dueJobs) {
     try {
-      const didClose = await db.$transaction(async (tx) => {
+      const didClose = await runInTransaction(async (tx) => {
         const ticket = await tx.ticket.findUnique({ where: { id: job.ticketId } });
         if (!ticket) {
           await tx.ticketClosureJob.update({ where: { id: job.id }, data: { status: "CANCELLED", executedAt: new Date(), lastError: "Ticket not found" } });
