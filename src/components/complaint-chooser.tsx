@@ -22,7 +22,7 @@ export function ComplaintChooser({ variant = "hero", className }: ComplaintChoos
       href: "/complaint",
       icon: ClipboardPlus,
       title: "Register a complaint",
-      text: "Facing an issue at your FitClass branch? Get a unique ticket number instantly — no account needed.",
+      text: "Facing an issue with your service or project? Get a unique ticket number instantly — no account needed.",
       iconBg: "bg-[#0a2350]",
     },
     {

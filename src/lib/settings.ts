@@ -5,8 +5,8 @@
 import { db } from "@/lib/db";
 
 export const SETTING_DEFAULTS: Record<string, string> = {
-  central_support_email: "", // BLANK until FitClass provides the official mailbox
-  ticket_id_prefix: "FC",
+  central_support_email: "",
+  ticket_id_prefix: "MSP",
   reopen_window_hours: "72", // configurable reopening window (auto-close after this)
   auto_closure_enabled: "true",
   maintenance_mode: "false",

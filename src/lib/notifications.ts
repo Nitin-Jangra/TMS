@@ -47,27 +47,27 @@ function renderSubject(event: NotificationEvent, v: Record<string, string>): str
   const tn = v.ticketNumber || "";
   switch (event) {
     case "COMPLAINT_REGISTERED":
-      return `FitClass Support: Complaint registered — ${tn}`;
+      return `Msquare Professionals Support: Complaint registered — ${tn}`;
     case "ASSIGNED":
-      return `FitClass Support: New complaint assigned to you — ${tn}`;
+      return `Msquare Professionals Support: New complaint assigned to you — ${tn}`;
     case "STATUS_UPDATED":
-      return `FitClass Support: Ticket ${tn} status updated`;
+      return `Msquare Professionals Support: Ticket ${tn} status updated`;
     case "ON_HOLD":
-      return `FitClass Support: Ticket ${tn} placed on hold`;
+      return `Msquare Professionals Support: Ticket ${tn} placed on hold`;
     case "RESOLVED":
-      return `FitClass Support: Ticket ${tn} has been resolved`;
+      return `Msquare Professionals Support: Ticket ${tn} has been resolved`;
     case "REOPENED":
-      return `FitClass Support: Ticket ${tn} has been reopened`;
+      return `Msquare Professionals Support: Ticket ${tn} has been reopened`;
     case "CLOSED":
-      return `FitClass Support: Ticket ${tn} has been closed`;
+      return `Msquare Professionals Support: Ticket ${tn} has been closed`;
     case "ESCALATED":
-      return `FitClass Support: Ticket ${tn} escalated`;
+      return `Msquare Professionals Support: Ticket ${tn} escalated`;
     case "ASSIGNMENT_FAILED":
-      return `FitClass Support: Action required — no support employee available for ${tn}`;
+      return `Msquare Professionals Support: Action required — no support employee available for ${tn}`;
     case "CLOSURE_SCHEDULED":
-      return `FitClass Support: Ticket ${tn} resolved — feedback window`;
+      return `Msquare Professionals Support: Ticket ${tn} resolved — feedback window`;
     default:
-      return `FitClass Support notification`;
+      return `Msquare Professionals Support notification`;
   }
 }
 
@@ -84,7 +84,7 @@ function renderBody(event: NotificationEvent, recipientKind: RecipientKind, v: R
 
   const ticketSummary = `
 Ticket: ${tn}
-Customer: ${customer}
+Client: ${customer}
 Branch: ${branch}
 Category: ${category}
 Status: ${status}
@@ -97,43 +97,43 @@ Description: ${v.description || ""}
       if (recipientKind === "CUSTOMER") {
         return `Dear ${customer},
 
-We sincerely apologize for the inconvenience you have experienced. Your complaint has been registered with FitClass and we are working on your request.
+We sincerely apologize for the inconvenience you have experienced. Your complaint has been registered with Msquare Professionals and we are working on your request.
 
 Your request number is ${tn}. Please keep it for future reference.
 
 ${ticketSummary}
 
 Track your complaint:
-- Go to the FitClass support portal and choose "Track Complaint".
-- Enter your Ticket ID ${tn} and your registered mobile number.
+- Go to the Msquare Professionals client portal and choose "Track Complaint".
+- Enter your Ticket ID ${tn} and your registered contact number.
 
 Thank you for your patience.
 
-— FitClass Support Team`;
+— Msquare Professionals Client Care Team`;
       }
-      return `A new complaint has been raised. Ticket number: ${tn}
+      return `A new client complaint has been raised. Ticket number: ${tn}
 
 ${ticketSummary}
 
-Registered via: ${v.source || "Customer Portal"}
-Please review the ticket in the support dashboard.`;
+Registered via: ${v.source || "Client Portal"}
+Please review the ticket in the operations dashboard.`;
     }
     case "ASSIGNED":
       return `Hello ${assignee},
 
-A new complaint has been assigned to you via the branch round-robin queue.
+A new complaint has been assigned to you via the operations queue.
 
 ${ticketSummary}
 
-Please start working on the ticket from your support dashboard.
+Please start working on the ticket from your staff dashboard.
 
-— FitClass CMS`;
+— Msquare CMS`;
     case "STATUS_UPDATED":
       return `Ticket ${tn} status has been updated to ${status}.
 
 ${ticketSummary}
 
-— FitClass CMS`;
+— Msquare CMS`;
     case "ON_HOLD":
       return `Ticket ${tn} has been placed ON HOLD.
 
@@ -143,7 +143,7 @@ Our team is waiting for additional information or action. The ticket will be res
 
 ${ticketSummary}
 
-— FitClass Support Team`;
+— Msquare Professionals Support Team`;
     case "RESOLVED":
       return `Dear ${customer},
 
@@ -151,40 +151,40 @@ Good news! Your complaint ${tn} has been resolved.
 
 Resolution: ${resolution || "See your ticket page for details."}
 
-If you are not satisfied with the resolution, you can reopen this ticket within the next ${reopenHours} hours using your Ticket ID and registered mobile number. After this window the ticket will be closed automatically.
+If you are not satisfied with the resolution, you can reopen this ticket within the next ${reopenHours} hours using your Ticket ID and registered contact number. After this window the ticket will be closed automatically.
 
-— FitClass Support Team`;
+— Msquare Professionals Support Team`;
     case "CLOSURE_SCHEDULED":
-      return `Ticket ${tn} for customer ${customer} has been resolved.
+      return `Ticket ${tn} for client ${customer} has been resolved.
 
-The automatic closure has been scheduled. The customer may reopen the ticket within ${reopenHours} hours; after that the ticket will be closed automatically.
+The automatic closure has been scheduled. The client may reopen the ticket within ${reopenHours} hours; after that the ticket will be closed automatically.
 
-— FitClass CMS`;
+— Msquare CMS`;
     case "REOPENED":
-      return `Ticket ${tn} has been REOPENED by the customer.
+      return `Ticket ${tn} has been REOPENED by the client.
 
 Reason: ${reason}
 
 ${ticketSummary}
 
-${assignee ? `The ticket remains assigned to ${assignee}.` : "The ticket will be re-assigned through the branch round-robin queue."}
+${assignee ? `The ticket remains assigned to ${assignee}.` : "The ticket will be re-assigned through the operations queue."}
 
-— FitClass CMS`;
+— Msquare CMS`;
     case "CLOSED":
       if (recipientKind === "CUSTOMER") {
         return `Dear ${customer},
 
 Your ticket ${tn} has been closed after the resolution window. We hope the issue was resolved to your satisfaction.
 
-If you need further assistance, please submit a new complaint through the FitClass support portal.
+If you need further assistance, please submit a new complaint through the Msquare Professionals client portal.
 
-— FitClass Support Team`;
+— Msquare Professionals Support Team`;
       }
       return `Ticket ${tn} was automatically closed after the reopen window expired.
 
 ${ticketSummary}
 
-— FitClass CMS`;
+— Msquare CMS`;
     case "ESCALATED":
       return `Ticket ${tn} has been escalated for priority attention.
 
@@ -192,7 +192,7 @@ ${ticketSummary}
 
 Escalation reason: ${reason || "SLA risk / manual escalation"}
 
-— FitClass CMS`;
+— Msquare CMS`;
     case "ASSIGNMENT_FAILED":
       return `IMPORTANT: Ticket ${tn} could not be auto-assigned.
 
@@ -201,7 +201,7 @@ Reason: ${reason || "No eligible support employee is currently available in this
 
 The ticket is in the unassigned queue with status New Complaint. Assign it manually from the dashboard, or make an employee available to retry the round-robin queue.
 
-— FitClass CMS`;
+— Msquare CMS`;
     default:
       return ticketSummary;
   }

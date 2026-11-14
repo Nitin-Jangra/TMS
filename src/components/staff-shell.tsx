@@ -42,7 +42,7 @@ export default async function StaffShell({
   area: "staff" | "admin";
 }) {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/staff/login");
 
   const nav = area === "admin" ? ADMIN_NAV : STAFF_NAV;
   const visible = nav.filter((item) => item.roles.includes(user.role));
@@ -53,10 +53,10 @@ export default async function StaffShell({
     <div className="flex min-h-screen bg-[#f8fafc]">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-[#0a2350] md:flex" aria-label="Dashboard navigation">
         <div className="flex items-center gap-2.5 px-5 py-5">
-          <Image src="/logo.svg" alt="FitClass logo" width={30} height={30} className="rounded-md" />
+          <Image src="/logo.svg" alt="Msquare logo" width={30} height={30} className="rounded-md" />
           <div>
-            <p className="text-sm font-semibold text-white">FitClass CMS</p>
-            <p className="text-[11px] text-blue-200">{area === "admin" ? "Administration" : "Support Workspace"}</p>
+            <p className="text-sm font-semibold text-white">Msquare CMS</p>
+            <p className="text-[11px] text-blue-200">{area === "admin" ? "Administration" : "Operations Workspace"}</p>
           </div>
         </div>
         <nav className="flex-1 space-y-0.5 px-3 pb-4" role="navigation">

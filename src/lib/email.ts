@@ -30,7 +30,7 @@ export function getSupportEmail(): string {
 export function getDefaultFrom(): string {
   const from = process.env.EMAIL_FROM?.trim();
   if (from) return from;
-  const fromName = process.env.SMTP_FROM_NAME?.trim() || "FitClass Support";
+  const fromName = process.env.SMTP_FROM_NAME?.trim() || "Msquare Professionals Support";
   const supportEmail = getSupportEmail();
   return `${fromName} <${supportEmail}>`;
 }
@@ -140,21 +140,21 @@ export function renderCustomerConfirmationEmail(params: {
   description: string;
   appUrl?: string;
 }): { subject: string; text: string; html: string } {
-  const { customerName, ticketNumber, customerPhone = "", branchName = "FitClass Club", categoryName = "General", description } = params;
-  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://fitclass.dev";
+  const { customerName, ticketNumber, customerPhone = "", branchName = "Msquare Professionals", categoryName = "General", description } = params;
+  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://msquareprofessionals.com";
   const trackUrl = `${baseUrl.replace(/\/$/, "")}/track`;
   const supportEmail = getSupportEmail();
 
-  const subject = `FitClass Support: We are working on your request (Ticket #${ticketNumber})`;
+  const subject = `Msquare Professionals Support: We are working on your request (Ticket #${ticketNumber})`;
 
   const text = `Dear ${customerName},
 
-Thank you for reaching out to FitClass Support. We have received your complaint and our support team is actively working on your request.
+Thank you for reaching out to Msquare Professionals Support. We have received your complaint and our client care team is actively working on your request.
 
 Your Request Details:
 - Ticket Number: ${ticketNumber}
-- Registered Mobile: ${customerPhone}
-- Club Branch: ${branchName}
+- Registered Contact: ${customerPhone}
+- Service Branch / Office: ${branchName}
 - Category: ${categoryName}
 - Details: ${description}
 
@@ -166,7 +166,7 @@ ${trackUrl}
 Our customer success executive has been assigned to your case and will follow up with you shortly.
 
 Warm regards,
-FitClass Support Team
+Msquare Professionals Support Team
 Email: ${supportEmail}
 `.trim();
 
@@ -186,9 +186,9 @@ Email: ${supportEmail}
           
           <!-- Header Banner -->
           <tr>
-            <td style="background: linear-gradient(135deg, #0f2744 0%, #1a4971 100%); padding: 30px 24px; text-align: center; border-bottom: 2px solid #72bdd0;">
-              <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #ffffff;">FITCLASS</h1>
-              <p style="margin: 6px 0 0; font-size: 13px; color: #72bdd0; letter-spacing: 1px; text-transform: uppercase; font-weight: 600;">Customer Care & Support</p>
+            <td style="background: linear-gradient(135deg, #0a2350 0%, #1e4976 100%); padding: 30px 24px; text-align: center; border-bottom: 2px solid #72bdd0;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #ffffff;">MSQUARE PROFESSIONALS</h1>
+              <p style="margin: 6px 0 0; font-size: 13px; color: #72bdd0; letter-spacing: 1px; text-transform: uppercase; font-weight: 600;">Client Care & Resolution</p>
             </td>
           </tr>
 
@@ -202,7 +202,7 @@ Email: ${supportEmail}
               </p>
               
               <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #c9d1d9;">
-                Thank you for contacting FitClass Support. We have received your complaint and our support team is actively reviewing the details. We are committed to providing you with the best gym experience and will resolve your concern swiftly.
+                Thank you for contacting Msquare Professionals Support. We have received your complaint and our service management team is actively reviewing the details. We are committed to high service standards and will resolve your concern swiftly.
               </p>
 
               <!-- Ticket Badge Box -->
@@ -214,7 +214,7 @@ Email: ${supportEmail}
                     
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       <tr>
-                        <td style="padding: 4px 0; font-size: 13px; color: #8b949e; width: 35%;">Branch:</td>
+                        <td style="padding: 4px 0; font-size: 13px; color: #8b949e; width: 35%;">Office / Branch:</td>
                         <td style="padding: 4px 0; font-size: 13px; color: #ffffff; font-weight: 500;">${branchName}</td>
                       </tr>
                       <tr>
@@ -223,7 +223,7 @@ Email: ${supportEmail}
                       </tr>
                       ${customerPhone ? `
                       <tr>
-                        <td style="padding: 4px 0; font-size: 13px; color: #8b949e;">Mobile:</td>
+                        <td style="padding: 4px 0; font-size: 13px; color: #8b949e;">Contact:</td>
                         <td style="padding: 4px 0; font-size: 13px; color: #ffffff; font-weight: 500;">${customerPhone}</td>
                       </tr>` : ""}
                       <tr>
@@ -240,14 +240,14 @@ Email: ${supportEmail}
                 <tr>
                   <td align="center">
                     <a href="${trackUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; background-color: #22618B; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(34, 97, 139, 0.4);">
-                      Track Your Complaint Live →
+                      Track Your Request Live →
                     </a>
                   </td>
                 </tr>
               </table>
 
               <p style="margin: 0; font-size: 13px; color: #8b949e; text-align: center;">
-                Use your Ticket ID <strong>${ticketNumber}</strong> and mobile number to see progress.
+                Use your Ticket ID <strong>${ticketNumber}</strong> and contact number to see progress.
               </p>
             </td>
           </tr>
@@ -259,7 +259,7 @@ Email: ${supportEmail}
                 Need more assistance? Reply directly to this email or reach us at <a href="mailto:${supportEmail}" style="color: #72bdd0; text-decoration: none;">${supportEmail}</a>
               </p>
               <p style="margin: 0; font-size: 12px; color: #484f58;">
-                © 2026 FitClass Gym & Fitness. All rights reserved.
+                © 2026 Msquare Professionals. All rights reserved.
               </p>
             </td>
           </tr>
@@ -288,20 +288,20 @@ export function renderAdminAlertEmail(params: {
   appUrl?: string;
 }): { subject: string; text: string; html: string } {
   const { ticketNumber, customerName, customerEmail, customerPhone, branchName, categoryName, priority = "MEDIUM", description, source = "PORTAL" } = params;
-  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://fitclass.dev";
+  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://msquareprofessionals.com";
   const adminUrl = `${baseUrl.replace(/\/$/, "")}/admin`;
 
-  const subject = `[FitClass Alert] New Complaint Raised — Ticket #${ticketNumber} (${branchName})`;
+  const subject = `[Msquare Professionals Alert] New Complaint Raised — Ticket #${ticketNumber} (${branchName})`;
 
   const text = `NEW COMPLAINT ALERT
 
-A new complaint has been registered in the system.
+A new client complaint has been registered in Msquare Professionals CMS.
 
 Ticket Number: ${ticketNumber}
-Customer: ${customerName}
+Client: ${customerName}
 Email: ${customerEmail}
 Phone: ${customerPhone}
-Branch: ${branchName}
+Branch / Office: ${branchName}
 Category: ${categoryName}
 Priority: ${priority}
 Source: ${source}
@@ -309,7 +309,7 @@ Source: ${source}
 Description:
 ${description}
 
-Review and assign in the dashboard:
+Review and assign in the operations dashboard:
 ${adminUrl}
 `.trim();
 
@@ -322,17 +322,17 @@ ${adminUrl}
 </head>
 <body style="margin: 0; padding: 0; background-color: #0f172a; font-family: sans-serif; color: #f8fafc;">
   <div style="max-width: 600px; margin: 30px auto; background-color: #1e293b; border-radius: 8px; border: 1px solid #334155; overflow: hidden;">
-    <div style="background-color: #0284c7; padding: 20px 24px;">
-      <h2 style="margin: 0; font-size: 18px; color: #ffffff;">FitClass Support System: New Complaint Alert</h2>
+    <div style="background-color: #0a2350; padding: 20px 24px; border-bottom: 2px solid #72bdd0;">
+      <h2 style="margin: 0; font-size: 18px; color: #ffffff;">Msquare Professionals: New Client Complaint Alert</h2>
     </div>
     <div style="padding: 24px;">
-      <p style="margin-top: 0; font-size: 15px; color: #cbd5e1;">A new complaint requires review or action:</p>
+      <p style="margin-top: 0; font-size: 15px; color: #cbd5e1;">A new client complaint requires review or action:</p>
       
       <div style="background-color: #0f172a; border-radius: 6px; padding: 16px; margin-bottom: 20px; border-left: 4px solid #38bdf8;">
         <p style="margin: 0 0 10px; font-size: 20px; font-weight: bold; color: #38bdf8; font-family: monospace;">#${ticketNumber}</p>
-        <p style="margin: 4px 0; font-size: 14px;"><strong>Customer:</strong> ${customerName} &lt;${customerEmail}&gt;</p>
-        <p style="margin: 4px 0; font-size: 14px;"><strong>Phone:</strong> ${customerPhone}</p>
-        <p style="margin: 4px 0; font-size: 14px;"><strong>Branch:</strong> ${branchName}</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Client:</strong> ${customerName} &lt;${customerEmail}&gt;</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Contact:</strong> ${customerPhone}</p>
+        <p style="margin: 4px 0; font-size: 14px;"><strong>Office / Branch:</strong> ${branchName}</p>
         <p style="margin: 4px 0; font-size: 14px;"><strong>Category:</strong> ${categoryName}</p>
         <p style="margin: 4px 0; font-size: 14px;"><strong>Priority:</strong> ${priority}</p>
         <p style="margin: 4px 0; font-size: 14px;"><strong>Source:</strong> ${source}</p>
@@ -346,7 +346,7 @@ ${adminUrl}
       </div>
 
       <div style="text-align: center;">
-        <a href="${adminUrl}" style="display: inline-block; padding: 12px 24px; background-color: #0284c7; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">Open Support Dashboard →</a>
+        <a href="${adminUrl}" style="display: inline-block; padding: 12px 24px; background-color: #0a2350; border: 1px solid #72bdd0; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">Open Operations Dashboard →</a>
       </div>
     </div>
   </div>

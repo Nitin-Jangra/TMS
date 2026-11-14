@@ -207,7 +207,7 @@ export default function ComplaintPage() {
                   className="mt-0.5"
                 />
                 <span className="leading-relaxed text-slate-600">
-                  I consent to FitClass storing and using these details to investigate and resolve my
+                  I consent to Msquare Professionals storing and using these details to investigate and resolve my
                   complaint. I understand my mobile number will be used to verify tracking access.
                 </span>
               </label>

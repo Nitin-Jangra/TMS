@@ -17,7 +17,7 @@ function SuccessInner() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    document.title = `Ticket ${ticket} registered — FitClass CMS`;
+    document.title = `Ticket ${ticket} registered — Msquare Professionals`;
   }, [ticket]);
 
   return (
@@ -29,7 +29,7 @@ function SuccessInner() {
         <h1 className="text-xl font-bold text-[#0a2350]">Complaint registered successfully</h1>
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
           We sincerely apologize for the inconvenience you have experienced. Your complaint has
-          been successfully registered with FitClass. Our support team will review your concern
+          been successfully registered with Msquare Professionals. Our client care team will review your concern
           and work towards resolving it as soon as possible.
         </p>
 

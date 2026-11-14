@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FitClass CMS — Complaint & Ticket Management",
+  title: "Msquare Professionals — Client Care & Complaint Management",
   description:
-    "FitClass Complaint Management System: register complaints, track tickets, and manage branch-wise support operations with round-robin assignment.",
+    "Msquare Professionals Client Care Portal: register complaints, track resolution status, and manage branch-wise support operations with SLA tracking.",
   icons: {
     icon: "/logo.svg",
   },
