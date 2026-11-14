@@ -43,31 +43,37 @@ export interface NotificationInput {
 // Templates (Root Admin will later be able to customize via settings)
 // ---------------------------------------------------------------------------
 
-function renderSubject(event: NotificationEvent, v: Record<string, string>): string {
+function renderSubject(event: NotificationEvent, recipientKind: RecipientKind, v: Record<string, string>): string {
   const tn = v.ticketNumber || "";
   switch (event) {
     case "COMPLAINT_REGISTERED":
-      return `Msquare Professionals Support: Complaint registered — ${tn}`;
+      if (recipientKind === "CUSTOMER") {
+        return `MSquare Professionals: We are working on your request (Ticket #${tn})`;
+      }
+      return `[NEW TICKET ALERT] Client Complaint Registered — ${tn}`;
     case "ASSIGNED":
-      return `Msquare Professionals Support: New complaint assigned to you — ${tn}`;
+      return `[ASSIGNMENT] New complaint assigned to you — ${tn}`;
     case "STATUS_UPDATED":
-      return `Msquare Professionals Support: Ticket ${tn} status updated`;
+      if (recipientKind === "CUSTOMER") {
+        return `MSquare Professionals Support: Ticket ${tn} status updated`;
+      }
+      return `[STATUS UPDATE] Ticket ${tn} status updated`;
     case "ON_HOLD":
-      return `Msquare Professionals Support: Ticket ${tn} placed on hold`;
+      return `MSquare Professionals Support: Ticket ${tn} placed on hold`;
     case "RESOLVED":
-      return `Msquare Professionals Support: Ticket ${tn} has been resolved`;
+      return `MSquare Professionals: Your ticket ${tn} has been resolved`;
     case "REOPENED":
-      return `Msquare Professionals Support: Ticket ${tn} has been reopened`;
+      return `[TICKET REOPENED] Ticket ${tn} has been reopened`;
     case "CLOSED":
-      return `Msquare Professionals Support: Ticket ${tn} has been closed`;
+      return `MSquare Professionals Support: Ticket ${tn} has been closed`;
     case "ESCALATED":
-      return `Msquare Professionals Support: Ticket ${tn} escalated`;
+      return `[ESCALATION ALERT] Ticket ${tn} escalated`;
     case "ASSIGNMENT_FAILED":
-      return `Msquare Professionals Support: Action required — no support employee available for ${tn}`;
+      return `[ACTION REQUIRED] No support employee available for ${tn}`;
     case "CLOSURE_SCHEDULED":
-      return `Msquare Professionals Support: Ticket ${tn} resolved — feedback window`;
+      return `MSquare Professionals: Ticket ${tn} resolved — feedback window`;
     default:
-      return `Msquare Professionals Support notification`;
+      return `MSquare Professionals Support notification`;
   }
 }
 
@@ -97,23 +103,36 @@ Description: ${v.description || ""}
       if (recipientKind === "CUSTOMER") {
         return `Dear ${customer},
 
-We sincerely apologize for the inconvenience you have experienced. Your complaint has been registered with Msquare Professionals and we are working on your request.
+Thank you for reaching out to MSquare Professionals Support. We have received your complaint and our client care team is actively working on your request.
 
-Your request number is ${tn}. Please keep it for future reference.
+Your Request Details:
+- Ticket Reference Number: ${tn}
+- Registered Contact: ${v.customerPhone || "As submitted"}
+- Service Branch / Office: ${branch}
+- Category: ${category}
+- Details: ${v.description || ""}
 
-${ticketSummary}
+Track Your Request Live:
+You can check real-time progress and updates on your ticket anytime by visiting the MSquare portal or widget with Ticket Number "${tn}" and your registered mobile number.
 
-Track your complaint:
-- Go to the Msquare Professionals client portal and choose "Track Complaint".
-- Enter your Ticket ID ${tn} and your registered contact number.
+Our team has been notified and will follow up with you promptly.
 
-Thank you for your patience.
-
-— Msquare Professionals Client Care Team`;
+Warm regards,
+MSquare Professionals Client Care Team
+Email: ${getSmtpConfig()?.user || "support@msquareprofessionals.com"}`;
       }
-      return `A new client complaint has been raised. Ticket number: ${tn}
+      return `A new client complaint has been registered.
 
-${ticketSummary}
+Ticket Reference: ${tn}
+Client Name: ${customer}
+Client Email: ${v.customerEmail || "Not specified"}
+Client Mobile: ${v.customerPhone || "Not specified"}
+Branch: ${branch}
+Category: ${category}
+Priority: ${v.priority || "Medium"}
+
+Complaint Details:
+${v.description || ""}
 
 Registered via: ${v.source || "Client Portal"}
 Please review the ticket in the operations dashboard.`;
@@ -214,7 +233,7 @@ The ticket is in the unassigned queue with status New Complaint. Assign it manua
 export async function queueNotification(input: NotificationInput): Promise<void> {
   const settings = await getSettings();
   const v = input.variables || {};
-  const subject = renderSubject(input.event, v);
+  const subject = renderSubject(input.event, input.recipientKind, v);
   const body = renderBody(input.event, input.recipientKind, v);
 
   // Resolve recipient

@@ -60,6 +60,7 @@ function vars(ctx: Awaited<ReturnType<typeof getTicketContext>>, extra: Record<s
   return {
     ticketNumber: ticket.ticketNumber,
     customerName: ticket.customerName,
+    customerPhone: ticket.customerPhone,
     customerEmail: ticket.customerEmail,
     description: ticket.description.slice(0, 500),
     priority: ticket.priority,

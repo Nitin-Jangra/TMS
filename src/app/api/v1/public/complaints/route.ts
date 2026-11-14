@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     // Support both internal and standard external form field names
     const rawName = String(b.customerName || b.name || b.fullName || "").trim();
     const rawPhone = String(b.customerPhone || b.phone || b.mobile || b.phoneNumber || "").trim();
-    const rawEmail = String(b.customerEmail || b.email || "").trim();
+    const rawEmail = String(b.customerEmail || b.email || b.emailAddress || b.userEmail || b.clientEmail || b.mail || "").trim();
     const rawDesc = String(b.description || b.message || b.complaint || b.details || "").trim();
     const rawBranch = String(b.branchId || b.branch || b.branchName || b.branchCode || "").trim();
     const rawCategory = String(b.categoryId || b.category || b.categoryName || "").trim();
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     // Smart Branch Lookup: by ID, code (e.g. BR001), or name (e.g. Sector 48)
-    let branch = null;
+    let branch: any = null;
     if (rawBranch) {
       branch = await db.branch.findFirst({
         where: {
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     if (!branch) return fail("BRANCH_UNAVAILABLE", "No active branch is currently available in the system.", 500);
 
     // Smart Category Lookup: by ID or name (e.g. Equipment Issues)
-    let category = null;
+    let category: any = null;
     if (rawCategory) {
       category = await db.complaintCategory.findFirst({
         where: {
