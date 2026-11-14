@@ -16,11 +16,24 @@ export function newCorrelationId(): string {
   return randomBytes(8).toString("hex");
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key, Idempotency-Key, x-requested-with",
+};
+
 export function ok<T>(data: T, init?: { status?: number; headers?: Record<string, string> }): NextResponse<ApiEnvelope<T>> {
   const correlationId = newCorrelationId();
   return NextResponse.json(
     { success: true, data, correlationId } satisfies ApiEnvelope<T>,
-    { status: init?.status ?? 200, headers: { "x-correlation-id": correlationId, ...(init?.headers || {}) } },
+    {
+      status: init?.status ?? 200,
+      headers: {
+        "x-correlation-id": correlationId,
+        ...CORS_HEADERS,
+        ...(init?.headers || {}),
+      },
+    },
   );
 }
 
@@ -33,7 +46,13 @@ export function fail(
   const correlationId = newCorrelationId();
   return NextResponse.json(
     { success: false, error: { code, message, details }, correlationId } satisfies ApiEnvelope<never>,
-    { status, headers: { "x-correlation-id": correlationId } },
+    {
+      status,
+      headers: {
+        "x-correlation-id": correlationId,
+        ...CORS_HEADERS,
+      },
+    },
   );
 }
 
