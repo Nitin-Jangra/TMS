@@ -20,17 +20,18 @@ export class TicketError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Ticket number generation — transaction-safe sequence (FC-2026-000001)
+// Ticket number generation — transaction-safe sequence (MSP-2026-000001)
 // ---------------------------------------------------------------------------
 
 async function nextTicketNumber(tx: { $transaction: unknown } | any): Promise<string> {
   const year = new Date().getFullYear();
+  const prefix = "MSP";
   const seq = await tx.ticketSequence.upsert({
-    where: { prefix_year: { prefix: "FC", year } },
-    create: { prefix: "FC", year, lastNumber: 1 },
+    where: { prefix_year: { prefix, year } },
+    create: { prefix, year, lastNumber: 1 },
     update: { lastNumber: { increment: 1 } },
   });
-  return `FC-${year}-${String(seq.lastNumber).padStart(6, "0")}`;
+  return `${prefix}-${year}-${String(seq.lastNumber).padStart(6, "0")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -346,7 +347,7 @@ const GENERIC_TRACK_ERROR = "We could not find a ticket matching that Ticket ID 
 
 export async function trackTicket(ticketNumberInput: string, phoneInput: string): Promise<TrackedTicket> {
   const ticketNumber = ticketNumberInput.trim().toUpperCase();
-  if (!/^FC-\d{4}-\d{6}$/.test(ticketNumber)) throw new TicketError(GENERIC_TRACK_ERROR, "TRACK_NOT_FOUND");
+  if (!/^(MSP|FC)-\d{4}-\d{6}$/.test(ticketNumber)) throw new TicketError(GENERIC_TRACK_ERROR, "TRACK_NOT_FOUND");
   const phone = normalizePhone(phoneInput);
 
   const ticket = await db.ticket.findUnique({
@@ -416,7 +417,7 @@ export async function reopenTicket(
   meta: { ip?: string } = {},
 ): Promise<{ ticketNumber: string; status: string }> {
   const ticketNumber = ticketNumberInput.trim().toUpperCase();
-  if (!/^FC-\d{4}-\d{6}$/.test(ticketNumber)) throw new TicketError(GENERIC_TRACK_ERROR, "TRACK_NOT_FOUND");
+  if (!/^(MSP|FC)-\d{4}-\d{6}$/.test(ticketNumber)) throw new TicketError(GENERIC_TRACK_ERROR, "TRACK_NOT_FOUND");
   const phone = normalizePhone(phoneInput);
 
   const ticket = await db.ticket.findUnique({ where: { ticketNumber }, include: { assignee: true, branch: true } });
