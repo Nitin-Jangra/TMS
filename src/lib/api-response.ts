@@ -56,7 +56,7 @@ export function fail(
   );
 }
 
-/** Wrap a route handler: converts thrown AuthError/Zod/generic errors to safe envelopes. */
+/** Wrap a route handler: converts thrown AuthError/Zod/TicketError/generic errors to safe envelopes. */
 export function handleErrors(handler: () => Promise<NextResponse>): Promise<NextResponse> {
   return handler().catch((err: unknown) => {
     if (err instanceof AuthError) {
@@ -65,9 +65,15 @@ export function handleErrors(handler: () => Promise<NextResponse>): Promise<Next
     if (err instanceof Error && err.name === "ZodError") {
       return fail("VALIDATION_ERROR", "Invalid request data.", 422);
     }
-    // Log server-side; return a generic message to the client.
+    if (err && typeof err === "object" && "code" in err && typeof (err as { code: string }).code === "string") {
+      const code = (err as { code: string }).code;
+      const message = (err as { message?: string }).message || "Request could not be processed.";
+      return fail(code, message, 422);
+    }
+    // Log server-side; return actionable error message to the client.
     console.error("[fcms] unhandled API error:", err);
-    return fail("INTERNAL_ERROR", "An unexpected error occurred. Please try again.", 500);
+    const message = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
+    return fail("INTERNAL_ERROR", message, 500);
   });
 }
 

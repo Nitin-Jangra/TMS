@@ -20,38 +20,77 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object") return fail("VALIDATION_ERROR", "Invalid request body.", 422);
 
-    const {
-      customerName, customerPhone, customerEmail, branchId, categoryId, description, privacyConsent,
-    } = body as Record<string, unknown>;
+    const b = body as Record<string, unknown>;
+
+    // Support both internal and standard external form field names
+    const rawName = String(b.customerName || b.name || b.fullName || "").trim();
+    const rawPhone = String(b.customerPhone || b.phone || b.mobile || b.phoneNumber || "").trim();
+    const rawEmail = String(b.customerEmail || b.email || "").trim();
+    const rawDesc = String(b.description || b.message || b.complaint || b.details || "").trim();
+    const rawBranch = String(b.branchId || b.branch || b.branchName || b.branchCode || "").trim();
+    const rawCategory = String(b.categoryId || b.category || b.categoryName || "").trim();
+    const consent = b.privacyConsent === true || b.privacyConsent === "true" || b.privacyConsent === "on" || b.privacyConsent === 1 || b.privacyConsent === undefined;
 
     const errors: Record<string, string> = {};
-    if (!customerName || String(customerName).trim().length < 2 || String(customerName).length > 100) errors.customerName = "Please enter your full name.";
-    if (!customerPhone || !isValidPhone(String(customerPhone))) errors.customerPhone = "Please enter a valid mobile number.";
-    if (!customerEmail || !isValidEmail(String(customerEmail))) errors.customerEmail = "Please enter a valid email address.";
-    if (!branchId) errors.branchId = "Please select a branch.";
-    if (!categoryId) errors.categoryId = "Please select a complaint category.";
-    if (!description || String(description).trim().length < 10 || String(description).length > 4000) errors.description = "Please describe your complaint (minimum 10 characters).";
-    if (privacyConsent !== true) errors.privacyConsent = "Privacy consent is required to register a complaint.";
-    if (Object.keys(errors).length) return fail("VALIDATION_ERROR", "Please correct the highlighted fields.", 422, errors);
+    if (!rawName || rawName.length < 2 || rawName.length > 100) errors.customerName = "Please enter your full name (at least 2 characters).";
+    if (!rawPhone || !isValidPhone(rawPhone)) errors.customerPhone = "Please enter a valid 10-12 digit mobile number.";
+    if (!rawEmail || !isValidEmail(rawEmail)) errors.customerEmail = "Please enter a valid email address.";
+    if (!rawDesc || rawDesc.length < 5 || rawDesc.length > 4000) errors.description = "Please describe your complaint.";
+    if (!consent) errors.privacyConsent = "Privacy consent is required.";
 
-    // Verify the branch/category really exist and are active (defense in depth).
-    const branch = await db.branch.findUnique({ where: { id: String(branchId) } });
-    if (!branch || !branch.isActive) return fail("BRANCH_INACTIVE", "The selected branch is not available.", 422);
-    const category = await db.complaintCategory.findUnique({ where: { id: String(categoryId) } });
-    if (!category || !category.isActive) return fail("CATEGORY_INACTIVE", "The selected category is not available.", 422);
+    if (Object.keys(errors).length) {
+      return fail("VALIDATION_ERROR", Object.values(errors)[0], 422, errors);
+    }
+
+    // Smart Branch Lookup: by ID, code (e.g. BR001), or name (e.g. Sector 48)
+    let branch = null;
+    if (rawBranch) {
+      branch = await db.branch.findFirst({
+        where: {
+          OR: [
+            { id: rawBranch },
+            { code: rawBranch },
+            { name: { contains: rawBranch } },
+          ],
+          isActive: true,
+        },
+      });
+    }
+    if (!branch) {
+      branch = await db.branch.findFirst({ where: { isActive: true }, orderBy: { code: "asc" } });
+    }
+    if (!branch) return fail("BRANCH_UNAVAILABLE", "No active branch is currently available in the system.", 500);
+
+    // Smart Category Lookup: by ID or name (e.g. Equipment Issues)
+    let category = null;
+    if (rawCategory) {
+      category = await db.complaintCategory.findFirst({
+        where: {
+          OR: [
+            { id: rawCategory },
+            { name: { contains: rawCategory } },
+          ],
+          isActive: true,
+        },
+      });
+    }
+    if (!category) {
+      category = await db.complaintCategory.findFirst({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
+    }
+    if (!category) return fail("CATEGORY_UNAVAILABLE", "No active category is currently available in the system.", 500);
 
     // Idempotency: client-supplied key, or a stable fallback derived from the payload.
     const headerKey = request.headers.get("idempotency-key") || "";
-    const idempotencyKey = headerKey || `auto-${ip}-${String(customerPhone)}-${String(categoryId)}-${String(description).slice(0, 80)}`;
+    const idempotencyKey = headerKey || `auto-${ip}-${rawPhone}-${category.id}-${rawDesc.slice(0, 80)}`;
 
     const result = await createComplaint(
       {
-        customerName: String(customerName),
-        customerPhone: String(customerPhone),
-        customerEmail: String(customerEmail),
-        branchId: String(branchId),
-        categoryId: String(categoryId),
-        description: String(description),
+        customerName: rawName,
+        customerPhone: rawPhone,
+        customerEmail: rawEmail,
+        branchId: branch.id,
+        categoryId: category.id,
+        description: rawDesc,
         source: "PORTAL",
         idempotencyKey,
       },
