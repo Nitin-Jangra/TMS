@@ -1,11 +1,18 @@
-// Email notification engine — transactional outbox with a development adapter.
-// Every notification is persisted FIRST (outbox row), then "sent" by the dev
-// adapter (marks SENT and renders the template). If a recipient email is blank
-// (branch/central emails are blank by design until FitClass provides them),
-// the row is marked SKIPPED with the reason and nothing crashes.
-// Production replaces the adapter with a real provider via EMAIL_PROVIDER_API_KEY.
+// Email notification engine — transactional outbox + SMTP delivery.
+// Every notification is persisted FIRST (outbox row), then delivered through
+// the Gmail SMTP account configured in SMTP_USER / SMTP_PASS (src/lib/smtp.ts).
+// Delivery never throws: the row ends up SENT, FAILED (with the reason) or
+// SKIPPED, and the complaint itself is never affected by an email problem.
+//
+// - Central support mail goes to the "central_support_email" setting, falling
+//   back to the sending mailbox (SMTP_USER) while that setting is blank.
+// - Without SMTP credentials (local dev / tests) nothing leaves the machine:
+//   rows are marked SENT with a note, exactly like the old dev adapter.
 
-import { db } from "@/lib/db";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { db, onCloudflare } from "@/lib/db";
+import { getSmtpConfig, sendMail } from "@/lib/smtp";
+import { sendEmail } from "@/lib/email";
 import { getSettings } from "@/lib/settings";
 import { STATUS_LABELS } from "@/lib/types";
 
@@ -90,7 +97,9 @@ Description: ${v.description || ""}
       if (recipientKind === "CUSTOMER") {
         return `Dear ${customer},
 
-We sincerely apologize for the inconvenience you have experienced. Your complaint has been successfully registered with FitClass. Our support team will review your concern and work towards resolving it as soon as possible.
+We sincerely apologize for the inconvenience you have experienced. Your complaint has been registered with FitClass and we are working on your request.
+
+Your request number is ${tn}. Please keep it for future reference.
 
 ${ticketSummary}
 
@@ -102,7 +111,7 @@ Thank you for your patience.
 
 — FitClass Support Team`;
       }
-      return `A new complaint has been registered.
+      return `A new complaint has been raised. Ticket number: ${tn}
 
 ${ticketSummary}
 
@@ -218,10 +227,12 @@ export async function queueNotification(input: NotificationInput): Promise<void>
         recipientEmail = v.customerEmail || "";
         break;
       case "CENTRAL_SUPPORT":
-        recipientEmail = (settings.central_support_email || "").trim();
-        if (!recipientEmail) {
-          skipReason = "Central support email not configured yet (left blank by FitClass).";
-        }
+        // Central support alert inbox (falls back to SUPPORT_NOTIFICATION_EMAIL or nitin98175@gmail.com)
+        recipientEmail =
+          (settings.central_support_email || "").trim() ||
+          process.env.SUPPORT_NOTIFICATION_EMAIL?.trim() ||
+          (getSmtpConfig()?.user ?? "") ||
+          "nitin98175@gmail.com";
         break;
       case "BRANCH":
         recipientEmail = v.branchEmail || "";
@@ -269,31 +280,70 @@ export async function queueNotification(input: NotificationInput): Promise<void>
     },
   });
 
-  if (!skipReason) {
-    await devSend(row.id);
+  if (skipReason) return;
+
+  const delivery = deliver(row);
+  if (onCloudflare) {
+    // Finish sending after the HTTP response so the customer is not kept waiting.
+    try {
+      getCloudflareContext().ctx.waitUntil(delivery);
+      return;
+    } catch {
+      // No request context (should not happen) — fall through and wait inline.
+    }
   }
+  await delivery;
 }
 
-/**
- * Development email adapter: renders + marks the outbox row as SENT.
- * No real email ever leaves the sandbox. Replace this single function with
- * a provider call (SendGrid/SES/SMTP) when production credentials exist.
- */
-async function devSend(notificationId: string): Promise<void> {
-  // Simulate delivery latency; idempotent and failure-safe.
+// Seed/demo accounts use these domains; mailing them would only produce bounces.
+const PLACEHOLDER_DOMAINS = ["example.com", "example.org", "example.net", "fitclass.dev"];
+
+function isPlaceholderAddress(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase() || "";
+  return PLACEHOLDER_DOMAINS.includes(domain);
+}
+
+/** Delivers one outbox row and records the outcome. Never throws. */
+async function deliver(row: { id: string; recipientEmail: string; subject: string; body: string }): Promise<void> {
+  const mark = (data: { status: string; lastError: string; sentAt?: Date }) =>
+    db.notification.update({ where: { id: row.id }, data: { ...data, attempts: { increment: 1 } } });
+
   try {
-    await db.notification.update({
-      where: { id: notificationId },
-      data: { status: "SENT", attempts: { increment: 1 }, sentAt: new Date() },
+    if (isPlaceholderAddress(row.recipientEmail)) {
+      await mark({ status: "SKIPPED", lastError: "Placeholder (demo) email address — not delivered." });
+      return;
+    }
+
+    // Attempt delivery via universal email module (Resend or Nodemailer SMTP)
+    const res = await sendEmail({
+      to: row.recipientEmail,
+      subject: row.subject,
+      text: row.body,
+    });
+
+    if (res.success && !res.simulated) {
+      await mark({ status: "SENT", sentAt: new Date(), lastError: "" });
+      return;
+    }
+
+    // Try custom TLS / socket SMTP if configured
+    const smtp = getSmtpConfig();
+    if (smtp) {
+      await sendMail({ to: row.recipientEmail, subject: row.subject, text: row.body }, smtp);
+      await mark({ status: "SENT", sentAt: new Date(), lastError: "" });
+      return;
+    }
+
+    // If simulated (credentials not provided yet)
+    await mark({
+      status: "SENT",
+      sentAt: new Date(),
+      lastError: "Real delivery simulated (configure SMTP_USER & SMTP_PASS in .env for live dispatch).",
     });
   } catch (err) {
-    await db.notification
-      .update({
-        where: { id: notificationId },
-        data: { status: "FAILED", attempts: { increment: 1 }, lastError: "Dev adapter delivery error" },
-      })
-      .catch(() => undefined);
-    console.error("[fcms] notification delivery failed:", err);
+    const reason = err instanceof Error ? err.message : "Unknown delivery error";
+    console.error("[fcms] notification delivery failed:", reason);
+    await mark({ status: "FAILED", lastError: reason.slice(0, 500) }).catch(() => undefined);
   }
 }
 
@@ -307,8 +357,5 @@ export async function retryNotification(notificationId: string): Promise<void> {
     });
     return;
   }
-  await db.notification.update({
-    where: { id: notificationId },
-    data: { status: "SENT", attempts: { increment: 1 }, sentAt: new Date(), lastError: "" },
-  });
+  await deliver(row);
 }

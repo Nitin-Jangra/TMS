@@ -37,6 +37,9 @@
   ],
   // Server-side env vars. Secrets (SESSION_SECRET) are added with:
   //   wrangler secret put SESSION_SECRET
+  // Real email delivery (Gmail SMTP, see src/lib/smtp.ts) needs two secrets:
+  //   wrangler secret put SMTP_USER   (the Gmail address that sends the mail)
+  //   wrangler secret put SMTP_PASS   (a Google App Password for that account)
   "vars": {
     // Workers isolates are ephemeral — no in-process background timers.
     // Trigger the closure/assignment sweeps with the Root Admin panel

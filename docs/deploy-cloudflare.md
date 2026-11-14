@@ -300,8 +300,9 @@ When this graduates from a test host to production:
 
 1. **Database:** keep D1 (it scales with Workers) or move to Supabase PostgreSQL with the
    Supabase path in `docs/deployment-guide.md`; the Prisma schema is portable to both.
-2. **Real emails:** swap the outbox writer in `src/lib/notifications.ts` to Resend/SES and drain
-   `Notification` rows from the sweep endpoint.
+2. **Real emails:** set the `SMTP_USER` + `SMTP_PASS` secrets (Gmail address + Google App Password,
+   `wrangler secret put ...`). Central support mail goes to that same mailbox until
+   `Root Admin → System Settings → central support email` is filled in.
 3. **API keys:** stop storing plaintext `apiKey` (production mode stores hash only) and rotate the
    dev key from Root Admin → API Keys.
 4. **Custom domain:** Workers → your worker → Domains & Routes → add `support.fitclass.in`
