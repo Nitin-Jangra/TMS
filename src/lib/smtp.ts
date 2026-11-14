@@ -38,7 +38,7 @@ export function getSmtpConfig(): SmtpConfig | null {
     port: Number(process.env.SMTP_PORT) || 465,
     user,
     pass,
-    fromName: (process.env.SMTP_FROM_NAME || "FitClass Support").trim(),
+    fromName: (process.env.SMTP_FROM_NAME || "MSquare Professionals Support").trim(),
   };
 }
 
@@ -203,7 +203,7 @@ async function converse(transport: Transport, config: SmtpConfig, message: MailM
   const from = assertAddress(config.user);
 
   await expect([220], "greeting");
-  await send("EHLO fitclass-support");
+  await send("EHLO msquare-support");
   await expect([250], "EHLO");
   await send(`AUTH PLAIN ${base64(`\u0000${config.user}\u0000${config.pass}`)}`);
   await expect([235], "login (check SMTP_USER and the App Password in SMTP_PASS)");

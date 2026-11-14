@@ -5,12 +5,12 @@ import { NextResponse } from "next/server";
 const spec = {
   openapi: "3.0.3",
   info: {
-    title: "FitClass Complaint Management System API",
+    title: "MSquare Professionals Complaint Management System API",
     version: "1.0.0",
     description:
-      "Complete REST API for the FitClass Complaint Management System (FC-CMS). " +
-      "Public endpoints power the customer portal; staff endpoints use session cookies; " +
-      "integration endpoints authenticate with an x-api-key header for CRM and LMS systems.",
+      "Complete REST API for the MSquare Professionals Complaint Management System (MSP-CMS). " +
+      "Public endpoints power the client portal; staff endpoints use session cookies; " +
+      "integration endpoints authenticate with an x-api-key header for external CRM and ERP systems.",
   },
   servers: [{ url: "/api/v1" }],
   tags: [

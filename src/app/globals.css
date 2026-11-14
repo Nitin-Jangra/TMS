@@ -45,74 +45,83 @@
 
 :root {
   --radius: 0.625rem;
-  /* FitClass brand: navy blue + white + subtle blue accents (light theme) */
+  /* MSquare Professionals Light Theme */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #0a2350;
+  --primary: #ff6b00;
   --primary-foreground: #ffffff;
-  --secondary: #eef2f7;
-  --secondary-foreground: #0a2350;
+  --brand-orange: #ff6b00;
+  --brand-orange-hover: #ea580c;
+  --brand-blue: #2563eb;
+  --brand-blue-hover: #1d4ed8;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
-  --muted-foreground: #5b6b80;
-  --accent: #eaf1fb;
-  --accent-foreground: #0a2350;
+  --muted-foreground: #64748b;
+  --accent: #fff7ed;
+  --accent-foreground: #ea580c;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #cbd5e1;
-  --ring: #2c6bdf;
-  --chart-1: #2c6bdf;
-  --chart-2: #0a2350;
+  --ring: #ff6b00;
+  --chart-1: #ff6b00;
+  --chart-2: #2563eb;
   --chart-3: #64748b;
   --chart-4: #10b981;
   --chart-5: #f59e0b;
-  --sidebar: #0a2350;
-  --sidebar-foreground: #d7e3f4;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #0a2350;
-  --sidebar-accent: #12306b;
+  --sidebar: #0c0c10;
+  --sidebar-foreground: #f4f4f7;
+  --sidebar-primary: #ff6b00;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #171722;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #12306b;
-  --sidebar-ring: #2c6bdf;
+  --sidebar-border: #ffffff14;
+  --sidebar-ring: #ff6b00;
 }
 
 .dark {
-  --background: #0b1220;
-  --foreground: #e6edf6;
-  --card: #101a2e;
-  --card-foreground: #e6edf6;
-  --popover: #101a2e;
-  --popover-foreground: #e6edf6;
-  --primary: #3f7ae0;
+  /* MSquare Professionals Dark Mode (matches msquareprofessionals.com) */
+  --background: #0c0c10;
+  --foreground: #f4f4f7;
+  --card: #13131a;
+  --card-foreground: #f4f4f7;
+  --popover: #13131a;
+  --popover-foreground: #f4f4f7;
+  --primary: #ff6b00;
   --primary-foreground: #ffffff;
-  --secondary: #1a2740;
-  --secondary-foreground: #e6edf6;
-  --muted: #16223a;
-  --muted-foreground: #94a7c0;
-  --accent: #1a2740;
-  --accent-foreground: #e6edf6;
+  --brand-orange: #ff6b00;
+  --brand-orange-hover: #ff7d1a;
+  --brand-blue: #3b82f6;
+  --brand-blue-hover: #60a5fa;
+  --secondary: #171722;
+  --secondary-foreground: #f4f4f7;
+  --muted: #1a1a24;
+  --muted-foreground: #a1a1aa;
+  --accent: #23160c;
+  --accent-foreground: #ff6b00;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #1f2c47;
-  --input: #2a3a5c;
-  --ring: #3f7ae0;
-  --chart-1: #3f7ae0;
-  --chart-2: #7fa7f0;
-  --chart-3: #64748b;
+  --border: #ffffff14;
+  --input: #171722;
+  --ring: #ff6b00;
+  --chart-1: #ff6b00;
+  --chart-2: #3b82f6;
+  --chart-3: #a1a1aa;
   --chart-4: #34d399;
   --chart-5: #fbbf24;
-  --sidebar: #0a1428;
-  --sidebar-foreground: #c6d6ec;
-  --sidebar-primary: #3f7ae0;
+  --sidebar: #0c0c10;
+  --sidebar-foreground: #f4f4f7;
+  --sidebar-primary: #ff6b00;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #14213a;
-  --sidebar-accent-foreground: #e6edf6;
-  --sidebar-border: #1f2c47;
-  --sidebar-ring: #3f7ae0;
+  --sidebar-accent: #171722;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #ffffff14;
+  --sidebar-ring: #ff6b00;
 }
 
 @layer base {
@@ -124,24 +133,30 @@
   }
 }
 
-/* FitClass brand helpers */
+/* MSquare Professionals Brand Elements */
 .brand-gradient {
-  background: linear-gradient(135deg, #0a2350 0%, #10306b 55%, #1c4297 100%);
+  background: linear-gradient(135deg, #0c0c10 0%, #13131a 55%, #1c1c28 100%);
 }
 .brand-subtle {
-  background: linear-gradient(180deg, #f2f6fc 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
 }
 .brand-ring {
-  box-shadow: 0 1px 2px rgba(10, 35, 80, 0.06), 0 8px 24px rgba(10, 35, 80, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+}
+.msq-glow-orange {
+  box-shadow: 0 4px 18px rgba(255, 107, 0, 0.35);
+}
+.msq-glow-orange-lg {
+  box-shadow: 0 6px 24px rgba(255, 107, 0, 0.55);
 }
 
-/* Thin styled scrollbars for long lists */
+/* Thin styled scrollbars */
 .thin-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .thin-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #3f3f46;
   border-radius: 8px;
 }
 .thin-scroll::-webkit-scrollbar-track {

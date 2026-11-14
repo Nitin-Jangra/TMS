@@ -105,120 +105,170 @@ export default function ComplaintPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#ff6b00]/30 selection:text-white">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
-        <div className="brand-ring rounded-xl border border-slate-200 bg-white p-6">
-          <h1 className="text-xl font-bold text-[#0a2350]">Register a complaint</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            All fields are mandatory unless marked optional. You will receive a ticket number
-            like <span className="font-mono text-xs text-slate-600">FC-2026-000123</span> right away.
-          </p>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:py-12">
+        <div className="rounded-2xl border border-[#ffffff14] bg-[#13131a] p-7 shadow-2xl sm:p-9">
+          <div className="mb-6">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,107,0,0.3)] bg-[rgba(255,107,0,0.08)] px-3 py-1 text-xs font-bold text-[#ff6b00]">
+              MSquare Client Resolution
+            </span>
+            <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Register a Complaint</h1>
+            <p className="mt-1.5 text-xs text-[#a1a1aa] sm:text-sm">
+              All fields are required unless marked optional. You will receive an official ticket number
+              like <span className="font-mono font-bold text-[#ff6b00]">MSP-2026-000123</span> immediately with automated email alerts.
+            </p>
+          </div>
 
           {topError ? (
-            <Alert variant="destructive" className="mt-4">
+            <Alert variant="destructive" className="mb-6 border-red-500/30 bg-red-950/40 text-red-200">
               <AlertCircle className="h-4 w-4" aria-hidden />
-              <AlertDescription>{topError}</AlertDescription>
+              <AlertDescription className="text-xs">{topError}</AlertDescription>
             </Alert>
           ) : null}
 
-          <form className="mt-5 space-y-4" onSubmit={onSubmit} noValidate>
+          <form className="space-y-5" onSubmit={onSubmit} noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="customerName">Customer Name</Label>
-                <Input id="customerName" value={form.customerName} onChange={(e) => set("customerName", e.target.value)} placeholder="e.g. Rahul Khanna" aria-invalid={!!errors.customerName} />
-                {errors.customerName ? <p className="text-xs text-red-600">{errors.customerName}</p> : null}
+                <Label htmlFor="customerName" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Your Full Name</Label>
+                <Input
+                  id="customerName"
+                  value={form.customerName}
+                  onChange={(e) => set("customerName", e.target.value)}
+                  placeholder="e.g. Rahul Khanna"
+                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                  aria-invalid={!!errors.customerName}
+                />
+                {errors.customerName ? <p className="text-xs text-red-400">{errors.customerName}</p> : null}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="customerPhone">Mobile Number</Label>
-                <Input id="customerPhone" inputMode="tel" value={form.customerPhone} onChange={(e) => set("customerPhone", e.target.value)} placeholder="10-digit mobile number" aria-invalid={!!errors.customerPhone} />
-                {errors.customerPhone ? <p className="text-xs text-red-600">{errors.customerPhone}</p> : null}
+                <Label htmlFor="customerPhone" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Mobile Number</Label>
+                <Input
+                  id="customerPhone"
+                  inputMode="tel"
+                  value={form.customerPhone}
+                  onChange={(e) => set("customerPhone", e.target.value)}
+                  placeholder="10-digit mobile number"
+                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                  aria-invalid={!!errors.customerPhone}
+                />
+                {errors.customerPhone ? <p className="text-xs text-red-400">{errors.customerPhone}</p> : null}
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="customerEmail">Email Address</Label>
-              <Input id="customerEmail" type="email" value={form.customerEmail} onChange={(e) => set("customerEmail", e.target.value)} placeholder="you@example.com" aria-invalid={!!errors.customerEmail} />
-              {errors.customerEmail ? <p className="text-xs text-red-600">{errors.customerEmail}</p> : null}
+              <Label htmlFor="customerEmail" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Email Address (for resolution alerts)</Label>
+              <Input
+                id="customerEmail"
+                type="email"
+                value={form.customerEmail}
+                onChange={(e) => set("customerEmail", e.target.value)}
+                placeholder="you@example.com"
+                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                aria-invalid={!!errors.customerEmail}
+              />
+              {errors.customerEmail ? <p className="text-xs text-red-400">{errors.customerEmail}</p> : null}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Branch</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Branch / Location</Label>
                 {branches === null ? (
-                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-11 w-full rounded-xl bg-[#171722]" />
                 ) : (
                   <Select value={form.branchId} onValueChange={(v) => set("branchId", v)}>
-                    <SelectTrigger aria-label="Select branch" aria-invalid={!!errors.branchId}>
+                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#ff6b00]" aria-label="Select branch" aria-invalid={!!errors.branchId}>
                       <SelectValue placeholder="Select your branch" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="border-[#ffffff1f] bg-[#13131a] text-[#f4f4f7]">
                       {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
+                        <SelectItem key={b.id} value={b.id} className="focus:bg-[#1c1c28] focus:text-[#ff6b00]">
                           {b.name} {b.city ? `(${b.city})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
-                {errors.branchId ? <p className="text-xs text-red-600">{errors.branchId}</p> : null}
+                {errors.branchId ? <p className="text-xs text-red-400">{errors.branchId}</p> : null}
               </div>
               <div className="space-y-1.5">
-                <Label>Complaint Category</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Complaint Category</Label>
                 {categories === null ? (
-                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-11 w-full rounded-xl bg-[#171722]" />
                 ) : (
                   <Select value={form.categoryId} onValueChange={(v) => set("categoryId", v)}>
-                    <SelectTrigger aria-label="Select complaint category" aria-invalid={!!errors.categoryId}>
+                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#ff6b00]" aria-label="Select complaint category" aria-invalid={!!errors.categoryId}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="border-[#ffffff1f] bg-[#13131a] text-[#f4f4f7]">
                       {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={c.id} className="focus:bg-[#1c1c28] focus:text-[#ff6b00]">{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
-                {errors.categoryId ? <p className="text-xs text-red-600">{errors.categoryId}</p> : null}
+                {errors.categoryId ? <p className="text-xs text-red-400">{errors.categoryId}</p> : null}
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="description">Complaint Description</Label>
-              <Textarea id="description" rows={5} value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Tell us what happened, when and where. Include any relevant details." aria-invalid={!!errors.description} />
-              {errors.description ? <p className="text-xs text-red-600">{errors.description}</p> : null}
+              <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Complaint Description</Label>
+              <Textarea
+                id="description"
+                rows={5}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="Tell us what happened, when and where. Include any relevant details..."
+                className="rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                aria-invalid={!!errors.description}
+              />
+              {errors.description ? <p className="text-xs text-red-400">{errors.description}</p> : null}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="attachment" className="flex items-center gap-1.5">
-                <Paperclip className="h-3.5 w-3.5 text-slate-400" aria-hidden />
-                Attachment <span className="font-normal text-slate-400">(optional)</span>
+              <Label htmlFor="attachment" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">
+                <Paperclip className="h-3.5 w-3.5 text-[#ff6b00]" aria-hidden />
+                Attachment <span className="font-normal lowercase text-[#71717a]">(optional)</span>
               </Label>
-              <Input id="attachment" ref={attachmentRef} type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs file:font-medium" />
-              <p className="text-xs text-slate-400">Images (png/jpg/webp) or PDF, up to 10 MB.</p>
+              <Input
+                id="attachment"
+                ref={attachmentRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,application/pdf"
+                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-xs text-[#a1a1aa] file:mr-3 file:rounded-lg file:border-0 file:bg-[#252538] file:px-3 file:py-1 file:text-xs file:font-semibold file:text-[#f4f4f7]"
+              />
+              <p className="text-[11px] text-[#71717a]">Images (png/jpg/webp) or PDF, up to 10 MB.</p>
             </div>
 
-            <div className="rounded-lg bg-slate-50 p-3">
-              <label className="flex items-start gap-2.5 text-sm" htmlFor="privacyConsent">
+            <div className="rounded-xl border border-[#ffffff14] bg-[#171722] p-4">
+              <label className="flex items-start gap-3 text-xs leading-relaxed text-[#d4d4d8] cursor-pointer" htmlFor="privacyConsent">
                 <Checkbox
                   id="privacyConsent"
                   checked={form.privacyConsent}
                   onCheckedChange={(v) => set("privacyConsent", v === true)}
-                  className="mt-0.5"
+                  className="mt-0.5 border-[#ffffff33] data-[state=checked]:bg-[#ff6b00] data-[state=checked]:border-[#ff6b00]"
                 />
-                <span className="leading-relaxed text-slate-600">
-                  I consent to Msquare Professionals storing and using these details to investigate and resolve my
-                  complaint. I understand my mobile number will be used to verify tracking access.
+                <span>
+                  I consent to MSquare Professionals storing and using these details to investigate and resolve my
+                  complaint. I understand my mobile number and email will be used to verify tracking access and send status updates.
                 </span>
               </label>
-              {errors.privacyConsent ? <p className="mt-1.5 pl-8 text-xs text-red-600">{errors.privacyConsent}</p> : null}
+              {errors.privacyConsent ? <p className="mt-2 pl-7 text-xs text-red-400">{errors.privacyConsent}</p> : null}
             </div>
 
-            <Button type="submit" disabled={submitting} className="w-full bg-[#0a2350] hover:bg-[#10306b] sm:w-auto">
+            <Button
+              type="submit"
+              disabled={submitting}
+              style={{
+                background: "linear-gradient(135deg, #ff6b00, #ff7d1a)",
+                boxShadow: "0 4px 18px rgba(255, 107, 0, 0.4)",
+              }}
+              className="h-12 w-full rounded-xl border-none text-sm font-extrabold tracking-wide text-white transition hover:brightness-110 active:scale-[0.99] sm:w-auto sm:px-8"
+            >
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  Registering...
+                  Registering Ticket...
                 </>
               ) : (
                 <>

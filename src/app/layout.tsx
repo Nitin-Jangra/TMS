@@ -14,11 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Msquare Professionals — Client Care & Complaint Management",
+  title: "MSquare Professionals — Client Care & Resolution Portal",
   description:
-    "Msquare Professionals Client Care Portal: register complaints, track resolution status, and manage branch-wise support operations with SLA tracking.",
+    "MSquare Professionals Client Care Portal: register complaints, track live resolution status, and manage operations with real-time SLA tracking.",
   icons: {
-    icon: "/logo.svg",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/logo.png",
   },
 };
 

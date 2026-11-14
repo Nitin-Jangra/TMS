@@ -72,7 +72,7 @@ export default function MailboxPage() {
           <h1 className="text-xl font-bold text-[#0a2350]">Notification mailbox</h1>
           <p className="mt-0.5 text-sm text-slate-500">
             {total} notifications in the transactional outbox. SKIPPED rows are branch/central emails waiting
-            for FitClass to configure the mailbox addresses.
+            for MSquare Professionals to configure the mailbox addresses.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={load}><RefreshCcw className="mr-2 h-3.5 w-3.5" aria-hidden />Refresh</Button>

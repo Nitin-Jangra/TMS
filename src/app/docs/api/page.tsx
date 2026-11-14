@@ -91,48 +91,48 @@ curl -X POST -H "x-api-key: $FC_CMS_KEY" -H "content-type: application/json" \\
 
 export default function ApiDocsPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#ff6b00]/30 selection:text-white">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
         <div className="mb-6">
-          <h1 className="text-xl font-bold text-[#0a2350]">FitClass CMS — REST API v1</h1>
-          <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-500">
-            The complete system is accessible over its REST API so the FitClass CRM and LMS can consume
-            complaint data, create complaints on behalf of members, and pull assignment/statistics without
+          <h1 className="text-2xl font-extrabold text-white">MSquare Professionals CMS — REST API v1</h1>
+          <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-[#a1a1aa]">
+            The complete system is accessible over its REST API so external CRM and business systems can consume
+            complaint data, create complaints on behalf of clients, and pull assignment/statistics without
             touching the dashboard. All endpoints return a consistent envelope:
-            <span className="font-mono text-xs"> {`{ success, data | error, correlationId }`}</span>.
+            <span className="font-mono text-xs text-[#ff6b00]"> {`{ success, data | error, correlationId }`}</span>.
           </p>
         </div>
 
         {GROUPS.map((g) => (
-          <section key={g.title} className="brand-ring mb-5 rounded-xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-100 p-4">
-              <h2 className="text-sm font-semibold text-[#0a2350]">{g.title}</h2>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">{g.note}</p>
+          <section key={g.title} className="mb-5 rounded-2xl border border-[#ffffff14] bg-[#13131a] shadow-lg">
+            <div className="border-b border-[#ffffff14] p-4">
+              <h2 className="text-sm font-bold text-white">{g.title}</h2>
+              <p className="mt-1 text-xs leading-relaxed text-[#a1a1aa]">{g.note}</p>
             </div>
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-[#ffffff0d]">
               {g.rows.map((r) => (
                 <li key={`${r.method}-${r.path}`} className="flex flex-col gap-1 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-3">
                   <span className={`w-14 shrink-0 rounded px-2 py-0.5 text-center text-[11px] font-bold ${METHOD_CLS[r.method]}`}>{r.method}</span>
-                  <code className="min-w-0 flex-1 break-all font-mono text-xs text-[#0a2350]">{r.path}</code>
-                  <span className="text-xs text-slate-500 sm:max-w-[46%]">{r.desc}</span>
+                  <code className="min-w-0 flex-1 break-all font-mono text-xs text-[#ff6b00]">{r.path}</code>
+                  <span className="text-xs text-[#a1a1aa] sm:max-w-[46%]">{r.desc}</span>
                 </li>
               ))}
             </ul>
           </section>
         ))}
 
-        <section className="brand-ring mb-5 rounded-xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 p-4">
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-[#0a2350]">
-              <KeyRound className="h-4 w-4 text-[#2c6bdf]" aria-hidden />Quickstart (development key)
+        <section className="mb-5 rounded-2xl border border-[#ffffff14] bg-[#13131a] shadow-lg">
+          <div className="border-b border-[#ffffff14] p-4">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-white">
+              <KeyRound className="h-4 w-4 text-[#ff6b00]" aria-hidden />Quickstart (development key)
             </h2>
           </div>
-          <pre className="thin-scroll overflow-x-auto p-4 font-mono text-[12px] leading-relaxed text-slate-700">{SAMPLE}</pre>
+          <pre className="thin-scroll overflow-x-auto p-4 font-mono text-[12px] leading-relaxed text-[#a1a1aa]">{SAMPLE}</pre>
         </section>
 
-        <Link href="/" className="inline-flex items-center text-sm text-[#2c6bdf] hover:underline">
-          <ArrowLeft className="mr-1.5 h-4 w-4" aria-hidden />Back to support portal
+        <Link href="/" className="inline-flex items-center text-sm font-semibold text-[#ff6b00] hover:underline">
+          <ArrowLeft className="mr-1.5 h-4 w-4" aria-hidden />Back to client portal
         </Link>
       </main>
       <SiteFooter />

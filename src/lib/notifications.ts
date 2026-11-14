@@ -237,7 +237,7 @@ export async function queueNotification(input: NotificationInput): Promise<void>
       case "BRANCH":
         recipientEmail = v.branchEmail || "";
         if (!recipientEmail) {
-          skipReason = "Branch notification email not configured yet (left blank by FitClass).";
+          skipReason = "Branch notification email not configured yet (left blank by MSquare Professionals).";
         }
         break;
       case "ASSIGNEE":
