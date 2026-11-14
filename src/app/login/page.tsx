@@ -1,6 +1,6 @@
-// Forwarder: redirects /login to the separate dedicated staff portal at /staff/login
+// Legacy login route forwarder -> /staff-login
 import { redirect } from "next/navigation";
 
-export default function LoginPageRedirect() {
-  redirect("/staff/login");
+export default function LoginRedirect() {
+  redirect("/staff-login");
 }

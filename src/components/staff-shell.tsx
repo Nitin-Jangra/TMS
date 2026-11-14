@@ -42,7 +42,7 @@ export default async function StaffShell({
   area: "staff" | "admin";
 }) {
   const user = await getSessionUser();
-  if (!user) redirect("/staff/login");
+  if (!user) redirect("/staff-login");
 
   const nav = area === "admin" ? ADMIN_NAV : STAFF_NAV;
   const visible = nav.filter((item) => item.roles.includes(user.role));

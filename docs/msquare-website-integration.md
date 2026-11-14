@@ -56,9 +56,9 @@ Embed the self-contained button widget into any section of your site:
 
 Internal staff and administrators do **not** use the public client pages. They have their own dedicated, secure URL:
 
-### **Dedicated Staff URL: `https://<your-domain>/staff/login`**
+### **Dedicated Staff URL: `https://<your-domain>/staff-login`**
 
-- **URL:** `/staff/login`
+- **URL:** `/staff-login` (or `/portal`)
 - **Authorized Roles:**
   - `ROOT_ADMIN` ➔ Access to Master Admin Panel (`/admin`), System Settings, Audit Logs, API Keys, and Mailbox.
   - `CENTRAL_ADMIN` ➔ Central Operations Oversight.

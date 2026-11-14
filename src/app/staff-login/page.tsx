@@ -76,7 +76,7 @@ export default function StaffLoginPage() {
             <Image src="/logo.svg" alt="Msquare logo" width={32} height={32} className="rounded-md" />
             <div>
               <p className="text-sm font-bold tracking-tight text-white">Msquare Professionals</p>
-              <p className="text-[11px] font-medium text-[#72bdd0]">Staff & Administrative Workspace</p>
+              <p className="text-[11px] font-medium text-[#72bdd0]">Staff & Operations Portal</p>
             </div>
           </div>
           <Link
@@ -178,7 +178,7 @@ export default function StaffLoginPage() {
                 Authorized Staff Access
               </h2>
               <p className="mt-2 text-xs leading-relaxed text-blue-200">
-                This dashboard is strictly for Msquare Professionals support engineers, branch managers, and system administrators.
+                This dashboard is strictly for Msquare Professionals operations personnel, branch managers, and system administrators.
               </p>
 
               <ul className="mt-4 space-y-2 text-xs text-blue-100">
@@ -218,7 +218,7 @@ export default function StaffLoginPage() {
             ) : null}
 
             <p className="text-center text-xs text-blue-300/60 lg:text-left">
-              Direct Link: <code className="rounded bg-white/10 px-1.5 py-0.5 text-blue-200">/staff/login</code>
+              Staff URL: <code className="rounded bg-white/10 px-1.5 py-0.5 text-blue-200">/staff-login</code> or <code className="rounded bg-white/10 px-1.5 py-0.5 text-blue-200">/portal</code>
             </p>
           </div>
 
