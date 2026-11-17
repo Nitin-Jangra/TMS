@@ -1,6 +1,6 @@
 "use client";
 
-// Dedicated Staff & Administrative Login Portal for MSquare Professionals.
+// Dedicated Staff & Administrative Login Portal for FitClass.
 // This is an internal, private operations window for authorized personnel only.
 // There is zero client-facing customer portal access on this screen.
 
@@ -67,26 +67,23 @@ export default function StaffLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#ff6b00]/30 selection:text-white">
-      {/* Internal Staff Header — Pure Enterprise, No Customer Links */}
+    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#22618b]/30 selection:text-white">
+      {/* Internal Staff Header — No Customer Links */}
       <header className="border-b border-[#ffffff14] bg-[#13131a] px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="/logo.png"
-              alt="MSquare Professionals"
-              width={34}
-              height={34}
-              className="rounded-lg object-contain shadow-sm"
+              src="/fitclass-logo.webp"
+              alt="Fitclass - A Series of Luxury Gyms"
+              width={138}
+              height={36}
+              className="h-9 w-auto object-contain"
               priority
             />
-            <div>
-              <p className="text-sm font-extrabold tracking-tight text-white">MSQUARE PROFESSIONALS</p>
-              <p className="text-[11px] font-semibold text-[#ff6b00] tracking-wide">ENTERPRISE OPERATIONS & WORKSPACE</p>
-            </div>
+            <p className="hidden border-l border-[#ffffff1f] pl-3 text-[11px] font-semibold tracking-wide text-[#72bdd0] sm:block">STAFF OPERATIONS WORKSPACE</p>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-[#ffffff14] bg-[#171722] px-3 py-1 text-xs font-semibold text-[#a1a1aa]">
-            <Lock className="h-3 w-3 text-[#ff6b00]" />
+            <Lock className="h-3 w-3 text-[#72bdd0]" />
             Restricted Access
           </div>
         </div>
@@ -98,17 +95,17 @@ export default function StaffLoginPage() {
           
           {/* Staff Login Card */}
           <div className="lg:col-span-7">
-            <div className="rounded-2xl border border-[rgba(255,107,0,0.22)] bg-[#13131a] p-7 shadow-2xl backdrop-blur-md sm:p-9">
+            <div className="rounded-2xl border border-[rgba(114, 189, 208,0.22)] bg-[#13131a] p-7 shadow-2xl backdrop-blur-md sm:p-9">
               <div className="mb-7">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,107,0,0.3)] bg-[rgba(255,107,0,0.08)] px-3 py-1 text-xs font-bold text-[#ff6b00]">
-                  <KeyRound className="h-3.5 w-3.5 text-[#ff6b00]" />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(114, 189, 208,0.3)] bg-[rgba(114, 189, 208,0.08)] px-3 py-1 text-xs font-bold text-[#72bdd0]">
+                  <KeyRound className="h-3.5 w-3.5 text-[#72bdd0]" />
                   Internal Staff Authentication
                 </span>
                 <h1 className="mt-3.5 text-2xl font-extrabold tracking-tight text-[#f4f4f7] sm:text-3xl">
                   Staff Workspace Sign In
                 </h1>
                 <p className="mt-2 text-xs leading-relaxed text-[#a1a1aa]">
-                  Authorized personnel only. Please sign in with your corporate MSquare credentials to access ticket queues, branch assignments, and operations management.
+                  Authorized personnel only. Please sign in with your FitClass staff credentials to access ticket queues, branch assignments, and operations management.
                 </p>
               </div>
 
@@ -127,9 +124,9 @@ export default function StaffLoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@msquareprofessionals.com"
+                    placeholder="name@fitclass.in"
                     autoComplete="username"
-                    className="h-11 rounded-xl border-[#ffffff24] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] transition focus:border-[#ff6b00] focus:ring-2 focus:ring-[#ff6b00]/20"
+                    className="h-11 rounded-xl border-[#ffffff24] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] transition focus:border-[#72bdd0] focus:ring-2 focus:ring-[#72bdd0]/20"
                     required
                   />
                 </div>
@@ -142,7 +139,7 @@ export default function StaffLoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
                     autoComplete="current-password"
-                    className="h-11 rounded-xl border-[#ffffff24] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] transition focus:border-[#ff6b00] focus:ring-2 focus:ring-[#ff6b00]/20"
+                    className="h-11 rounded-xl border-[#ffffff24] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] transition focus:border-[#72bdd0] focus:ring-2 focus:ring-[#72bdd0]/20"
                     required
                   />
                 </div>
@@ -151,8 +148,8 @@ export default function StaffLoginPage() {
                   type="submit"
                   disabled={busy}
                   style={{
-                    background: "linear-gradient(135deg, #ff6b00, #ff7d1a)",
-                    boxShadow: "0 4px 16px rgba(255, 107, 0, 0.4)",
+                    background: "linear-gradient(135deg, #22618b, #1a4c6e)",
+                    boxShadow: "0 4px 16px rgba(114, 189, 208, 0.4)",
                   }}
                   className="mt-2 h-11 w-full rounded-xl border-none text-sm font-bold tracking-wide text-white transition hover:brightness-110 active:scale-[0.99]"
                 >
@@ -166,9 +163,9 @@ export default function StaffLoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowAccounts(!showAccounts)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#a1a1aa] transition hover:text-[#ff6b00]"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#a1a1aa] transition hover:text-[#72bdd0]"
                 >
-                  <Users className="h-3.5 w-3.5 text-[#ff6b00]" />
+                  <Users className="h-3.5 w-3.5 text-[#72bdd0]" />
                   {showAccounts ? "Hide Test Credentials" : "Quick Fill Demo Staff Accounts"}
                 </button>
               </div>
@@ -179,7 +176,7 @@ export default function StaffLoginPage() {
           <div className="flex flex-col justify-between space-y-6 lg:col-span-5">
             <div className="rounded-2xl border border-[#ffffff14] bg-[#13131a] p-6 shadow-xl">
               <h2 className="flex items-center gap-2.5 text-base font-bold text-white">
-                <ShieldAlert className="h-5 w-5 text-[#ff6b00]" />
+                <ShieldAlert className="h-5 w-5 text-[#72bdd0]" />
                 Internal System Notice
               </h2>
               <p className="mt-2 text-xs leading-relaxed text-[#a1a1aa]">
@@ -188,12 +185,12 @@ export default function StaffLoginPage() {
 
               <div className="mt-5 space-y-3">
                 <div className="flex items-start gap-2.5 text-xs text-[#d4d4d8]">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-[#ff6b00]" />
+                  <span className="mt-1 h-2 w-2 rounded-full bg-[#22618b]" />
                   <span><strong>Operations Role Routing:</strong> Ticket assignment queues route complaints strictly within assigned branch teams.</span>
                 </div>
                 <div className="flex items-start gap-2.5 text-xs text-[#d4d4d8]">
                   <span className="mt-1 h-2 w-2 rounded-full bg-[#3b82f6]" />
-                  <span><strong>SLA Accountability:</strong> Response deadlines and resolution checkpoints enforce client satisfaction.</span>
+                  <span><strong>SLA Accountability:</strong> Response deadlines and resolution checkpoints enforce member satisfaction.</span>
                 </div>
                 <div className="flex items-start gap-2.5 text-xs text-[#d4d4d8]">
                   <span className="mt-1 h-2 w-2 rounded-full bg-emerald-400" />
@@ -204,18 +201,18 @@ export default function StaffLoginPage() {
 
             {/* Test Accounts Collapsible Drawer */}
             {showAccounts ? (
-              <div className="max-h-72 overflow-y-auto rounded-2xl border border-[rgba(255,107,0,0.3)] bg-[#171722] p-4 thin-scroll shadow-inner">
-                <p className="mb-2.5 text-xs font-bold text-[#ff6b00]">Select an account to auto-fill:</p>
+              <div className="max-h-72 overflow-y-auto rounded-2xl border border-[rgba(114, 189, 208,0.3)] bg-[#171722] p-4 thin-scroll shadow-inner">
+                <p className="mb-2.5 text-xs font-bold text-[#72bdd0]">Select an account to auto-fill:</p>
                 <div className="space-y-1.5">
                   {TEST_ACCOUNTS.map((acc) => (
                     <button
                       key={acc.email}
                       type="button"
                       onClick={() => fill(acc)}
-                      className="w-full rounded-xl border border-transparent bg-[#13131a] p-2.5 text-left text-xs text-[#d4d4d8] transition hover:border-[#ff6b00]/40 hover:bg-[#1c1c28]"
+                      className="w-full rounded-xl border border-transparent bg-[#13131a] p-2.5 text-left text-xs text-[#d4d4d8] transition hover:border-[#72bdd0]/40 hover:bg-[#1c1c28]"
                     >
                       <p className="font-bold text-white">{acc.label}</p>
-                      <p className="font-mono text-[11px] text-[#ff6b00]">{acc.email}</p>
+                      <p className="font-mono text-[11px] text-[#72bdd0]">{acc.email}</p>
                     </button>
                   ))}
                 </div>
@@ -223,7 +220,7 @@ export default function StaffLoginPage() {
             ) : null}
 
             <p className="text-center text-xs text-[#71717a] lg:text-left">
-              Direct Staff Portal URL: <code className="rounded bg-[#171722] px-1.5 py-0.5 font-mono text-[#ff6b00]">/staff-login</code>
+              Direct Staff Portal URL: <code className="rounded bg-[#171722] px-1.5 py-0.5 font-mono text-[#72bdd0]">/staff-login</code>
             </p>
           </div>
 
@@ -231,7 +228,7 @@ export default function StaffLoginPage() {
       </main>
 
       <footer className="border-t border-[#ffffff14] bg-[#0c0c10] py-4 text-center text-xs text-[#71717a]">
-        © 2026 MSquare Professionals. All rights reserved. System operations strictly monitored.
+        © 2026 FitClass. All rights reserved. System operations strictly monitored.
       </footer>
     </div>
   );

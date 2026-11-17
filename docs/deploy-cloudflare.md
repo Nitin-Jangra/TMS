@@ -42,6 +42,7 @@ You don't need to write any of this; it is committed and validated:
 | `cloudflare/d1/0001_schema.sql` | Full DDL from `prisma/schema.prisma` |
 | `cloudflare/d1/0002_seed_data.sql` | All dummy data; test passwords re-hashed for the CPU budget |
 | `cloudflare/d1/0003_reset_data.sql` | Child-first wipe for clean re-seeding |
+| `cloudflare/d1/0004_fitclass_branches.sql` | The 34 real FitClass branches (from fitclass.in). Idempotent — apply after `0002`, re-apply any time |
 | `scripts/verify-cloudflare.sh` | 10-check hosted smoke test (login, scoping, API, lifecycle) |
 | `.github/workflows/deploy-cloudflare.yml` | Optional push-to-deploy via GitHub Actions |
 | package.json scripts | `cf:build`, `cf:preview`, `cf:deploy`, `d1:export` |
@@ -113,6 +114,7 @@ bun run d1:export
 # 2. Apply to the REMOTE D1 (schema once, then seed)
 bunx wrangler d1 execute fitclass --remote --file=cloudflare/d1/0001_schema.sql
 bunx wrangler d1 execute fitclass --remote --file=cloudflare/d1/0002_seed_data.sql
+bunx wrangler d1 execute fitclass --remote --file=cloudflare/d1/0004_fitclass_branches.sql
 ```
 
 Re-seed later (e.g. after changing seed data): `bun run d1:export`, then apply

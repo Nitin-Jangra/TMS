@@ -13,6 +13,7 @@
 import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
+import { emitWebhook } from "@/lib/webhooks";
 
 export class AssignmentError extends Error {}
 
@@ -132,7 +133,7 @@ export async function assignTicketRoundRobin(
       data: {
         ticketId,
         assignedToId: chosen.id,
-        assignedById: actor?.id ?? null,
+        assignedById: actor?.id || null,
         method,
         isCurrent: true,
         note: method === "ROUND_ROBIN" ? "Branch round-robin queue" : method === "RETRY" ? "Unassigned queue retry" : "Reopen re-assignment",
@@ -171,6 +172,7 @@ export async function assignTicketRoundRobin(
     recipientKind: "ASSIGNEE",
     variables: notificationVariables({ ticket: { ...ticket, assignee: { name: result.employee.name, email: employeeRecord?.email || "" } } }),
   });
+  await emitWebhook("ticket.assigned", ticketId, { method, assignedBy: actor?.name || "System" });
   return result.employee;
 }
 
@@ -210,7 +212,7 @@ export async function manuallyAssignTicket(
   await runInTransaction(async (tx) => {
     await tx.ticketAssignment.updateMany({ where: { ticketId, isCurrent: true }, data: { isCurrent: false } });
     await tx.ticketAssignment.create({
-      data: { ticketId, assignedToId: toEmployeeId, assignedById: actor.id, method: "MANUAL", isCurrent: true, note },
+      data: { ticketId, assignedToId: toEmployeeId, assignedById: actor.id || null, method: "MANUAL", isCurrent: true, note },
     });
     await tx.ticket.update({ where: { id: ticketId }, data: { assignedToId: toEmployeeId, assignedAt: new Date() } });
   });
@@ -228,8 +230,9 @@ export async function manuallyAssignTicket(
     ticketNumber: ticket.ticketNumber,
     event: "ASSIGNED",
     recipientKind: "ASSIGNEE",
-    variables: notificationVariables({ ...ticket, assignee: { name: employee.name, email: employee.email } }),
+    variables: notificationVariables({ ticket, assignee: { name: employee.name, email: employee.email } }),
   });
+  await emitWebhook("ticket.assigned", ticketId, { method: "MANUAL", assignedBy: actor.name, note });
 }
 
 /** Branch transfer (central support). Ticket is re-queued into the new branch. */
@@ -257,6 +260,8 @@ export async function transferTicketBranch(
     newValue: branch.name,
     details: "Branch transfer; ticket re-queued to the new branch round-robin queue.",
   });
+
+  await emitWebhook("ticket.transferred", ticketId, { fromBranchId: ticket.branchId, toBranch: branch.name, transferredBy: actor.name });
 
   const assigned = await assignTicketRoundRobin(ticketId, actor, "ROUND_ROBIN");
   if (!assigned) await notifyAssignmentFailed(ticketId);

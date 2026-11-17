@@ -2,13 +2,15 @@
 // Never used in production migrations: production synchronizes real branches
 // and employees from the FitClass CRM, and never copies dummy records.
 //
-// Staff profiles for login testing exist ONLY in 3 of the 4 branches
-// (Sector 48, Sector 49, Gurugram Central). Sohna Road intentionally has a
-// manager but NO support employees to demonstrate the unassigned-queue flow.
+// All 34 real FitClass branches are created (prisma/fitclass-branches.json).
+// Staff profiles for login testing exist ONLY in Sector 48, Sector 49 and
+// Sector 7. Sector 37C intentionally has a manager but NO support employees
+// to demonstrate the unassigned-queue flow.
 //
 // Run: bun prisma/seed.ts
 
 import { PrismaClient } from "@prisma/client";
+import fitclassBranches from "./fitclass-branches.json";
 import { scryptSync, randomBytes, createHmac, randomUUID } from "crypto";
 
 const db = new PrismaClient();
@@ -60,18 +62,19 @@ async function main() {
   ]);
 
   // ------------------------------------------------------------------ branches
-  const br48 = await db.branch.create({
-    data: { code: "BR001", name: "Sector 48", city: "Gurugram", address: "Golf Course Road, Sector 48, Gurugram", notificationEmail: "", createdAt: daysAgo(30) },
-  });
-  const br49 = await db.branch.create({
-    data: { code: "BR002", name: "Sector 49", city: "Gurugram", address: "Sohna Road, Sector 49, Gurugram", notificationEmail: "", createdAt: daysAgo(29) },
-  });
-  const brGC = await db.branch.create({
-    data: { code: "BR003", name: "Gurugram Central", city: "Gurugram", address: "MG Road, Gurugram Central", notificationEmail: "", createdAt: daysAgo(28) },
-  });
-  const brSR = await db.branch.create({
-    data: { code: "BR004", name: "Sohna Road", city: "Gurugram", address: "Sohna Road Extension, Gurugram", notificationEmail: "", createdAt: daysAgo(27) },
-  });
+  // The real FitClass branch list (prisma/fitclass-branches.json, from fitclass.in).
+  // Demo staff + tickets are attached to the first four of them.
+  const branchByCode = new Map<string, { id: string; name: string }>();
+  for (const [i, b] of fitclassBranches.entries()) {
+    const row = await db.branch.create({
+      data: { code: b.code, name: b.name, city: b.city, address: b.address, notificationEmail: "", createdAt: daysAgo(30, i) },
+    });
+    branchByCode.set(b.code, row);
+  }
+  const br48 = branchByCode.get("BR001")!; // Sector 48
+  const br49 = branchByCode.get("BR002")!; // Sector 49
+  const brGC = branchByCode.get("BR005")!; // Sector 7
+  const brSR = branchByCode.get("BR006")!; // Sector 37C — manager only, no support employees
 
   // ------------------------------------------------------------------ categories
   const categoryNames = [
@@ -167,7 +170,7 @@ async function main() {
   const apiKey = "fc_dev_crm_lms_2026_a1b2c3d4e5f6g7h8";
   await db.apiClient.create({
     data: {
-      name: "FitClass CRM Integration (dev)",
+      name: "FitClass LMS Integration (dev)",
       keyPrefix: apiKey.slice(0, 12),
       apiKey, // dev-mode: visible in Root Admin panel; production stores hash only
       apiKeyHash: hashApiKey(apiKey),

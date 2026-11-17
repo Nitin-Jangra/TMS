@@ -27,7 +27,7 @@ const STATUS_CLS: Record<string, string> = {
 const KIND_CLS: Record<string, string> = {
   CUSTOMER: "bg-blue-50 text-blue-700",
   BRANCH: "bg-purple-50 text-purple-700",
-  CENTRAL_SUPPORT: "bg-orange-50 text-orange-700",
+  CENTRAL_SUPPORT: "bg-sky-50 text-sky-700",
   ASSIGNEE: "bg-teal-50 text-teal-700",
   BRANCH_MANAGER: "bg-pink-50 text-pink-700",
 };
@@ -72,7 +72,7 @@ export default function MailboxPage() {
           <h1 className="text-xl font-bold text-[#0a2350]">Notification mailbox</h1>
           <p className="mt-0.5 text-sm text-slate-500">
             {total} notifications in the transactional outbox. SKIPPED rows are branch/central emails waiting
-            for MSquare Professionals to configure the mailbox addresses.
+            for FitClass to configure the mailbox addresses.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={load}><RefreshCcw className="mr-2 h-3.5 w-3.5" aria-hidden />Refresh</Button>

@@ -105,18 +105,18 @@ export default function ComplaintPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#ff6b00]/30 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#22618b]/30 selection:text-white">
       <SiteHeader />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:py-12">
         <div className="rounded-2xl border border-[#ffffff14] bg-[#13131a] p-7 shadow-2xl sm:p-9">
           <div className="mb-6">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,107,0,0.3)] bg-[rgba(255,107,0,0.08)] px-3 py-1 text-xs font-bold text-[#ff6b00]">
-              MSquare Client Resolution
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(114, 189, 208,0.3)] bg-[rgba(114, 189, 208,0.08)] px-3 py-1 text-xs font-bold text-[#72bdd0]">
+              FitClass Member Support
             </span>
             <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Register a Complaint</h1>
             <p className="mt-1.5 text-xs text-[#a1a1aa] sm:text-sm">
               All fields are required unless marked optional. You will receive an official ticket number
-              like <span className="font-mono font-bold text-[#ff6b00]">MSP-2026-000123</span> immediately with automated email alerts.
+              like <span className="font-mono font-bold text-[#72bdd0]">FC-2026-000123</span> immediately with automated email alerts.
             </p>
           </div>
 
@@ -136,7 +136,7 @@ export default function ComplaintPage() {
                   value={form.customerName}
                   onChange={(e) => set("customerName", e.target.value)}
                   placeholder="e.g. Rahul Khanna"
-                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
                   aria-invalid={!!errors.customerName}
                 />
                 {errors.customerName ? <p className="text-xs text-red-400">{errors.customerName}</p> : null}
@@ -149,7 +149,7 @@ export default function ComplaintPage() {
                   value={form.customerPhone}
                   onChange={(e) => set("customerPhone", e.target.value)}
                   placeholder="10-digit mobile number"
-                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
                   aria-invalid={!!errors.customerPhone}
                 />
                 {errors.customerPhone ? <p className="text-xs text-red-400">{errors.customerPhone}</p> : null}
@@ -164,7 +164,7 @@ export default function ComplaintPage() {
                 value={form.customerEmail}
                 onChange={(e) => set("customerEmail", e.target.value)}
                 placeholder="you@example.com"
-                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
                 aria-invalid={!!errors.customerEmail}
               />
               {errors.customerEmail ? <p className="text-xs text-red-400">{errors.customerEmail}</p> : null}
@@ -177,12 +177,12 @@ export default function ComplaintPage() {
                   <Skeleton className="h-11 w-full rounded-xl bg-[#171722]" />
                 ) : (
                   <Select value={form.branchId} onValueChange={(v) => set("branchId", v)}>
-                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#ff6b00]" aria-label="Select branch" aria-invalid={!!errors.branchId}>
+                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#72bdd0]" aria-label="Select branch" aria-invalid={!!errors.branchId}>
                       <SelectValue placeholder="Select your branch" />
                     </SelectTrigger>
                     <SelectContent className="border-[#ffffff1f] bg-[#13131a] text-[#f4f4f7]">
                       {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id} className="focus:bg-[#1c1c28] focus:text-[#ff6b00]">
+                        <SelectItem key={b.id} value={b.id} className="focus:bg-[#1c1c28] focus:text-[#72bdd0]">
                           {b.name} {b.city ? `(${b.city})` : ""}
                         </SelectItem>
                       ))}
@@ -197,12 +197,12 @@ export default function ComplaintPage() {
                   <Skeleton className="h-11 w-full rounded-xl bg-[#171722]" />
                 ) : (
                   <Select value={form.categoryId} onValueChange={(v) => set("categoryId", v)}>
-                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#ff6b00]" aria-label="Select complaint category" aria-invalid={!!errors.categoryId}>
+                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#72bdd0]" aria-label="Select complaint category" aria-invalid={!!errors.categoryId}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent className="border-[#ffffff1f] bg-[#13131a] text-[#f4f4f7]">
                       {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className="focus:bg-[#1c1c28] focus:text-[#ff6b00]">{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={c.id} className="focus:bg-[#1c1c28] focus:text-[#72bdd0]">{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -219,7 +219,7 @@ export default function ComplaintPage() {
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 placeholder="Tell us what happened, when and where. Include any relevant details..."
-                className="rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                className="rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
                 aria-invalid={!!errors.description}
               />
               {errors.description ? <p className="text-xs text-red-400">{errors.description}</p> : null}
@@ -227,7 +227,7 @@ export default function ComplaintPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="attachment" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">
-                <Paperclip className="h-3.5 w-3.5 text-[#ff6b00]" aria-hidden />
+                <Paperclip className="h-3.5 w-3.5 text-[#72bdd0]" aria-hidden />
                 Attachment <span className="font-normal lowercase text-[#71717a]">(optional)</span>
               </Label>
               <Input
@@ -246,10 +246,10 @@ export default function ComplaintPage() {
                   id="privacyConsent"
                   checked={form.privacyConsent}
                   onCheckedChange={(v) => set("privacyConsent", v === true)}
-                  className="mt-0.5 border-[#ffffff33] data-[state=checked]:bg-[#ff6b00] data-[state=checked]:border-[#ff6b00]"
+                  className="mt-0.5 border-[#ffffff33] data-[state=checked]:bg-[#22618b] data-[state=checked]:border-[#72bdd0]"
                 />
                 <span>
-                  I consent to MSquare Professionals storing and using these details to investigate and resolve my
+                  I consent to FitClass storing and using these details to investigate and resolve my
                   complaint. I understand my mobile number and email will be used to verify tracking access and send status updates.
                 </span>
               </label>
@@ -260,8 +260,8 @@ export default function ComplaintPage() {
               type="submit"
               disabled={submitting}
               style={{
-                background: "linear-gradient(135deg, #ff6b00, #ff7d1a)",
-                boxShadow: "0 4px 18px rgba(255, 107, 0, 0.4)",
+                background: "linear-gradient(135deg, #22618b, #1a4c6e)",
+                boxShadow: "0 4px 18px rgba(114, 189, 208, 0.4)",
               }}
               className="h-12 w-full rounded-xl border-none text-sm font-extrabold tracking-wide text-white transition hover:brightness-110 active:scale-[0.99] sm:w-auto sm:px-8"
             >

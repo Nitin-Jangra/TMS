@@ -62,7 +62,7 @@ export default function ApiKeysPage() {
       <Card>
         <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#0a2350]"><Plus className="h-4 w-4 text-[#2c6bdf]" aria-hidden />Create a key</CardTitle></CardHeader>
         <CardContent className="flex gap-2">
-          <Input placeholder="e.g. MSquare CRM Production" value={name} onChange={(e) => setName(e.target.value)} className="max-w-md" />
+          <Input placeholder="e.g. FitClass LMS Production" value={name} onChange={(e) => setName(e.target.value)} className="max-w-md" />
           <Button onClick={create} disabled={busy} className="bg-[#0a2350] hover:bg-[#10306b]">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <KeyRound className="mr-2 h-4 w-4" aria-hidden />}Create key
           </Button>

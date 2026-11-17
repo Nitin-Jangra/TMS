@@ -17,6 +17,8 @@ const ALLOWED_KEYS = [
   "notification_customer_enabled",
   "notification_branch_enabled",
   "notification_central_enabled",
+  "webhook_url",
+  "webhook_secret",
 ];
 
 export async function GET() {

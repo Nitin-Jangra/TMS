@@ -25,7 +25,7 @@ const ACTION_COLORS: Record<string, string> = {
   REOPENED: "bg-amber-50 text-amber-700",
   AUTO_CLOSED: "bg-slate-100 text-slate-600",
   ESCALATED: "bg-red-50 text-red-700",
-  CONFIG_CHANGED: "bg-orange-50 text-orange-700",
+  CONFIG_CHANGED: "bg-sky-50 text-sky-700",
   AUTH_FAILURE: "bg-red-50 text-red-700",
 };
 

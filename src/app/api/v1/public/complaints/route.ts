@@ -5,6 +5,7 @@
 import { fail, handleErrors, ok } from "@/lib/api-response";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { resolveBranch, resolveCategory } from "@/lib/integration";
 import { isValidEmail, isValidPhone } from "@/lib/types";
 import { createComplaint } from "@/lib/tickets";
 import { randomBytes } from "crypto";
@@ -42,41 +43,19 @@ export async function POST(request: Request) {
       return fail("VALIDATION_ERROR", Object.values(errors)[0], 422, errors);
     }
 
-    // Smart Branch Lookup: by ID, code (e.g. BR001), or name (e.g. Sector 48)
-    let branch: any = null;
-    if (rawBranch) {
-      branch = await db.branch.findFirst({
-        where: {
-          OR: [
-            { id: rawBranch },
-            { code: rawBranch },
-            { name: { contains: rawBranch } },
-          ],
-          isActive: true,
-        },
-      });
+    // Branch: id, code (BR001), external id or name. A branch that was named
+    // but cannot be matched is an error — with 34 branches a silent default
+    // would route the complaint to the wrong gym.
+    let branch = rawBranch ? await resolveBranch(rawBranch) : null;
+    if (rawBranch && !branch) {
+      return fail("BRANCH_NOT_FOUND", "Please select your FitClass branch from the list.", 422, { branchId: "Unknown branch." });
     }
-    if (!branch) {
-      branch = await db.branch.findFirst({ where: { isActive: true }, orderBy: { code: "asc" } });
-    }
+    if (!branch) branch = await db.branch.findFirst({ where: { isActive: true }, orderBy: { code: "asc" } });
     if (!branch) return fail("BRANCH_UNAVAILABLE", "No active branch is currently available in the system.", 500);
 
-    // Smart Category Lookup: by ID or name (e.g. Equipment Issues)
-    let category: any = null;
-    if (rawCategory) {
-      category = await db.complaintCategory.findFirst({
-        where: {
-          OR: [
-            { id: rawCategory },
-            { name: { contains: rawCategory } },
-          ],
-          isActive: true,
-        },
-      });
-    }
-    if (!category) {
-      category = await db.complaintCategory.findFirst({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
-    }
+    // Category: id or name; falls back to the first active category.
+    let category = rawCategory ? await resolveCategory(rawCategory) : null;
+    if (!category) category = await db.complaintCategory.findFirst({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
     if (!category) return fail("CATEGORY_UNAVAILABLE", "No active category is currently available in the system.", 500);
 
     // Idempotency: client-supplied key, or a stable fallback derived from the payload.

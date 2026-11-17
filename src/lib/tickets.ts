@@ -10,6 +10,7 @@ import { getReopenWindowHours, isAutoClosureEnabled } from "@/lib/settings";
 import { initSlaTracking, markFirstResponse, markResolution } from "@/lib/sla";
 import { assignTicketRoundRobin, notifyAssignmentFailed } from "@/lib/assignment";
 import { canTransition, normalizePhone, type SessionUser, type TicketStatus } from "@/lib/types";
+import { emitWebhook } from "@/lib/webhooks";
 
 export class TicketError extends Error {
   code: string;
@@ -20,12 +21,12 @@ export class TicketError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Ticket number generation — transaction-safe sequence (MSP-2026-000001)
+// Ticket number generation — transaction-safe sequence (FC-2026-000001)
 // ---------------------------------------------------------------------------
 
 async function nextTicketNumber(tx: { $transaction: unknown } | any): Promise<string> {
   const year = new Date().getFullYear();
-  const prefix = "MSP";
+  const prefix = "FC";
   const seq = await tx.ticketSequence.upsert({
     where: { prefix_year: { prefix, year } },
     create: { prefix, year, lastNumber: 1 },
@@ -164,6 +165,8 @@ export async function createComplaint(
   await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "COMPLAINT_REGISTERED", recipientKind: "CENTRAL_SUPPORT", variables: v });
   await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "COMPLAINT_REGISTERED", recipientKind: "BRANCH", variables: v });
 
+  await emitWebhook("ticket.created", ticket.id);
+
   // Round-robin assignment
   const assigned = await assignTicketRoundRobin(ticket.id, null, "ROUND_ROBIN");
   if (!assigned) await notifyAssignmentFailed(ticket.id);
@@ -230,7 +233,7 @@ export async function applyStatusChange(
         ticketId,
         fromStatus: ticket.status,
         toStatus: input.toStatus,
-        changedById: actor.id,
+        changedById: actor.id || null,
         changedByName: actor.name,
         note: input.note || input.reason || input.resolution || "",
       },
@@ -272,6 +275,13 @@ export async function applyStatusChange(
     await queueNotification({ ticketId, ticketNumber: ticket.ticketNumber, event: "STATUS_UPDATED", recipientKind: "CUSTOMER", variables: v });
   }
 
+  await emitWebhook(input.toStatus === "RESOLVED" ? "ticket.resolved" : "ticket.status_changed", ticketId, {
+    fromStatus: ticket.status,
+    toStatus: input.toStatus,
+    note: input.note || input.reason || input.resolution || "",
+    changedBy: actor.name,
+  });
+
   return { ticketNumber: ticket.ticketNumber, status: input.toStatus };
 }
 
@@ -295,7 +305,7 @@ export async function addTicketMessage(
       ticketId,
       authorType: "SUPPORT",
       visibility: input.visibility,
-      authorId: input.author.id,
+      authorId: input.author.id || null,
       authorName: input.author.name,
       body: input.body.trim(),
     },
@@ -320,6 +330,12 @@ export async function addTicketMessage(
       variables: vars(ctx, { description: input.body.slice(0, 500) }),
     });
   }
+
+  await emitWebhook("ticket.message_added", ticketId, {
+    visibility: input.visibility,
+    body: input.body.trim(),
+    author: input.author.name,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -495,7 +511,29 @@ export async function reopenTicket(
   await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "REOPENED", recipientKind: "BRANCH", variables: v });
   await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "REOPENED", recipientKind: "CENTRAL_SUPPORT", variables: v });
 
+  await emitWebhook("ticket.reopened", ticket.id, { reason: reason.trim() });
+
   return { ticketNumber: ticket.ticketNumber, status: "IN_PROGRESS" };
+}
+
+// ---------------------------------------------------------------------------
+// Escalation (staff dashboard + integration API)
+// ---------------------------------------------------------------------------
+
+export async function escalateTicket(ticketId: string, reasonInput: string, actor: SessionUser): Promise<void> {
+  const ctx = await getTicketContext(ticketId);
+  const { ticket } = ctx;
+  if (ticket.status === "CLOSED") throw new TicketError("Closed tickets are read-only.", "TICKET_CLOSED");
+  if (ticket.escalatedAt) throw new TicketError("This ticket is already escalated.", "ALREADY_ESCALATED");
+  const reason = reasonInput.trim() || "Manual escalation";
+
+  await db.ticket.update({ where: { id: ticketId }, data: { escalatedAt: new Date() } });
+  await logAudit({ ticketId, actor, action: "ESCALATED", details: reason });
+
+  const v = vars(ctx, { reason });
+  await queueNotification({ ticketId, ticketNumber: ticket.ticketNumber, event: "ESCALATED", recipientKind: "CENTRAL_SUPPORT", variables: v });
+  await queueNotification({ ticketId, ticketNumber: ticket.ticketNumber, event: "ESCALATED", recipientKind: "BRANCH", variables: v });
+  await emitWebhook("ticket.escalated", ticketId, { reason, escalatedBy: actor.name });
 }
 
 // ---------------------------------------------------------------------------

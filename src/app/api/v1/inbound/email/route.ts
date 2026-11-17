@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     const { email: parsedEmail, name: parsedName } = extractEmailAndName(from);
     const finalEmail = parsedEmail;
-    const finalName = customerName.trim() || parsedName || "MSquare Client";
+    const finalName = customerName.trim() || parsedName || "FitClass Member";
 
     if (!finalEmail || !finalEmail.includes("@")) {
       return NextResponse.json(

@@ -30,7 +30,7 @@ export function getSupportEmail(): string {
 export function getDefaultFrom(): string {
   const from = process.env.EMAIL_FROM?.trim();
   if (from) return from;
-  const fromName = process.env.SMTP_FROM_NAME?.trim() || "Msquare Professionals Support";
+  const fromName = process.env.SMTP_FROM_NAME?.trim() || "FitClass Support";
   const supportEmail = getSupportEmail();
   return `${fromName} <${supportEmail}>`;
 }
@@ -128,7 +128,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 }
 
 // ---------------------------------------------------------------------------
-// HTML Email Templates (Branded with MSquare Professionals Obsidian #0c0c10 + Brand Orange #ff6b00)
+// HTML Email Templates (Branded with FitClass Obsidian #0c0c10 + Brand Cyan #72bdd0)
 // ---------------------------------------------------------------------------
 
 export function renderCustomerConfirmationEmail(params: {
@@ -140,16 +140,16 @@ export function renderCustomerConfirmationEmail(params: {
   description: string;
   appUrl?: string;
 }): { subject: string; text: string; html: string } {
-  const { customerName, ticketNumber, customerPhone = "", branchName = "MSquare Professionals", categoryName = "General", description } = params;
-  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://msquareprofessionals.com";
+  const { customerName, ticketNumber, customerPhone = "", branchName = "FitClass", categoryName = "General", description } = params;
+  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://fitclass.in";
   const trackUrl = `${baseUrl.replace(/\/$/, "")}/track?ticket=${encodeURIComponent(ticketNumber)}`;
   const supportEmail = getSupportEmail();
 
-  const subject = `MSquare Professionals Support: We are working on your request (Ticket #${ticketNumber})`;
+  const subject = `FitClass Support: We are working on your request (Ticket #${ticketNumber})`;
 
   const text = `Dear ${customerName},
 
-Thank you for reaching out to MSquare Professionals Support. We have received your complaint and our client care team is actively working on your request.
+Thank you for reaching out to FitClass Support. We have received your complaint and our member care team is actively working on your request.
 
 Your Request Details:
 - Ticket Number: ${ticketNumber}
@@ -166,7 +166,7 @@ ${trackUrl}
 Our customer success executive has been assigned to your case and will follow up with you shortly.
 
 Warm regards,
-MSquare Professionals Support Team
+FitClass Support Team
 Email: ${supportEmail}
 `.trim();
 
@@ -186,9 +186,9 @@ Email: ${supportEmail}
           
           <!-- Header Banner -->
           <tr>
-            <td style="background-color: #0c0c10; padding: 28px 24px; text-align: center; border-bottom: 2px solid #ff6b00;">
-              <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #ffffff;">MSQUARE PROFESSIONALS</h1>
-              <p style="margin: 6px 0 0; font-size: 12px; color: #ff6b00; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700;">Client Care & Resolution</p>
+            <td style="background-color: #0c0c10; padding: 28px 24px; text-align: center; border-bottom: 2px solid #72bdd0;">
+              <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #ffffff;">FITCLASS</h1>
+              <p style="margin: 6px 0 0; font-size: 12px; color: #72bdd0; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700;">Member Care & Resolution</p>
             </td>
           </tr>
 
@@ -202,15 +202,15 @@ Email: ${supportEmail}
               </p>
               
               <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #a1a1aa;">
-                Thank you for contacting MSquare Professionals Support. We have received your complaint and our service management team is actively reviewing the details. We are committed to high service standards and will resolve your concern swiftly.
+                Thank you for contacting FitClass Support. We have received your complaint and our service management team is actively reviewing the details. We are committed to high service standards and will resolve your concern swiftly.
               </p>
 
               <!-- Ticket Badge Box -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; background-color: #171722; border-radius: 12px; border: 1px solid rgba(255, 107, 0, 0.25); border-left: 5px solid #ff6b00;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; background-color: #171722; border-radius: 12px; border: 1px solid rgba(114, 189, 208, 0.25); border-left: 5px solid #72bdd0;">
                 <tr>
                   <td style="padding: 20px;">
                     <p style="margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #a1a1aa; font-weight: 700;">Your Ticket Reference Number</p>
-                    <p style="margin: 0 0 16px; font-size: 26px; font-weight: 800; color: #ff6b00; font-family: monospace; letter-spacing: 1px;">${ticketNumber}</p>
+                    <p style="margin: 0 0 16px; font-size: 26px; font-weight: 800; color: #72bdd0; font-family: monospace; letter-spacing: 1px;">${ticketNumber}</p>
                     
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       <tr>
@@ -239,7 +239,7 @@ Email: ${supportEmail}
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 28px 0 20px; text-align: center;">
                 <tr>
                   <td align="center">
-                    <a href="${trackUrl}" target="_blank" style="display: inline-block; padding: 14px 30px; background: linear-gradient(135deg, #ff6b00, #ff7d1a); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 16px rgba(255, 107, 0, 0.45);">
+                    <a href="${trackUrl}" target="_blank" style="display: inline-block; padding: 14px 30px; background: linear-gradient(135deg, #22618b, #1a4c6e); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 16px rgba(114, 189, 208, 0.45);">
                       Track Your Request Live →
                     </a>
                   </td>
@@ -256,10 +256,10 @@ Email: ${supportEmail}
           <tr>
             <td style="padding: 24px 28px; background-color: #0c0c10; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: center;">
               <p style="margin: 0 0 6px; font-size: 12px; color: #a1a1aa;">
-                Need more assistance? Reply directly to this email or reach us at <a href="mailto:${supportEmail}" style="color: #ff6b00; text-decoration: none;">${supportEmail}</a>
+                Need more assistance? Reply directly to this email or reach us at <a href="mailto:${supportEmail}" style="color: #72bdd0; text-decoration: none;">${supportEmail}</a>
               </p>
               <p style="margin: 0; font-size: 11px; color: #71717a;">
-                © 2026 MSquare Professionals. All rights reserved.
+                © 2026 FitClass. All rights reserved.
               </p>
             </td>
           </tr>
@@ -288,17 +288,17 @@ export function renderAdminAlertEmail(params: {
   appUrl?: string;
 }): { subject: string; text: string; html: string } {
   const { ticketNumber, customerName, customerEmail, customerPhone, branchName, categoryName, priority = "MEDIUM", description, source = "PORTAL" } = params;
-  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://msquareprofessionals.com";
+  const baseUrl = params.appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://fitclass.in";
   const adminUrl = `${baseUrl.replace(/\/$/, "")}/admin`;
 
-  const subject = `[MSquare Professionals Alert] New Complaint Raised — Ticket #${ticketNumber} (${branchName})`;
+  const subject = `[FitClass Alert] New Complaint Raised — Ticket #${ticketNumber} (${branchName})`;
 
   const text = `NEW COMPLAINT ALERT
 
-A new client complaint has been registered in MSquare Professionals CMS.
+A new member complaint has been registered in FitClass CMS.
 
 Ticket Number: ${ticketNumber}
-Client: ${customerName}
+Member: ${customerName}
 Email: ${customerEmail}
 Phone: ${customerPhone}
 Branch / Office: ${branchName}
@@ -322,15 +322,15 @@ ${adminUrl}
 </head>
 <body style="margin: 0; padding: 0; background-color: #0c0c10; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f4f4f7;">
   <div style="max-width: 600px; margin: 30px auto; background-color: #13131a; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-    <div style="background-color: #0c0c10; padding: 20px 24px; border-bottom: 2px solid #ff6b00;">
-      <h2 style="margin: 0; font-size: 17px; font-weight: 800; color: #ffffff; letter-spacing: 1px;">MSQUARE PROFESSIONALS: NEW COMPLAINT ALERT</h2>
+    <div style="background-color: #0c0c10; padding: 20px 24px; border-bottom: 2px solid #72bdd0;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 800; color: #ffffff; letter-spacing: 1px;">FITCLASS: NEW COMPLAINT ALERT</h2>
     </div>
     <div style="padding: 24px;">
-      <p style="margin-top: 0; font-size: 14px; color: #a1a1aa;">A new client complaint requires review and assignment:</p>
+      <p style="margin-top: 0; font-size: 14px; color: #a1a1aa;">A new member complaint requires review and assignment:</p>
       
-      <div style="background-color: #171722; border-radius: 8px; padding: 16px; margin-bottom: 20px; border-left: 4px solid #ff6b00;">
-        <p style="margin: 0 0 10px; font-size: 22px; font-weight: 800; color: #ff6b00; font-family: monospace;">#${ticketNumber}</p>
-        <p style="margin: 4px 0; font-size: 13px;"><strong>Client:</strong> ${customerName} &lt;${customerEmail}&gt;</p>
+      <div style="background-color: #171722; border-radius: 8px; padding: 16px; margin-bottom: 20px; border-left: 4px solid #72bdd0;">
+        <p style="margin: 0 0 10px; font-size: 22px; font-weight: 800; color: #72bdd0; font-family: monospace;">#${ticketNumber}</p>
+        <p style="margin: 4px 0; font-size: 13px;"><strong>Member:</strong> ${customerName} &lt;${customerEmail}&gt;</p>
         <p style="margin: 4px 0; font-size: 13px;"><strong>Contact:</strong> ${customerPhone}</p>
         <p style="margin: 4px 0; font-size: 13px;"><strong>Office / Branch:</strong> ${branchName}</p>
         <p style="margin: 4px 0; font-size: 13px;"><strong>Category:</strong> ${categoryName}</p>
@@ -346,7 +346,7 @@ ${adminUrl}
       </div>
 
       <div style="text-align: center;">
-        <a href="${adminUrl}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #ff6b00, #ff7d1a); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(255, 107, 0, 0.4);">Open Operations Dashboard →</a>
+        <a href="${adminUrl}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #22618b, #1a4c6e); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(114, 189, 208, 0.4);">Open Operations Dashboard →</a>
       </div>
     </div>
   </div>

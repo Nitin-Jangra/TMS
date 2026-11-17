@@ -7,6 +7,7 @@
 import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
+import { emitWebhook } from "@/lib/webhooks";
 
 /**
  * Sweep all due closure jobs. Safe to call concurrently and repeatedly:
@@ -80,6 +81,7 @@ export async function runClosureSweep(): Promise<{ closed: number; checked: numb
           await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "CLOSED", recipientKind: "CUSTOMER", variables: v });
           await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "CLOSED", recipientKind: "BRANCH", variables: v });
           await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "CLOSED", recipientKind: "CENTRAL_SUPPORT", variables: v });
+          await emitWebhook("ticket.closed", ticket.id, { reason: "Automatic closure after the reopen window expired" });
         }
       }
     } catch (err) {

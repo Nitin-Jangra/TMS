@@ -193,8 +193,9 @@ export function generateApiKey(): { key: string; prefix: string; hash: string } 
 
 /** Resolve the current principal: staff session or API key (x-api-key header). */
 export async function requireApiKey(request: Request): Promise<ApiClientPrincipal> {
-  const key = request.headers.get("x-api-key") || "";
-  if (!key) throw new AuthError("Missing x-api-key header.", 401, "API_KEY_REQUIRED");
+  const bearer = (request.headers.get("authorization") || "").match(/^Bearer\s+(.+)$/i)?.[1] || "";
+  const key = (request.headers.get("x-api-key") || bearer).trim();
+  if (!key) throw new AuthError("Missing API key. Send it in the x-api-key header (or Authorization: Bearer <key>).", 401, "API_KEY_REQUIRED");
   const client = await db.apiClient.findUnique({ where: { apiKeyHash: hashApiKey(key) } });
   if (!client || !client.isActive) throw new AuthError("Invalid or inactive API key.", 401, "API_KEY_INVALID");
   return { kind: "api_client", clientId: client.id, name: client.name, scopes: client.scopes.split(",").map((s) => s.trim()) };

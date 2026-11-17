@@ -39,7 +39,7 @@ export function StatusBadge({ status }: { status: string }) {
 export function PriorityBadge({ priority }: { priority: string }) {
   const cls: Record<string, string> = {
     CRITICAL: "bg-red-50 text-red-700 ring-red-200",
-    HIGH: "bg-orange-50 text-orange-700 ring-orange-200",
+    HIGH: "bg-sky-50 text-sky-700 ring-sky-200",
     MEDIUM: "bg-slate-50 text-slate-600 ring-slate-300",
     LOW: "bg-slate-50 text-slate-400 ring-slate-200",
   };

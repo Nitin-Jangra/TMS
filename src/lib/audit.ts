@@ -22,7 +22,9 @@ export type AuditAction =
   | "AUTH_FAILURE"
   | "AUTH_SUCCESS"
   | "ACCESS_DENIED"
-  | "API_KEY_CREATED";
+  | "API_KEY_CREATED"
+  | "WEBHOOK_FAILED"
+  | "MASTER_DATA_SYNC";
 
 export interface AuditContext {
   ticketId?: string | null;
@@ -41,7 +43,7 @@ export async function logAudit(ctx: AuditContext): Promise<void> {
   await db.auditLog.create({
     data: {
       ticketId: ctx.ticketId ?? null,
-      actorId: ctx.actor?.id ?? null,
+      actorId: ctx.actor?.id || null, // empty id = API client (not a StaffUser row)
       actorRole: ctx.actor?.role ?? ctx.actorRole ?? "SYSTEM",
       actorName: ctx.actor?.name ?? ctx.actorName ?? "System",
       action: ctx.action,

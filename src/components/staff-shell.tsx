@@ -53,10 +53,10 @@ export default async function StaffShell({
     <div className="flex min-h-screen bg-[#f8fafc]">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-[#0c0c10] border-r border-[#ffffff14] md:flex" aria-label="Dashboard navigation">
         <div className="flex items-center gap-3 px-5 py-5 border-b border-[#ffffff14]">
-          <Image src="/logo.png" alt="MSquare logo" width={32} height={32} className="rounded-md object-contain" />
+          <Image src="/logo.png" alt="FitClass logo" width={32} height={32} className="rounded-md object-contain" />
           <div>
-            <p className="text-sm font-extrabold tracking-tight text-white">MSQUARE CMS</p>
-            <p className="text-[11px] font-semibold text-[#ff6b00]">{area === "admin" ? "Administration" : "Operations Workspace"}</p>
+            <p className="text-sm font-extrabold tracking-tight text-white">FITCLASS CMS</p>
+            <p className="text-[11px] font-semibold text-[#72bdd0]">{area === "admin" ? "Administration" : "Operations Workspace"}</p>
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4" role="navigation">
@@ -64,19 +64,19 @@ export default async function StaffShell({
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#a1a1aa] transition hover:bg-[#171722] hover:text-[#ff6b00]"
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#a1a1aa] transition hover:bg-[#171722] hover:text-[#72bdd0]"
             >
               <item.icon className="h-4 w-4" aria-hidden />
               {item.label}
             </Link>
           ))}
           {showAdminExtras ? (
-            <Link href="/admin" className="mt-3 flex items-center gap-2.5 rounded-xl border-t border-[#ffffff14] px-3 py-2.5 pt-4 text-[13px] font-semibold text-[#ff6b00] hover:bg-[#171722]">
+            <Link href="/admin" className="mt-3 flex items-center gap-2.5 rounded-xl border-t border-[#ffffff14] px-3 py-2.5 pt-4 text-[13px] font-semibold text-[#72bdd0] hover:bg-[#171722]">
               <ShieldAlert className="h-4 w-4" aria-hidden /> Master Admin Panel
             </Link>
           ) : null}
           {showStaffExtras ? (
-            <Link href="/staff" className="mt-3 flex items-center gap-2.5 rounded-xl border-t border-[#ffffff14] px-3 py-2.5 pt-4 text-[13px] font-semibold text-[#ff6b00] hover:bg-[#171722]">
+            <Link href="/staff" className="mt-3 flex items-center gap-2.5 rounded-xl border-t border-[#ffffff14] px-3 py-2.5 pt-4 text-[13px] font-semibold text-[#72bdd0] hover:bg-[#171722]">
               <LayoutDashboard className="h-4 w-4" aria-hidden /> Operations Workspace
             </Link>
           ) : null}
@@ -88,7 +88,7 @@ export default async function StaffShell({
         </nav>
         <div className="border-t border-[#ffffff14] px-4 py-4">
           <p className="truncate text-[13px] font-bold text-white">{user.name}</p>
-          <p className="truncate text-[11px] text-[#ff6b00]">
+          <p className="truncate text-[11px] text-[#72bdd0]">
             {ROLE_LABELS[user.role]} {user.branchName ? `· ${user.branchName}` : ""}
           </p>
           <LogoutButton />
@@ -99,14 +99,14 @@ export default async function StaffShell({
         {/* Mobile top bar */}
         <div className="flex items-center justify-between bg-[#0c0c10] border-b border-[#ffffff14] px-4 py-3 md:hidden">
           <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="MSquare logo" width={26} height={26} className="rounded-md object-contain" />
-            <span className="text-sm font-extrabold text-white">MSQUARE CMS</span>
+            <Image src="/logo.png" alt="FitClass logo" width={26} height={26} className="rounded-md object-contain" />
+            <span className="text-sm font-extrabold text-white">FITCLASS CMS</span>
           </div>
-          <span className="text-[11px] font-semibold text-[#ff6b00]">{ROLE_LABELS[user.role]}</span>
+          <span className="text-[11px] font-semibold text-[#72bdd0]">{ROLE_LABELS[user.role]}</span>
         </div>
         <nav className="flex gap-1 overflow-x-auto border-b border-[#ffffff14] bg-[#13131a] px-3 py-2 md:hidden" aria-label="Mobile dashboard navigation">
           {visible.map((item) => (
-            <Link key={item.href} href={item.href} className="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-[#a1a1aa] hover:bg-[#171722] hover:text-[#ff6b00]">
+            <Link key={item.href} href={item.href} className="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-[#a1a1aa] hover:bg-[#171722] hover:text-[#72bdd0]">
               {item.label}
             </Link>
           ))}

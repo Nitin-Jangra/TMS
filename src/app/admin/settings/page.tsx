@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/types";
-import { Building2, Loader2, Mail, Save, Settings2, Tags, TimerReset } from "lucide-react";
+import { Building2, Loader2, Mail, Save, Settings2, Tags, TimerReset, Webhook } from "lucide-react";
 
 interface Settings { [key: string]: string }
 interface Branch { id: string; code: string; name: string; notificationEmail: string; isActive: boolean }
@@ -55,6 +55,8 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({
           settings: {
             central_support_email: settings.central_support_email,
+            webhook_url: (settings.webhook_url || "").trim(),
+            webhook_secret: settings.webhook_secret || "",
             max_upload_mb: settings.max_upload_mb,
             allowed_upload_types: settings.allowed_upload_types,
             notification_customer_enabled: settings.notification_customer_enabled,
@@ -177,8 +179,16 @@ export default function AdminSettingsPage() {
             <CardContent className="space-y-5">
               <div className="rounded-lg border border-dashed border-[#2c6bdf]/40 bg-[#eaf1fb]/50 p-4">
                 <Label htmlFor="central_email" className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-[#2c6bdf]" aria-hidden />Central support email</Label>
-                <Input id="central_email" type="email" className="mt-1.5" placeholder="Currently blank — MSquare Professionals will provide the official support mailbox" value={settings.central_support_email} onChange={(e) => setSettings((s) => ({ ...s!, central_support_email: e.target.value }))} />
+                <Input id="central_email" type="email" className="mt-1.5" placeholder="Currently blank — FitClass will provide the official support mailbox" value={settings.central_support_email} onChange={(e) => setSettings((s) => ({ ...s!, central_support_email: e.target.value }))} />
                 <p className="mt-1.5 text-xs text-slate-500">Left blank as requested. Central support notifications are recorded as SKIPPED until an address is set.</p>
+              </div>
+
+              <div className="rounded-lg border border-dashed border-[#2c6bdf]/40 bg-[#eaf1fb]/50 p-4">
+                <Label htmlFor="webhook_url" className="flex items-center gap-1.5"><Webhook className="h-3.5 w-3.5 text-[#2c6bdf]" aria-hidden />LMS webhook URL</Label>
+                <Input id="webhook_url" type="url" className="mt-1.5" placeholder="https://lms.fitclass.in/hooks/complaints (blank = webhooks off)" value={settings.webhook_url || ""} onChange={(e) => setSettings((s) => ({ ...s!, webhook_url: e.target.value }))} />
+                <Label htmlFor="webhook_secret" className="mt-3 block">Webhook signing secret</Label>
+                <Input id="webhook_secret" type="password" autoComplete="off" className="mt-1.5" placeholder="At least 16 characters, shared with the LMS" value={settings.webhook_secret || ""} onChange={(e) => setSettings((s) => ({ ...s!, webhook_secret: e.target.value }))} />
+                <p className="mt-1.5 text-xs text-slate-500">Every ticket event (created, assigned, status changed, resolved, reopened, closed, escalated, message added) is POSTed to this URL, signed with the secret. See /docs/api.</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -225,7 +235,7 @@ export default function AdminSettingsPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-[#0a2350]">Branch notification emails</CardTitle>
-              <p className="text-xs text-slate-500">Blank by default per MSquare Professionals instruction. Set an email when the branch mailbox is ready — notifications start flowing on the next complaint.</p>
+              <p className="text-xs text-slate-500">Blank by default per FitClass instruction. Set an email when the branch mailbox is ready — notifications start flowing on the next complaint.</p>
             </CardHeader>
             <CardContent className="space-y-3">
               {branches.map((b) => (
@@ -236,7 +246,7 @@ export default function AdminSettingsPage() {
                   </div>
                   <Input
                     type="email"
-                    placeholder="branch@msquareprofessionals.com (blank for now)"
+                    placeholder="branch@fitclass.in (blank for now)"
                     defaultValue={b.notificationEmail}
                     id={`branch-email-${b.id}`}
                     className="flex-1"

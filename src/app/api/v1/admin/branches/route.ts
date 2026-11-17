@@ -1,5 +1,5 @@
 // Branch management (Root Admin): update notification email, active flag.
-// Branch notification emails are blank by default until MSquare Professionals provides them.
+// Branch notification emails are blank by default until FitClass provides them.
 
 import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireRole } from "@/lib/auth";

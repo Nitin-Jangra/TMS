@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 
 export const SETTING_DEFAULTS: Record<string, string> = {
   central_support_email: "",
-  ticket_id_prefix: "MSP",
+  ticket_id_prefix: "FC",
   reopen_window_hours: "72", // configurable reopening window (auto-close after this)
   auto_closure_enabled: "true",
   maintenance_mode: "false",
@@ -15,6 +15,8 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   notification_customer_enabled: "true",
   notification_branch_enabled: "true",
   notification_central_enabled: "true",
+  webhook_url: "", // LMS endpoint that receives ticket events (blank = disabled)
+  webhook_secret: "", // HMAC secret used to sign webhook deliveries
 };
 
 export async function getSetting(key: string): Promise<string> {

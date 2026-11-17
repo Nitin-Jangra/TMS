@@ -1,21 +1,21 @@
 /**
- * MSquare Professionals - Embeddable Complaint & Resolution Widget
+ * FitClass - Embeddable Complaint & Resolution Widget
  * 
- * Simply add to any page on https://msquareprofessionals.com:
- * <script src="https://tms.nitinjangra0981.workers.dev/msquare-complaint-widget.js" async></script>
+ * Simply add to any page on https://fitclass.in:
+ * <script src="https://tms.nitinjangra0981.workers.dev/fitclass-complaint-widget.js" async></script>
  * 
- * To attach to an existing button: <button data-msquare-complaint>Complaint</button>
+ * To attach to an existing button: <button data-fitclass-complaint>Complaint</button>
  * Or let it render a floating button automatically by default.
  */
 (function () {
-  if (window.__MSQUARE_COMPLAINT_WIDGET_LOADED__) return;
-  window.__MSQUARE_COMPLAINT_WIDGET_LOADED__ = true;
+  if (window.__FITCLASS_COMPLAINT_WIDGET_LOADED__) return;
+  window.__FITCLASS_COMPLAINT_WIDGET_LOADED__ = true;
 
   const API_BASE = "https://tms.nitinjangra0981.workers.dev/api/v1/public";
 
   // Inject CSS Styles
   const style = document.createElement("style");
-  style.id = "msquare-widget-styles";
+  style.id = "fitclass-widget-styles";
   style.textContent = `
     .msq-modal-overlay {
       position: fixed;
@@ -45,7 +45,7 @@
       max-width: 520px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 107, 0, 0.15);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(114, 189, 208, 0.15);
       color: #f4f4f7;
       padding: 24px;
       position: relative;
@@ -89,9 +89,9 @@
       transition: all 0.15s;
     }
     .msq-tab-btn.active {
-      background: rgba(255, 107, 0, 0.12);
-      color: #ff6b00;
-      border: 1px solid rgba(255, 107, 0, 0.3);
+      background: rgba(114, 189, 208, 0.12);
+      color: #72bdd0;
+      border: 1px solid rgba(114, 189, 208, 0.3);
     }
     .msq-field {
       margin-bottom: 14px;
@@ -119,12 +119,12 @@
       transition: border-color 0.15s, box-shadow 0.15s;
     }
     .msq-input:focus, .msq-select:focus, .msq-textarea:focus {
-      border-color: #ff6b00;
-      box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.2);
+      border-color: #72bdd0;
+      box-shadow: 0 0 0 2px rgba(114, 189, 208, 0.2);
     }
     .msq-btn-primary {
       width: 100%;
-      background: linear-gradient(135deg, #ff6b00 0%, #ff8533 100%);
+      background: linear-gradient(135deg, #72bdd0 0%, #1a4c6e 100%);
       color: #ffffff;
       border: none;
       border-radius: 10px;
@@ -132,7 +132,7 @@
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 16px rgba(255, 107, 0, 0.4);
+      box-shadow: 0 4px 16px rgba(114, 189, 208, 0.4);
       transition: brightness 0.15s, transform 0.1s;
       margin-top: 6px;
     }
@@ -150,7 +150,7 @@
       position: fixed;
       bottom: 24px;
       right: 24px;
-      background: linear-gradient(135deg, #ff6b00 0%, #ff8533 100%);
+      background: linear-gradient(135deg, #72bdd0 0%, #1a4c6e 100%);
       color: #ffffff;
       border: none;
       border-radius: 30px;
@@ -158,7 +158,7 @@
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 6px 20px rgba(255, 107, 0, 0.5);
+      box-shadow: 0 6px 20px rgba(114, 189, 208, 0.5);
       z-index: 999990;
       display: flex;
       align-items: center;
@@ -168,11 +168,11 @@
     }
     .msq-floating-trigger:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(255, 107, 0, 0.65);
+      box-shadow: 0 8px 24px rgba(114, 189, 208, 0.65);
     }
     .msq-ticket-badge {
       background: #171722;
-      border: 1px solid rgba(255, 107, 0, 0.35);
+      border: 1px solid rgba(114, 189, 208, 0.35);
       border-radius: 12px;
       padding: 20px;
       text-align: center;
@@ -182,7 +182,7 @@
       font-size: 26px;
       font-family: monospace;
       font-weight: 800;
-      color: #ff6b00;
+      color: #72bdd0;
       letter-spacing: 1px;
       margin: 8px 0;
     }
@@ -192,9 +192,9 @@
       border-radius: 20px;
       font-size: 11px;
       font-weight: 700;
-      background: rgba(255, 107, 0, 0.15);
-      color: #ff6b00;
-      border: 1px solid rgba(255, 107, 0, 0.3);
+      background: rgba(114, 189, 208, 0.15);
+      color: #72bdd0;
+      border: 1px solid rgba(114, 189, 208, 0.3);
     }
   `;
   document.head.appendChild(style);
@@ -206,10 +206,10 @@
     <div class="msq-modal-card">
       <button class="msq-close-btn" aria-label="Close modal">&times;</button>
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
-        <div style="background: linear-gradient(135deg, #ff6b00, #ea580c); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff; font-size: 16px;">M</div>
+        <div style="background: linear-gradient(135deg, #22618b, #1a4c6e); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff; font-size: 16px;">M</div>
         <div>
-          <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff;">MSQUARE PROFESSIONALS</h3>
-          <p style="margin: 2px 0 0; font-size: 11px; font-weight: 700; color: #ff6b00; letter-spacing: 0.5px;">CLIENT CARE & RESOLUTION</p>
+          <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff;">FITCLASS</h3>
+          <p style="margin: 2px 0 0; font-size: 11px; font-weight: 700; color: #72bdd0; letter-spacing: 0.5px;">MEMBER CARE & SUPPORT</p>
         </div>
       </div>
 
@@ -255,8 +255,8 @@
           </div>
           <div style="margin: 12px 0 16px; font-size: 11px; color: #a1a1aa; line-height: 1.5; text-align: left;">
             <label style="display: flex; gap: 8px; cursor: pointer; align-items: flex-start;">
-              <input type="checkbox" name="privacyConsent" required style="accent-color: #ff6b00; margin-top: 2px;" />
-              <span>I consent to MSquare Professionals processing these details to resolve my request and dispatching status updates to my email.</span>
+              <input type="checkbox" name="privacyConsent" required style="accent-color: #72bdd0; margin-top: 2px;" />
+              <span>I consent to FitClass processing these details to resolve my request and dispatching status updates to my email.</span>
             </label>
           </div>
           <div id="msq-register-error" style="color: #ef4444; font-size: 12px; margin-bottom: 10px; display: none;"></div>
@@ -268,7 +268,7 @@
           <p style="margin: 6px 0 14px; font-size: 12px; color: #a1a1aa;">An acknowledgement email with greeting has been sent to your inbox.</p>
           <div class="msq-ticket-badge">
             <span style="font-size: 11px; text-transform: uppercase; color: #a1a1aa; font-weight: 700;">Your Ticket Reference Number</span>
-            <div class="msq-ticket-num" id="msq-res-ticket">MSP-2026-000000</div>
+            <div class="msq-ticket-num" id="msq-res-ticket">FC-2026-000000</div>
             <button type="button" id="msq-copy-btn" style="background: #13131a; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;">Copy Ticket Number</button>
           </div>
           <button type="button" class="msq-btn-primary" id="msq-done-btn">Done</button>
@@ -280,7 +280,7 @@
         <form id="msq-track-form">
           <div class="msq-field">
             <label class="msq-label">Ticket Reference Number *</label>
-            <input type="text" name="ticketNumber" class="msq-input" placeholder="MSP-2026-000123" required />
+            <input type="text" name="ticketNumber" class="msq-input" placeholder="FC-2026-000123" required />
           </div>
           <div class="msq-field">
             <label class="msq-label">Registered Mobile Number *</label>
@@ -457,7 +457,7 @@
             <span class="msq-status-pill">${t.statusLabel}</span>
           </div>
           <p style="font-size: 12px; color: #a1a1aa; margin: 4px 0;">Office: <strong style="color: #fff;">${t.branchName}</strong> · Category: <strong style="color: #fff;">${t.categoryName}</strong></p>
-          ${t.assigneeFirstName ? `<p style="font-size: 12px; color: #a1a1aa; margin: 4px 0;">Assigned Manager: <strong style="color: #ff6b00;">${t.assigneeFirstName}</strong></p>` : ""}
+          ${t.assigneeFirstName ? `<p style="font-size: 12px; color: #a1a1aa; margin: 4px 0;">Assigned Manager: <strong style="color: #72bdd0;">${t.assigneeFirstName}</strong></p>` : ""}
           ${t.resolution ? `
             <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 12px; color: #e2e8f0;">
               <strong>Resolution:</strong> ${t.resolution.message}
@@ -474,16 +474,16 @@
     }
   });
 
-  // Attach to existing elements with [data-msquare-complaint]
-  document.querySelectorAll("[data-msquare-complaint]").forEach((el) => {
+  // Attach to existing elements with [data-fitclass-complaint]
+  document.querySelectorAll("[data-fitclass-complaint]").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();
       openModal("register");
     });
   });
 
-  // Attach to existing elements with [data-msquare-track]
-  document.querySelectorAll("[data-msquare-track]").forEach((el) => {
+  // Attach to existing elements with [data-fitclass-track]
+  document.querySelectorAll("[data-fitclass-track]").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();
       openModal("track");
@@ -491,7 +491,7 @@
   });
 
   // Optional: create floating trigger button if user specifies data-floating="true" or when no button exists
-  const hasTrigger = document.querySelector("[data-msquare-complaint]");
+  const hasTrigger = document.querySelector("[data-fitclass-complaint]");
   if (!hasTrigger) {
     const floatBtn = document.createElement("button");
     floatBtn.className = "msq-floating-trigger";
@@ -506,7 +506,7 @@
   }
 
   // Expose global controller
-  window.MSquareComplaint = {
+  window.FitClassComplaint = {
     open: openModal,
     close: closeModal,
   };

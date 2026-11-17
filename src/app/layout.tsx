@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Antonio, Geist_Mono, Montserrat } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// FitClass brand typography (fitclass.in): Montserrat for text, Antonio for headings.
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
+  subsets: ["latin"],
+});
+
+const antonio = Antonio({
+  variable: "--font-antonio",
   subsets: ["latin"],
 });
 
@@ -14,9 +20,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MSquare Professionals — Client Care & Resolution Portal",
+  title: "FitClass — Member Care & Support Portal",
   description:
-    "MSquare Professionals Client Care Portal: register complaints, track live resolution status, and manage operations with real-time SLA tracking.",
+    "FitClass Member Care Portal: register complaints, track live resolution status, and manage operations with real-time SLA tracking.",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
@@ -32,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${montserrat.variable} ${antonio.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         {children}
         <Toaster />

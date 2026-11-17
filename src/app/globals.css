@@ -6,7 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-montserrat);
+  --font-display: var(--font-antonio);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -45,83 +46,83 @@
 
 :root {
   --radius: 0.625rem;
-  /* MSquare Professionals Light Theme */
+  /* FitClass Light Theme */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #ff6b00;
+  --primary: #22618b;
   --primary-foreground: #ffffff;
-  --brand-orange: #ff6b00;
-  --brand-orange-hover: #ea580c;
-  --brand-blue: #2563eb;
-  --brand-blue-hover: #1d4ed8;
+  --brand-cyan: #72bdd0;
+  --brand-cyan-hover: #22618b;
+  --brand-blue: #22618b;
+  --brand-blue-hover: #1a4c6e;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #fff7ed;
-  --accent-foreground: #ea580c;
+  --accent: #e0f7fa;
+  --accent-foreground: #22618b;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #cbd5e1;
-  --ring: #ff6b00;
-  --chart-1: #ff6b00;
-  --chart-2: #2563eb;
+  --ring: #72bdd0;
+  --chart-1: #22618b;
+  --chart-2: #72bdd0;
   --chart-3: #64748b;
   --chart-4: #10b981;
   --chart-5: #f59e0b;
   --sidebar: #0c0c10;
   --sidebar-foreground: #f4f4f7;
-  --sidebar-primary: #ff6b00;
+  --sidebar-primary: #22618b;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #171722;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #ffffff14;
-  --sidebar-ring: #ff6b00;
+  --sidebar-ring: #72bdd0;
 }
 
 .dark {
-  /* MSquare Professionals Dark Mode (matches msquareprofessionals.com) */
+  /* FitClass Dark Mode (matches fitclass.in: dark #050505, cyan #72bdd0, blue #22618B) */
   --background: #0c0c10;
   --foreground: #f4f4f7;
   --card: #13131a;
   --card-foreground: #f4f4f7;
   --popover: #13131a;
   --popover-foreground: #f4f4f7;
-  --primary: #ff6b00;
+  --primary: #22618b;
   --primary-foreground: #ffffff;
-  --brand-orange: #ff6b00;
-  --brand-orange-hover: #ff7d1a;
-  --brand-blue: #3b82f6;
-  --brand-blue-hover: #60a5fa;
+  --brand-cyan: #72bdd0;
+  --brand-cyan-hover: #8fcfe0;
+  --brand-blue: #22618b;
+  --brand-blue-hover: #2a76a8;
   --secondary: #171722;
   --secondary-foreground: #f4f4f7;
   --muted: #1a1a24;
   --muted-foreground: #a1a1aa;
-  --accent: #23160c;
-  --accent-foreground: #ff6b00;
+  --accent: #0c1c22;
+  --accent-foreground: #72bdd0;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #ffffff14;
   --input: #171722;
-  --ring: #ff6b00;
-  --chart-1: #ff6b00;
-  --chart-2: #3b82f6;
+  --ring: #72bdd0;
+  --chart-1: #72bdd0;
+  --chart-2: #22618b;
   --chart-3: #a1a1aa;
   --chart-4: #34d399;
   --chart-5: #fbbf24;
   --sidebar: #0c0c10;
   --sidebar-foreground: #f4f4f7;
-  --sidebar-primary: #ff6b00;
+  --sidebar-primary: #22618b;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #171722;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #ffffff14;
-  --sidebar-ring: #ff6b00;
+  --sidebar-ring: #72bdd0;
 }
 
 @layer base {
@@ -133,7 +134,11 @@
   }
 }
 
-/* MSquare Professionals Brand Elements */
+/* FitClass Brand Elements */
+h1 {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  letter-spacing: 0.01em;
+}
 .brand-gradient {
   background: linear-gradient(135deg, #0c0c10 0%, #13131a 55%, #1c1c28 100%);
 }
@@ -143,11 +148,11 @@
 .brand-ring {
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
 }
-.msq-glow-orange {
-  box-shadow: 0 4px 18px rgba(255, 107, 0, 0.35);
+.fc-glow {
+  box-shadow: 0 4px 18px rgba(114, 189, 208, 0.35);
 }
-.msq-glow-orange-lg {
-  box-shadow: 0 6px 24px rgba(255, 107, 0, 0.55);
+.fc-glow-lg {
+  box-shadow: 0 6px 24px rgba(114, 189, 208, 0.55);
 }
 
 /* Thin styled scrollbars */

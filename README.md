@@ -108,7 +108,7 @@ recorded as SKIPPED in the mailbox; customer + assignee emails still work.
 | `services/notification-worker` | `src/lib/notifications.ts` (transactional outbox + dev adapter) |
 | `database/migrations` | `prisma/schema.prisma` (version-controlled, `bun run db:push`) |
 | `database/seed` | `prisma/seed.ts` (kept separate from migrations) |
-| Docs | `docs/architecture.md`, `docs/security.md`, `docs/api-specification.md`, `docs/migration-guide.md` |
+| Docs | `docs/architecture.md`, `docs/security.md`, `docs/api-specification.md`, `docs/lms-integration.md` (LMS API + webhooks), `docs/website-integration.md`, `docs/migration-guide.md` |
 
 ## Key guarantees
 

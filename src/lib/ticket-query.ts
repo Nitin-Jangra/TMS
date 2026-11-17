@@ -1,7 +1,7 @@
 // Shared ticket list querying with role scoping + filters for all dashboards.
 
 import { db } from "@/lib/db";
-import type { SessionUser } from "@/lib/types";
+import { normalizePhone, type SessionUser } from "@/lib/types";
 
 export interface TicketFilters {
   status?: string;
@@ -15,6 +15,11 @@ export interface TicketFilters {
   q?: string;
   from?: string;
   to?: string;
+  phone?: string;
+  email?: string;
+  source?: string;
+  updatedSince?: string;
+  escalated?: boolean;
 }
 
 export function parseFilters(searchParams: URLSearchParams): TicketFilters {
@@ -30,6 +35,11 @@ export function parseFilters(searchParams: URLSearchParams): TicketFilters {
     q: searchParams.get("q") || undefined,
     from: searchParams.get("from") || undefined,
     to: searchParams.get("to") || undefined,
+    phone: searchParams.get("phone") || searchParams.get("customerPhone") || undefined,
+    email: searchParams.get("email") || searchParams.get("customerEmail") || undefined,
+    source: searchParams.get("source") || undefined,
+    updatedSince: searchParams.get("updatedSince") || undefined,
+    escalated: searchParams.get("escalated") === "true" || undefined,
   };
 }
 
@@ -67,6 +77,22 @@ export function buildWhere(filters: TicketFilters, scope: { branchId?: string; a
       { customerName: { contains: filters.q } },
       { customerPhone: { contains: filters.q.replace(/\D/g, "") } },
     ];
+  }
+  if (filters.phone) where.customerPhone = normalizePhone(filters.phone);
+  if (filters.email) where.customerEmail = filters.email.trim().toLowerCase();
+  if (filters.source) where.source = filters.source.toUpperCase();
+  if (filters.escalated) where.escalatedAt = { not: null };
+  if (filters.updatedSince) {
+    const since = new Date(filters.updatedSince);
+    if (!Number.isNaN(since.getTime())) where.updatedAt = { gte: since };
+  }
+  if (filters.phone) where.customerPhone = normalizePhone(filters.phone);
+  if (filters.email) where.customerEmail = filters.email.trim().toLowerCase();
+  if (filters.source) where.source = filters.source.toUpperCase();
+  if (filters.escalated) where.escalatedAt = { not: null };
+  if (filters.updatedSince) {
+    const since = new Date(filters.updatedSince);
+    if (!Number.isNaN(since.getTime())) where.updatedAt = { gte: since };
   }
   if (filters.from || filters.to) {
     const createdAt: Record<string, Date> = {};

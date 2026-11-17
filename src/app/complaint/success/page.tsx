@@ -17,7 +17,7 @@ function SuccessInner() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    document.title = `Ticket ${ticket} registered — MSquare Professionals`;
+    document.title = `Ticket ${ticket} registered — FitClass`;
   }, [ticket]);
 
   return (
@@ -31,11 +31,11 @@ function SuccessInner() {
         </h1>
         <p className="mt-3 text-xs leading-relaxed text-[#a1a1aa] sm:text-sm">
           We have successfully received your concern. Your complaint has been registered with
-          <strong className="text-white"> MSquare Professionals</strong> and dispatched to your dedicated support team.
+          <strong className="text-white"> FitClass</strong> and dispatched to your dedicated support team.
         </p>
 
-        <div className="mt-7 rounded-2xl border border-[rgba(255,107,0,0.3)] bg-[#171722] p-6 shadow-inner">
-          <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#ff6b00]">
+        <div className="mt-7 rounded-2xl border border-[rgba(114, 189, 208,0.3)] bg-[#171722] p-6 shadow-inner">
+          <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#72bdd0]">
             <Ticket className="h-3.5 w-3.5" aria-hidden />
             Your Official Ticket Number
           </p>
@@ -45,7 +45,7 @@ function SuccessInner() {
           <Button
             variant="outline"
             size="sm"
-            className="mt-4 rounded-xl border-[#ffffff24] bg-[#13131a] text-xs font-bold text-[#f4f4f7] hover:border-[#ff6b00] hover:text-[#ff6b00]"
+            className="mt-4 rounded-xl border-[#ffffff24] bg-[#13131a] text-xs font-bold text-[#f4f4f7] hover:border-[#72bdd0] hover:text-[#72bdd0]"
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(ticket);
@@ -57,7 +57,7 @@ function SuccessInner() {
               }
             }}
           >
-            <Copy className="mr-1.5 h-3.5 w-3.5 text-[#ff6b00]" aria-hidden />
+            <Copy className="mr-1.5 h-3.5 w-3.5 text-[#72bdd0]" aria-hidden />
             {copied ? "Copied to Clipboard!" : "Copy Ticket ID"}
           </Button>
         </div>
@@ -76,8 +76,8 @@ function SuccessInner() {
           <Link href={`/track?ticket=${encodeURIComponent(ticket)}`}>
             <Button
               style={{
-                background: "linear-gradient(135deg, #ff6b00, #ff7d1a)",
-                boxShadow: "0 4px 16px rgba(255, 107, 0, 0.4)",
+                background: "linear-gradient(135deg, #22618b, #1a4c6e)",
+                boxShadow: "0 4px 16px rgba(114, 189, 208, 0.4)",
               }}
               className="h-11 w-full rounded-xl border-none text-xs font-extrabold text-white transition hover:brightness-110 sm:w-auto sm:px-6"
             >
@@ -98,7 +98,7 @@ function SuccessInner() {
 
 export default function ComplaintSuccessPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#ff6b00]/30 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#22618b]/30 selection:text-white">
       <SiteHeader />
       <Suspense fallback={<div className="flex-1" />}>
         <SuccessInner />

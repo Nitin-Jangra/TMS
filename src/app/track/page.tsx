@@ -107,12 +107,12 @@ export default function TrackPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#ff6b00]/30 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#22618b]/30 selection:text-white">
       <SiteHeader />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:py-12">
         <div className="rounded-2xl border border-[#ffffff14] bg-[#13131a] p-7 shadow-2xl sm:p-9">
           <div className="mb-6">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,107,0,0.3)] bg-[rgba(255,107,0,0.08)] px-3 py-1 text-xs font-bold text-[#ff6b00]">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(114, 189, 208,0.3)] bg-[rgba(114, 189, 208,0.08)] px-3 py-1 text-xs font-bold text-[#72bdd0]">
               Ticket Status & Resolution Tracker
             </span>
             <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Track Your Complaint</h1>
@@ -126,8 +126,8 @@ export default function TrackPage() {
               <Label htmlFor="ticketNumber" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Ticket ID</Label>
               <Input
                 id="ticketNumber"
-                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] font-mono text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
-                placeholder="MSP-2026-000001"
+                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] font-mono text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
+                placeholder="FC-2026-000001"
                 value={ticketNumber}
                 onChange={(e) => setTicketNumber(e.target.value)}
                 autoComplete="off"
@@ -139,7 +139,7 @@ export default function TrackPage() {
                 id="mobile"
                 inputMode="tel"
                 placeholder="10-digit mobile number"
-                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
                 value={mobile}
                 onChange={(e) => setMobile(e.target.value)}
                 autoComplete="off"
@@ -150,8 +150,8 @@ export default function TrackPage() {
                 type="submit"
                 disabled={loading}
                 style={{
-                  background: "linear-gradient(135deg, #ff6b00, #ff7d1a)",
-                  boxShadow: "0 4px 16px rgba(255, 107, 0, 0.4)",
+                  background: "linear-gradient(135deg, #22618b, #1a4c6e)",
+                  boxShadow: "0 4px 16px rgba(114, 189, 208, 0.4)",
                 }}
                 className="h-11 w-full rounded-xl border-none text-xs font-extrabold text-white transition hover:brightness-110 sm:w-auto sm:px-6"
               >
@@ -194,7 +194,7 @@ export default function TrackPage() {
                 <ol className="relative space-y-4 border-l-2 border-[#ffffff1f] pl-6" aria-label="Ticket progress timeline">
                   {ticket.timeline.map((t, i) => (
                     <li key={i} className="relative">
-                      <span className={`absolute -left-[31px] flex h-4 w-4 items-center justify-center rounded-full ring-4 ring-[#13131a] ${i === ticket.timeline.length - 1 ? "bg-[#ff6b00]" : "bg-[#3f3f46]"}`} aria-hidden />
+                      <span className={`absolute -left-[31px] flex h-4 w-4 items-center justify-center rounded-full ring-4 ring-[#13131a] ${i === ticket.timeline.length - 1 ? "bg-[#22618b]" : "bg-[#3f3f46]"}`} aria-hidden />
                       <div className="flex flex-wrap items-baseline gap-x-2">
                         <p className="text-sm font-bold text-white">
                           {t.from ? `${STATUS_LABELS[t.from] || t.from} → ` : ""}
@@ -210,7 +210,7 @@ export default function TrackPage() {
 
               {ticket.latestPublicUpdate ? (
                 <div className="rounded-2xl border border-[#ffffff14] bg-[#171722] p-5">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#ff6b00]">Latest Update from Support</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#72bdd0]">Latest Update from Support</p>
                   <p className="mt-2 text-xs leading-relaxed text-[#f4f4f7] sm:text-sm">{ticket.latestPublicUpdate.body}</p>
                   <p className="mt-2 text-[11px] text-[#71717a]">— {ticket.latestPublicUpdate.author}, {fmt(ticket.latestPublicUpdate.at)}</p>
                 </div>
@@ -218,7 +218,7 @@ export default function TrackPage() {
 
               {ticket.assigneeFirstName && ticket.status !== "CLOSED" ? (
                 <p className="flex items-center gap-2 text-xs text-[#a1a1aa]">
-                  <History className="h-4 w-4 text-[#ff6b00]" aria-hidden />
+                  <History className="h-4 w-4 text-[#72bdd0]" aria-hidden />
                   Handled by <strong className="text-white">{ticket.assigneeFirstName}</strong> from the {ticket.branchName} support team.
                 </p>
               ) : null}
@@ -240,19 +240,19 @@ export default function TrackPage() {
 
               {ticket.status === "RESOLVED" ? (
                 ticket.reopenWindow?.open ? (
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#ff6b00]/30 bg-[rgba(255,107,0,0.06)] p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#72bdd0]/30 bg-[rgba(114, 189, 208,0.06)] p-5">
                     <div>
                       <p className="text-sm font-bold text-white">Not satisfied with this resolution?</p>
                       <p className="mt-1 text-xs text-[#a1a1aa]">
                         You can reopen this ticket until{" "}
-                        <strong className="text-[#ff6b00]">{ticket.reopenWindow.deadline ? fmt(ticket.reopenWindow.deadline) : "the deadline"}</strong>.
+                        <strong className="text-[#72bdd0]">{ticket.reopenWindow.deadline ? fmt(ticket.reopenWindow.deadline) : "the deadline"}</strong>.
                       </p>
                     </div>
                     <Button
                       onClick={() => setReopenOpen(true)}
                       style={{
-                        background: "linear-gradient(135deg, #ff6b00, #ff7d1a)",
-                        boxShadow: "0 4px 14px rgba(255, 107, 0, 0.4)",
+                        background: "linear-gradient(135deg, #22618b, #1a4c6e)",
+                        boxShadow: "0 4px 14px rgba(114, 189, 208, 0.4)",
                       }}
                       className="rounded-xl border-none text-xs font-bold text-white transition hover:brightness-110"
                     >
@@ -285,7 +285,7 @@ export default function TrackPage() {
             placeholder="Reopening reason (minimum 10 characters)..."
             value={reopenReason}
             onChange={(e) => setReopenReason(e.target.value)}
-            className="rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#ff6b00]"
+            className="rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
             aria-invalid={!!reopenError}
           />
           {reopenError ? <p className="text-xs text-red-400">{reopenError}</p> : null}
@@ -297,7 +297,7 @@ export default function TrackPage() {
               onClick={reopen}
               disabled={reopenBusy}
               style={{
-                background: "linear-gradient(135deg, #ff6b00, #ff7d1a)",
+                background: "linear-gradient(135deg, #22618b, #1a4c6e)",
               }}
               className="rounded-xl border-none text-xs font-bold text-white hover:brightness-110"
             >

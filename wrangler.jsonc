@@ -28,6 +28,7 @@
   //  2. paste the printed database_id below
   //  3. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0001_schema.sql
   //  4. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0002_seed_data.sql
+  //  5. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0004_fitclass_branches.sql
   "d1_databases": [
     {
       "binding": "DB",
