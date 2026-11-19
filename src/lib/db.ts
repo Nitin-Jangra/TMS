@@ -23,28 +23,54 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-function createPrismaClient(): PrismaClient {
-  if (onCloudflareWorkers) {
-    const env = (getCloudflareContext() as unknown as { env: { DB?: unknown } }).env;
-    if (!env?.DB) {
-      throw new Error(
-        "[fcms] D1 binding not found. Add d1_databases binding \"DB\" to wrangler.jsonc " +
-        "and run `wrangler d1 execute fitclass --remote --file=cloudflare/d1/0001_schema.sql`."
-      );
-    }
-    return new PrismaClient({
-      adapter: new PrismaD1(env.DB as Parameters<typeof PrismaD1>[0]),
+// Cloudflare Workers forbid sharing I/O objects (database connections,
+// pending promises) between requests: a request that touches something
+// created by another request is cancelled with "The Workers runtime canceled
+// this request because it detected that your Worker's code had hung", which
+// surfaces as "Application error: a server-side exception has occurred".
+// So on Workers there is one PrismaClient PER REQUEST, keyed by the request's
+// ExecutionContext (also used by work scheduled with ctx.waitUntil after the
+// response). In Node.js a single shared client is used as before.
+const workerClients = new WeakMap<object, PrismaClient>();
+
+function workerClient(): PrismaClient {
+  const context = getCloudflareContext() as unknown as { env: { DB?: unknown }; ctx: object };
+  if (!context.env?.DB) {
+    throw new Error(
+      "[fcms] D1 binding not found. Add d1_databases binding \"DB\" to wrangler.jsonc " +
+      "and run `wrangler d1 execute fitclass --remote --file=cloudflare/d1/0001_schema.sql`."
+    );
+  }
+  let client = workerClients.get(context.ctx);
+  if (!client) {
+    client = new PrismaClient({
+      adapter: new PrismaD1(context.env.DB as ConstructorParameters<typeof PrismaD1>[0]),
       log: ["warn", "error"],
     });
+    workerClients.set(context.ctx, client);
   }
-  return new PrismaClient({ log: ["warn", "error"] });
+  return client;
 }
 
-export const db =
-  globalForPrisma.prisma ??
-  createPrismaClient();
+function nodeClient(): PrismaClient {
+  if (!globalForPrisma.prisma) globalForPrisma.prisma = new PrismaClient({ log: ["warn", "error"] });
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+/**
+ * The database client. On Workers every property access resolves to the
+ * current request's client, so existing `db.ticket.findMany(...)` code works
+ * unchanged.
+ */
+export const db: PrismaClient = onCloudflareWorkers
+  ? new Proxy({} as PrismaClient, {
+      get(_target, prop) {
+        const client = workerClient();
+        const value = Reflect.get(client, prop, client);
+        return typeof value === "function" ? value.bind(client) : value;
+      },
+    })
+  : nodeClient();
 
 // ---------------------------------------------------------------------------
 // Interactive transactions
