@@ -1,7 +1,7 @@
 // Core business-rule tests for FC-CMS: round-robin assignment, status
 // transitions, closed-ticket protection, tracking, reopening, auto-closure.
 
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import { createComplaint, trackTicket, reopenTicket, applyStatusChange, TicketError } from "@/lib/tickets";
 import { getEligibleEmployees, retryUnassignedTickets } from "@/lib/assignment";
@@ -54,6 +54,7 @@ async function purgeBranchTickets(targetBranchId: string) {
     await db.ticketClosureJob.deleteMany({ where: { ticketId: { in: ids } } });
     await db.ticketReopenHistory.deleteMany({ where: { ticketId: { in: ids } } });
     await db.slaTracking.deleteMany({ where: { ticketId: { in: ids } } });
+    await db.ticketFeedback.deleteMany({ where: { ticketId: { in: ids } } });
     await db.notification.deleteMany({ where: { ticketId: { in: ids } } });
     await db.auditLog.deleteMany({ where: { ticketId: { in: ids } } });
     await db.ticketMessage.deleteMany({ where: { ticketId: { in: ids } } });
@@ -78,6 +79,15 @@ async function cleanup() {
   }
 }
 
+// These tests check the strict FIFO round-robin order, so pin that strategy
+// (the product default is least-busy) and restore the setting afterwards.
+let previousStrategy: string | null = null;
+beforeAll(async () => {
+  const row = await db.systemSetting.findUnique({ where: { key: "assignment_strategy" } });
+  previousStrategy = row?.value ?? null;
+  await db.systemSetting.upsert({ where: { key: "assignment_strategy" }, create: { key: "assignment_strategy", value: "round_robin" }, update: { value: "round_robin" } });
+});
+
 beforeEach(async () => {
   await cleanup();
   const branch = await db.branch.create({
@@ -88,6 +98,8 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await cleanup().catch(() => undefined);
+  if (previousStrategy === null) await db.systemSetting.deleteMany({ where: { key: "assignment_strategy" } }).catch(() => undefined);
+  else await db.systemSetting.update({ where: { key: "assignment_strategy" }, data: { value: previousStrategy } }).catch(() => undefined);
   await db.$disconnect();
 });
 

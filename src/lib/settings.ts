@@ -19,6 +19,16 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   webhook_secret: "", // HMAC secret used to sign webhook deliveries
   staff_cross_branch_access: "true", // branch staff can find/view/work tickets of every branch
   agents_can_reassign: "true", // support agents can reassign / transfer tickets
+  assignment_strategy: "least_busy", // least_busy | round_robin
+  auto_handover_on_leave: "true", // marking someone away hands their open tickets to colleagues
+  escalation_enabled: "true", // SLA escalation ladder (warning → breach → critical)
+  escalation_warn_percent: "75", // % of the resolution time used before the assignee is reminded
+  escalation_critical_percent: "150", // % at which central support + department are alerted
+  digest_enabled: "true", // daily summary email to branch managers + central support
+  digest_hour: "9", // hour of day (India time) to send the digest
+  digest_last_sent: "", // internal: date (YYYY-MM-DD, IST) of the last digest
+  feedback_enabled: "true", // ask members to rate the support after resolution
+  public_base_url: "", // e.g. https://support.fitclass.in — used for links in emails
 };
 
 export async function getSetting(key: string): Promise<string> {

@@ -11,6 +11,7 @@ import { initSlaTracking, markFirstResponse, markResolution } from "@/lib/sla";
 import { assignTicketRoundRobin, notifyAssignmentFailed } from "@/lib/assignment";
 import { canTransition, normalizePhone, type SessionUser, type TicketStatus } from "@/lib/types";
 import { emitWebhook } from "@/lib/webhooks";
+import { feedbackUrl } from "@/lib/feedback";
 
 export class TicketError extends Error {
   code: string;
@@ -129,6 +130,7 @@ export async function createComplaint(
         customerEmail: input.customerEmail.trim().toLowerCase(),
         branchId: input.branchId,
         categoryId: input.categoryId,
+        departmentId: categoryRow.departmentId ?? null,
         description: input.description.trim(),
         status: "NEW_COMPLAINT",
         priority: input.priority || "MEDIUM",
@@ -258,6 +260,7 @@ export async function applyStatusChange(
     reason: input.reason || input.note || "",
     resolution: input.resolution || "",
     reopenWindowHours: String(await getReopenWindowHours()),
+    feedbackUrl: input.toStatus === "RESOLVED" ? await feedbackUrl(ticket.ticketNumber) : "",
   });
 
   if (input.toStatus === "IN_PROGRESS" && ticket.status === "NEW_COMPLAINT") {
@@ -358,6 +361,8 @@ export interface TrackedTicket {
   resolution: { message: string; resolvedAt: string } | null;
   closure: { closedAt: string } | null;
   reopenWindow: { open: boolean; deadline: string | null } | null;
+  feedback: { rating: number; comment: string } | null;
+  canRate: boolean;
 }
 
 const GENERIC_TRACK_ERROR = "We could not find a ticket matching that Ticket ID and mobile number. Please check both values and try again.";
@@ -375,6 +380,7 @@ export async function trackTicket(ticketNumberInput: string, phoneInput: string)
       assignee: { select: { name: true } },
       statusHistory: { orderBy: { createdAt: "asc" } },
       messages: { where: { visibility: "PUBLIC" }, orderBy: { createdAt: "desc" }, take: 1 },
+      feedback: { select: { rating: true, comment: true } },
     },
   });
 
@@ -420,6 +426,8 @@ export async function trackTicket(ticketNumberInput: string, phoneInput: string)
         : null,
     closure: ticket.status === "CLOSED" ? { closedAt: (ticket.closedAt || ticket.updatedAt).toISOString() } : null,
     reopenWindow: reopenOpen ? { open: true, deadline: ticket.autoCloseAt!.toISOString() } : { open: false, deadline: ticket.autoCloseAt?.toISOString() || null },
+    feedback: ticket.feedback ? { rating: ticket.feedback.rating, comment: ticket.feedback.comment } : null,
+    canRate: (ticket.status === "RESOLVED" || ticket.status === "CLOSED") && !ticket.feedback,
   };
 }
 

@@ -20,9 +20,11 @@ import { PriorityBadge, StatusBadge } from "@/components/staff-nav";
 import { useToast } from "@/hooks/use-toast";
 import { STATUS_LABELS } from "@/lib/types";
 import { StaffPicker, type StaffEntry } from "@/components/staff-picker";
+import { CannedPicker } from "@/components/canned-picker";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertTriangle, ArrowLeftRight, ArrowUpRight, FileText, Loader2, MessageSquarePlus,
-  Paperclip, PauseCircle, PlayCircle, Reply, RotateCcw, Send, ShieldAlert, Timer, TriangleAlert, UserRound,
+  Paperclip, PauseCircle, PlayCircle, Reply, RotateCcw, Send, ShieldAlert, Star, Timer, TriangleAlert, UserRound,
 } from "lucide-react";
 
 interface Detail {
@@ -47,6 +49,8 @@ interface Detail {
     slaResolutionDueAt: string | null;
     branch: { id: string; code: string; name: string };
     category: { id: string; name: string };
+    department: { id: string; name: string } | null;
+    feedback: { rating: number; comment: string; createdAt: string } | null;
     assignee: { id: string; name: string; email: string; designation: string } | null;
     messages: { id: string; authorType: string; visibility: string; authorName: string; body: string; createdAt: string }[];
     statusHistory: { id: string; fromStatus: string | null; toStatus: string; changedByName: string; note: string; createdAt: string }[];
@@ -82,6 +86,9 @@ export default function TicketDetailPage() {
   const [assignNote, setAssignNote] = useState("");
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [transferTo, setTransferTo] = useState("");
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [moveDept, setMoveDept] = useState("");
+  const [moveReassign, setMoveReassign] = useState(true);
 
   const canAssign = !!detail?.viewer.canReassign;
   const acrossBranches = !!detail?.viewer.canAssignAcrossBranches;
@@ -96,6 +103,10 @@ export default function TicketDetailPage() {
     }
     setDetail(body.data);
     if (body.data.viewer.canReassign) {
+      fetch("/api/v1/support/departments")
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setDepartments(d.data.departments); })
+        .catch(() => undefined);
       fetch("/api/v1/support/staff-directory")
         .then((r) => r.json())
         .then((d) => { if (d.success) setStaff(d.data.staff); })
@@ -220,6 +231,7 @@ export default function TicketDetailPage() {
                 <p className="truncate text-slate-600">Email: {t.customerEmail}</p>
                 <p className="text-slate-600">Branch: {t.branch.name} ({t.branch.code})</p>
                 <p className="text-slate-600">Category: {t.category.name}</p>
+                <p className="text-slate-600">Department: {t.department?.name || <span className="text-slate-400">None (general queue)</span>}</p>
                 <p className="text-slate-600">Source: {t.source}</p>
                 <p className="text-slate-600">Submitted: {fmt(t.createdAt)}</p>
                 <p className="text-slate-600">Assigned: {t.assignee ? `${fmt(t.assignedAt)} → ${t.assignee.name}` : "Not assigned"}</p>
@@ -228,6 +240,18 @@ export default function TicketDetailPage() {
                 <p className="text-slate-600">SLA response due: {fmt(t.slaResponseDueAt)} {t.slaTracking?.firstResponseBreached ? <span className="text-red-600">(breached)</span> : null}</p>
                 <p className="text-slate-600">SLA resolution due: {fmt(t.slaResolutionDueAt)} {t.slaTracking?.resolutionBreached ? <span className="text-red-600">(breached)</span> : null}</p>
               </div>
+              {t.feedback ? (
+                <div className={`flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm ${t.feedback.rating <= 2 ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
+                  <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Member rating</span>
+                  <span className="flex items-center gap-0.5" aria-label={`${t.feedback.rating} out of 5 stars`}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Star key={n} className={`h-4 w-4 ${n <= t.feedback!.rating ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} aria-hidden />
+                    ))}
+                  </span>
+                  <span className="font-semibold text-slate-700">{t.feedback.rating}/5</span>
+                  {t.feedback.comment ? <span className="w-full text-slate-600">“{t.feedback.comment}”</span> : null}
+                </div>
+              ) : null}
               {t.attachments.length > 0 ? (
                 <div>
                   <Separator className="my-3" />
@@ -269,7 +293,16 @@ export default function TicketDetailPage() {
               {!isClosed ? (
                 <div className="space-y-3 pt-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="reply">Customer reply</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="reply">Customer reply</Label>
+                      <CannedPicker
+                        context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                        onInsert={(text) => setReplyText((cur) => (cur.trim() ? `${cur.trimEnd()}
+
+${text}` : text))}
+                        disabled={!!busy}
+                      />
+                    </div>
                     <Textarea id="reply" rows={3} placeholder="Write a customer-facing reply (emails the customer)..." value={replyText} onChange={(e) => setReplyText(e.target.value)} disabled={!!busy} />
                     <Button size="sm" className="bg-[#2c6bdf] hover:bg-[#1c4297]" disabled={!!busy || replyText.trim().length < 2}
                       onClick={async () => {
@@ -374,6 +407,29 @@ export default function TicketDetailPage() {
                       {busy === "assign" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" aria-hidden />} {t.assignee ? "Reassign ticket" : "Assign ticket"}
                     </Button>
                   </div>
+                  {departments.length > 0 ? (
+                    <div className="space-y-1.5 border-t border-slate-100 pt-3">
+                      <Label>Move to department</Label>
+                      <Select value={moveDept} onValueChange={setMoveDept}>
+                        <SelectTrigger className="w-full" aria-label="Select department"><SelectValue placeholder={t.department ? `Now: ${t.department.name}` : "Select department"} /></SelectTrigger>
+                        <SelectContent>
+                          {departments.filter((d) => d.id !== t.department?.id).map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          {t.department ? <SelectItem value="none">No department (general queue)</SelectItem> : null}
+                        </SelectContent>
+                      </Select>
+                      <label className="flex items-center gap-2 text-xs text-slate-600">
+                        <Checkbox checked={moveReassign} onCheckedChange={(v) => setMoveReassign(v === true)} />
+                        Re-assign to someone in that department
+                      </label>
+                      <Button size="sm" variant="outline" className="w-full" disabled={!!busy || !moveDept}
+                        onClick={async () => {
+                          const okRes = await act("dept", () => fetch(`/api/v1/support/tickets/${t.id}/department`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ departmentId: moveDept === "none" ? null : moveDept, reassign: moveReassign }) }), "Department updated");
+                          if (okRes) setMoveDept("");
+                        }}>
+                        {busy === "dept" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null} Move ticket
+                      </Button>
+                    </div>
+                  ) : null}
                   {branches.length > 0 ? (
                     <div className="space-y-1.5 border-t border-slate-100 pt-3">
                       <Label>Transfer to another branch</Label>

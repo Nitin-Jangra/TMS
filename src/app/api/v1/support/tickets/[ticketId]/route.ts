@@ -17,6 +17,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tic
       include: {
         branch: { select: { id: true, code: true, name: true } },
         category: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
+        feedback: { select: { rating: true, comment: true, createdAt: true } },
         assignee: { select: { id: true, name: true, email: true, designation: true } },
         messages: { orderBy: { createdAt: "asc" }, include: { author: { select: { name: true, role: true } } } },
         statusHistory: { orderBy: { createdAt: "asc" } },

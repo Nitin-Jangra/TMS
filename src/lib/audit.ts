@@ -24,7 +24,14 @@ export type AuditAction =
   | "ACCESS_DENIED"
   | "API_KEY_CREATED"
   | "WEBHOOK_FAILED"
-  | "MASTER_DATA_SYNC";
+  | "MASTER_DATA_SYNC"
+  | "FEEDBACK_RECEIVED"
+  | "SLA_WARNING"
+  | "SLA_BREACHED"
+  | "SLA_CRITICAL"
+  | "DEPARTMENT_CHANGED"
+  | "LEAVE_HANDOVER"
+  | "BULK_ACTION";
 
 export interface AuditContext {
   ticketId?: string | null;

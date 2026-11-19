@@ -17,6 +17,8 @@ export interface TicketFilters {
   branchId?: string;
   assignedToId?: string;
   categoryId?: string;
+  /** Department id, or "none" for tickets without a department. */
+  departmentId?: string;
   priority?: string;
   unassigned?: boolean;
   overdue?: boolean;
@@ -47,6 +49,7 @@ export function parseFilters(searchParams: URLSearchParams): TicketFilters {
     branchId: searchParams.get("branchId") || undefined,
     assignedToId: searchParams.get("assignedToId") || undefined,
     categoryId: searchParams.get("categoryId") || undefined,
+    departmentId: searchParams.get("departmentId") || undefined,
     priority: searchParams.get("priority") || undefined,
     unassigned: searchParams.get("unassigned") === "true" || undefined,
     overdue: searchParams.get("overdue") === "true" || undefined,
@@ -103,10 +106,12 @@ export function buildWhere(filters: TicketFilters, scope: { branchId?: string; a
   if (scope.branchId) and.push({ branchId: scope.branchId });
   if (scope.assignedToId) and.push({ assignedToId: scope.assignedToId });
 
-  if (filters.status) and.push({ status: filters.status });
+  // "OPEN" = any not-yet-resolved status (new, in progress, on hold)
+  if (filters.status) and.push({ status: filters.status === "OPEN" ? { in: OPEN_STATUSES } : filters.status });
   if (filters.branchId) and.push({ branchId: filters.branchId });
   if (filters.assignedToId) and.push({ assignedToId: filters.assignedToId });
   if (filters.categoryId) and.push({ categoryId: filters.categoryId });
+  if (filters.departmentId) and.push({ departmentId: filters.departmentId === "none" ? null : filters.departmentId });
   if (filters.priority) and.push({ priority: filters.priority });
   if (filters.unassigned) and.push({ assignedToId: null });
   if (filters.overdue) and.push({ slaResolutionDueAt: { lt: new Date() } }, { status: { in: OPEN_STATUSES } });
@@ -137,6 +142,7 @@ export function buildWhere(filters: TicketFilters, scope: { branchId?: string; a
       { branch: { code: { contains: w.toUpperCase() } } },
       { branch: { city: { contains: w } } },
       { category: { name: { contains: w } } },
+      { department: { name: { contains: w } } },
       { assignee: { name: { contains: w } } },
       { status: { contains: w.toUpperCase().replace(/\s+/g, "_") } },
       { priority: { contains: w.toUpperCase() } },
@@ -170,6 +176,8 @@ export const TICKET_INCLUDE = {
   branch: { select: { id: true, code: true, name: true } },
   category: { select: { id: true, name: true } },
   assignee: { select: { id: true, name: true, email: true, designation: true } },
+  department: { select: { id: true, name: true } },
+  feedback: { select: { rating: true } },
 } as const;
 
 // Lifecycle / severity order used when sorting by status or priority
@@ -224,4 +232,10 @@ export async function listTickets(
     db.ticket.count({ where }),
   ]);
   return { rows, total };
+}
+
+/** All matching tickets for CSV export (capped). */
+export async function exportTickets(filters: TicketFilters, scope: { branchId?: string; assignedToId?: string }, max = 5000) {
+  const { rows, total } = await listTickets(filters, scope, { skip: 0, take: max });
+  return { rows, total, truncated: total > rows.length };
 }

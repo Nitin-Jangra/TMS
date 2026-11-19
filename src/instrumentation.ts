@@ -19,24 +19,16 @@ export async function register(): Promise<void> {
   if (g.__fcmsWorker) return;
   g.__fcmsWorker = true;
 
-  const { runClosureSweep, runAssignmentRetrySweep } = await import("@/lib/closure");
+  const { runAllSweeps } = await import("@/lib/sweeps");
 
+  // closure + assignment retry + SLA escalation ladder + daily digest
   const sweep = async () => {
-    try {
-      await runClosureSweep();
-    } catch (err) {
-      console.error("[fcms] closure sweep error:", err);
-    }
-    try {
-      await runAssignmentRetrySweep();
-    } catch (err) {
-      console.error("[fcms] assignment retry sweep error:", err);
-    }
+    await runAllSweeps();
   };
 
   // Initial sweep shortly after boot, then every 60 seconds.
   setTimeout(sweep, 5000).unref?.();
   const timer = setInterval(sweep, 60000);
   if (typeof timer.unref === "function") timer.unref();
-  console.log("[fcms] background workers registered (closure + assignment retry, 60s interval)");
+  console.log("[fcms] background workers registered (closure, assignment retry, escalation, digest — 60s interval)");
 }

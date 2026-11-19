@@ -121,6 +121,15 @@ export function canAssignTickets(role: Role): boolean {
   return role === "ROOT_ADMIN" || role === "CENTRAL_ADMIN" || role === "CENTRAL_AGENT" || role === "BRANCH_MANAGER";
 }
 
+/** Shared reply templates, shared saved views, reports. */
+export function canManageSharedTemplates(role: string): boolean {
+  return role === "ROOT_ADMIN" || role === "CENTRAL_ADMIN" || role === "CENTRAL_AGENT" || role === "BRANCH_MANAGER";
+}
+
+export function canViewReports(role: string): boolean {
+  return role === "ROOT_ADMIN" || role === "CENTRAL_ADMIN" || role === "CENTRAL_AGENT" || role === "BRANCH_MANAGER";
+}
+
 export function canManageAvailability(role: Role): boolean {
   return role === "ROOT_ADMIN" || role === "CENTRAL_ADMIN" || role === "BRANCH_MANAGER";
 }

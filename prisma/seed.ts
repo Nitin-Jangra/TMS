@@ -44,6 +44,9 @@ async function main() {
     db.configAudit.deleteMany(),
     db.systemSetting.deleteMany(),
     db.slaTracking.deleteMany(),
+    db.ticketFeedback.deleteMany(),
+    db.savedView.deleteMany(),
+    db.cannedResponse.deleteMany(),
     db.slaPolicy.deleteMany(),
     db.ticketReopenHistory.deleteMany(),
     db.ticketClosureJob.deleteMany(),
@@ -56,6 +59,7 @@ async function main() {
     db.ticketStatusHistory.deleteMany(),
     db.ticket.deleteMany(),
     db.complaintCategory.deleteMany(),
+    db.department.deleteMany(),
     db.ticketSequence.deleteMany(),
     db.staffUser.deleteMany(),
     db.branch.deleteMany(),
@@ -87,6 +91,32 @@ async function main() {
     const c = await db.complaintCategory.create({ data: { name: categoryNames[i], sortOrder: i } });
     categories[categoryNames[i]] = c;
   }
+
+  // ------------------------------------------------------------------ departments + routing
+  // Same defaults as cloudflare/d1/0005_service_features.sql.
+  const departmentDefs: { id: string; name: string; description: string; categories: string[] }[] = [
+    { id: "fc-dept-frontdesk", name: "Front Desk & Membership", description: "Membership, renewals, freezes, lockers, guest passes", categories: ["Membership Issues", "Locker Issues"] },
+    { id: "fc-dept-accounts", name: "Accounts & Billing", description: "Payments, refunds, invoices, EMI", categories: ["Billing and Payments"] },
+    { id: "fc-dept-maintenance", name: "Maintenance & Facilities", description: "Equipment, AC, showers, electrical, repairs", categories: ["Equipment Issues", "Facility Maintenance"] },
+    { id: "fc-dept-fitness", name: "Fitness & Trainers", description: "Trainers, PT sessions, group classes, diet plans", categories: ["Trainer Complaints"] },
+    { id: "fc-dept-housekeeping", name: "Housekeeping", description: "Cleanliness, washrooms, changing rooms", categories: ["Cleanliness"] },
+    { id: "fc-dept-management", name: "Management", description: "Staff behaviour, serious complaints, escalations", categories: ["Staff Behaviour"] },
+  ];
+  for (let i = 0; i < departmentDefs.length; i++) {
+    const d = departmentDefs[i];
+    await db.department.create({ data: { id: d.id, name: d.name, description: d.description, sortOrder: i } });
+    for (const name of d.categories) {
+      if (categories[name]) await db.complaintCategory.update({ where: { id: categories[name].id }, data: { departmentId: d.id } });
+    }
+  }
+  const starterTemplates = [
+    { title: "Acknowledge — looking into it", body: "Hi {{customerName}}, thank you for letting us know. We are looking into your complaint ({{ticketNumber}}) at FitClass {{branchName}} and will update you shortly. — {{agentName}}" },
+    { title: "Equipment under repair", body: "Hi {{customerName}}, the equipment you reported at FitClass {{branchName}} has been marked out of order and our maintenance team is repairing it. We expect it back in service within 48 hours. Sorry for the inconvenience. — {{agentName}}" },
+    { title: "Refund initiated", body: "Hi {{customerName}}, your refund for ticket {{ticketNumber}} has been initiated. It usually reaches your account within 5–7 working days. — {{agentName}}, FitClass Accounts" },
+    { title: "Cleaning done", body: "Hi {{customerName}}, thank you for flagging this. The area has been cleaned and our housekeeping schedule at FitClass {{branchName}} has been tightened. — {{agentName}}" },
+    { title: "Need more details", body: "Hi {{customerName}}, to resolve ticket {{ticketNumber}} quickly, could you share a few more details (date, time and anything else you noticed)? You can simply reply to this message. — {{agentName}}" },
+  ];
+  for (const t of starterTemplates) await db.cannedResponse.create({ data: { ...t, isShared: true } });
 
   // ------------------------------------------------------------------ staff
   // Central team

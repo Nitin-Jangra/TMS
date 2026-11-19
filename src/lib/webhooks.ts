@@ -30,6 +30,9 @@ export const WEBHOOK_EVENTS = [
   "ticket.escalated",
   "ticket.transferred",
   "ticket.message_added",
+  "ticket.feedback",
+  "ticket.sla_warning",
+  "ticket.sla_breached",
   "webhook.test",
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

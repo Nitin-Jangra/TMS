@@ -19,11 +19,21 @@ export async function GET(request: Request) {
     const [employees, branches] = await Promise.all([
       db.staffUser.findMany({
         where: { role: "SUPPORT_AGENT", ...(scopeBranchId ? { branchId: scopeBranchId } : {}) },
-        include: { branch: { select: { name: true, code: true } } },
+        include: { branch: { select: { name: true, code: true } }, department: { select: { id: true, name: true } } },
         orderBy: [{ branchId: "asc" }, { createdAt: "asc" }],
       }),
       db.branch.findMany({ where: { isActive: true }, orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
     ]);
-    return ok({ employees, branches, restricted: false });
+    const open = await db.ticket.groupBy({
+      by: ["assignedToId"],
+      where: { assignedToId: { in: employees.map((e) => e.id) }, status: { in: ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"] } },
+      _count: { _all: true },
+    });
+    const openBy = new Map(open.map((o) => [o.assignedToId, o._count._all]));
+    return ok({
+      employees: employees.map(({ passwordHash: _omit, ...e }) => ({ ...e, openTickets: openBy.get(e.id) ?? 0 })),
+      branches,
+      restricted: false,
+    });
   });
 }

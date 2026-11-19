@@ -18,14 +18,25 @@ export async function POST(request: Request) {
   });
 }
 
+// PATCH { id, isActive?, departmentId? } — departmentId sets the routing rule
+// (tickets of this category go to that department); null/"" clears it.
 export async function PATCH(request: Request) {
   return handleErrors(async () => {
-    await requireRole(["ROOT_ADMIN"]);
-    const body = await request.json().catch(() => null);
-    const id = String((body as { id?: string })?.id || "");
-    const isActive = (body as { isActive?: boolean })?.isActive;
-    if (!id || typeof isActive !== "boolean") return fail("VALIDATION_ERROR", "id and isActive are required.", 422);
-    const category = await db.complaintCategory.update({ where: { id }, data: { isActive } });
+    await requireRole(["ROOT_ADMIN", "CENTRAL_ADMIN"]);
+    const body = ((await request.json().catch(() => null)) || {}) as { id?: string; isActive?: boolean; departmentId?: string | null };
+    const id = String(body.id || "");
+    if (!id) return fail("VALIDATION_ERROR", "id is required.", 422);
+    const data: { isActive?: boolean; departmentId?: string | null } = {};
+    if (typeof body.isActive === "boolean") data.isActive = body.isActive;
+    if ("departmentId" in body) {
+      const departmentId = body.departmentId ? String(body.departmentId) : null;
+      if (departmentId && !(await db.department.findUnique({ where: { id: departmentId } }))) {
+        return fail("NOT_FOUND", "Department not found.", 404);
+      }
+      data.departmentId = departmentId;
+    }
+    if (!Object.keys(data).length) return fail("VALIDATION_ERROR", "Send isActive and/or departmentId.", 422);
+    const category = await db.complaintCategory.update({ where: { id }, data, include: { department: { select: { id: true, name: true } } } });
     return ok({ category });
   });
 }

@@ -9,7 +9,7 @@ import { ROLE_LABELS, roleHome } from "@/lib/types";
 import { LogoutButton } from "@/components/staff-nav";
 import {
   LayoutDashboard, TicketCheck, UsersRound, ArrowLeftRight, ShieldAlert,
-  Settings2, ScrollText, Mailbox, KeyRound, Home, BarChart3,
+  Settings2, ScrollText, Mailbox, KeyRound, Home, BarChart3, FileText,
 } from "lucide-react";
 
 export interface NavItem {
@@ -24,6 +24,8 @@ export const STAFF_NAV: NavItem[] = [
   { href: "/staff/tickets", label: "Tickets", icon: TicketCheck, roles: ["SUPPORT_AGENT", "BRANCH_MANAGER", "CENTRAL_AGENT", "CENTRAL_ADMIN", "ROOT_ADMIN"] },
   { href: "/staff/assignment", label: "Assignment Queue", icon: ArrowLeftRight, roles: ["BRANCH_MANAGER", "CENTRAL_AGENT", "CENTRAL_ADMIN", "ROOT_ADMIN"] },
   { href: "/staff/employees", label: "Employees", icon: UsersRound, roles: ["BRANCH_MANAGER", "CENTRAL_ADMIN", "ROOT_ADMIN"] },
+  { href: "/staff/reports", label: "Reports", icon: BarChart3, roles: ["BRANCH_MANAGER", "CENTRAL_AGENT", "CENTRAL_ADMIN", "ROOT_ADMIN"] },
+  { href: "/staff/templates", label: "Reply Templates", icon: FileText, roles: ["SUPPORT_AGENT", "BRANCH_MANAGER", "CENTRAL_AGENT", "CENTRAL_ADMIN", "ROOT_ADMIN"] },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

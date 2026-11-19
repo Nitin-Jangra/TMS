@@ -20,6 +20,15 @@ const ALLOWED_KEYS = [
   "webhook_url",
   "staff_cross_branch_access",
   "agents_can_reassign",
+  "assignment_strategy",
+  "auto_handover_on_leave",
+  "escalation_enabled",
+  "escalation_warn_percent",
+  "escalation_critical_percent",
+  "digest_enabled",
+  "digest_hour",
+  "feedback_enabled",
+  "public_base_url",
   "webhook_secret",
 ];
 

@@ -43,6 +43,7 @@ You don't need to write any of this; it is committed and validated:
 | `cloudflare/d1/0002_seed_data.sql` | All dummy data; test passwords re-hashed for the CPU budget |
 | `cloudflare/d1/0003_reset_data.sql` | Child-first wipe for clean re-seeding |
 | `cloudflare/d1/0004_fitclass_branches.sql` | The 34 real FitClass branches (from fitclass.in). Idempotent — apply after `0002`, re-apply any time |
+| `cloudflare/d1/0005_service_features.sql` | Departments + routing rules, reply templates, saved views, member ratings, SLA escalation level. **Run once on a database that existed before these features** (it adds columns, so it fails harmlessly with "duplicate column" if already applied). Not needed when `0001_schema.sql` was re-exported after this change |
 | `scripts/verify-cloudflare.sh` | 10-check hosted smoke test (login, scoping, API, lifecycle) |
 | `.github/workflows/deploy-cloudflare.yml` | Optional push-to-deploy via GitHub Actions |
 | package.json scripts | `cf:build`, `cf:preview`, `cf:deploy`, `d1:export` |
@@ -115,6 +116,8 @@ bun run d1:export
 bunx wrangler d1 execute fitclass --remote --file=cloudflare/d1/0001_schema.sql
 bunx wrangler d1 execute fitclass --remote --file=cloudflare/d1/0002_seed_data.sql
 bunx wrangler d1 execute fitclass --remote --file=cloudflare/d1/0004_fitclass_branches.sql
+# Existing database from before departments/ratings were added (run once):
+bunx wrangler d1 execute fitclass --remote --file=cloudflare/d1/0005_service_features.sql
 ```
 
 Re-seed later (e.g. after changing seed data): `bun run d1:export`, then apply
@@ -212,9 +215,11 @@ push to `main`. Delete the file if you pick Option A.
 
 ---
 
-## Part 8 — The background sweeps on Workers (closure + assignment retry)
+## Part 8 — The background sweeps on Workers
 
-Two sweeps normally run every 60 s inside the server. Workers isolates are ephemeral, so instead:
+Four sweeps normally run every 60 s inside the server: auto-closure, unassigned-ticket retry,
+the **SLA escalation ladder** (reminder → branch manager → central support) and the
+**daily digest** email. Workers isolates are ephemeral, so instead:
 
 - **Manual:** Root Admin panel → **Run workers now** button (calls
   `POST /api/v1/admin/workers/run`).
@@ -226,7 +231,12 @@ Two sweeps normally run every 60 s inside the server. Workers isolates are ephem
   ```
 - **From the APK/CRM:** call the same endpoint after any write, or on app start.
 
-Auto-closure after the reopen window and unassigned-ticket retries then keep working unchanged.
+Auto-closure, unassigned-ticket retries, SLA escalations and the morning digest then keep
+working. Every sweep is idempotent (escalation steps and the digest are sent once), so calling
+the endpoint often is safe — every 10–15 minutes is a good rhythm.
+
+Also set **Root Admin → System Settings → Automation → Public link** to your workers.dev URL so
+the "rate our support" link in resolution emails points at the live site.
 
 ---
 

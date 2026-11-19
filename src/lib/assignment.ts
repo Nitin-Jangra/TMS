@@ -14,6 +14,7 @@ import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
 import { emitWebhook } from "@/lib/webhooks";
+import { getSetting } from "@/lib/settings";
 
 export class AssignmentError extends Error {}
 
@@ -85,48 +86,95 @@ function notificationVariables(ctx: {
   };
 }
 
+const OPEN_STATUSES = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"];
+
+export async function getAssignmentStrategy(): Promise<"least_busy" | "round_robin"> {
+  return (await getSetting("assignment_strategy")) === "round_robin" ? "round_robin" : "least_busy";
+}
+
+type Tx = Parameters<Parameters<typeof runInTransaction>[0]>[0];
+
 /**
- * Core round-robin step for one ticket. Returns the assigned employee, or
- * null when the branch has no eligible employee (ticket stays unassigned).
+ * Picks the next employee for a ticket (no writes except the branch cursor).
+ *
+ * Candidates: active, available support agents of the ticket's branch.
+ * Department routing: members of the ticket's department first; if none is
+ * available, generalists (no department); if none, anyone in the branch.
+ * Strategy (setting assignment_strategy):
+ *   round_robin — next person after the branch cursor (FIFO cycle)
+ *   least_busy  — fewest open tickets; ties go in round-robin order
+ */
+export async function pickEmployee(
+  tx: Tx,
+  ticket: { branchId: string; departmentId: string | null },
+  opts: { excludeIds?: string[]; strategy?: string } = {},
+): Promise<{ id: string; name: string; email: string; routedBy: string } | null> {
+  const all = await tx.staffUser.findMany({
+    where: { branchId: ticket.branchId, role: "SUPPORT_AGENT", isActive: true, availabilityEnabled: true },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { id: true, name: true, email: true, departmentId: true },
+  });
+  if (!all.length) return null;
+
+  // Round-robin order: start right after the branch cursor.
+  const cursor = await tx.branchCursor.findUnique({ where: { branchId: ticket.branchId } });
+  const lastIdx = cursor?.lastEmployeeId ? all.findIndex((e) => e.id === cursor.lastEmployeeId) : -1;
+  const rotated = [...all.slice(lastIdx + 1), ...all.slice(0, lastIdx + 1)].filter((e) => !opts.excludeIds?.includes(e.id));
+  if (!rotated.length) return null;
+
+  let pool = rotated;
+  let routedBy = "branch queue";
+  if (ticket.departmentId) {
+    const inDept = rotated.filter((e) => e.departmentId === ticket.departmentId);
+    const generalists = rotated.filter((e) => !e.departmentId);
+    if (inDept.length) { pool = inDept; routedBy = "department"; }
+    else if (generalists.length) { pool = generalists; routedBy = "branch generalists (no one available in the department)"; }
+    else routedBy = "branch queue (no one available in the department)";
+  }
+
+  let chosen = pool[0];
+  if (opts.strategy !== "round_robin" && pool.length > 1) {
+    const counts = await tx.ticket.groupBy({
+      by: ["assignedToId"],
+      where: { assignedToId: { in: pool.map((e) => e.id) }, status: { in: OPEN_STATUSES } },
+      _count: { _all: true },
+    });
+    const load = new Map(counts.map((c) => [c.assignedToId, c._count._all]));
+    let best = Infinity;
+    for (const e of pool) {
+      const n = load.get(e.id) ?? 0;
+      if (n < best) { best = n; chosen = e; }
+    }
+    routedBy += `, least busy (${best} open)`;
+  }
+
+  await tx.branchCursor.upsert({
+    where: { branchId: ticket.branchId },
+    create: { branchId: ticket.branchId, lastEmployeeId: chosen.id, lastAssignedAt: new Date() },
+    update: { lastEmployeeId: chosen.id, lastAssignedAt: new Date() },
+  });
+  return { id: chosen.id, name: chosen.name, email: chosen.email, routedBy };
+}
+
+/**
+ * Automatic assignment step for one ticket (department routing + strategy).
+ * Returns the assigned employee, or null when the branch has no eligible
+ * employee (ticket stays unassigned).
  */
 export async function assignTicketRoundRobin(
   ticketId: string,
   actor: AssignmentActor | null,
   method: "ROUND_ROBIN" | "RETRY" | "REOPEN" = "ROUND_ROBIN",
 ): Promise<{ id: string; name: string } | null> {
+  const strategy = await getAssignmentStrategy();
   const result = await runInTransaction(async (tx) => {
     const ticket = await tx.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) throw new AssignmentError("Ticket not found.");
     if (ticket.status === "CLOSED") throw new AssignmentError("Closed tickets cannot be assigned or reassigned.");
     if (ticket.assignedToId) return { alreadyAssigned: true as const, employee: null };
 
-    const employees = await tx.staffUser.findMany({
-      where: {
-        branchId: ticket.branchId,
-        role: "SUPPORT_AGENT",
-        isActive: true,
-        availabilityEnabled: true,
-      },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: { id: true, name: true, email: true },
-    });
-
-    if (employees.length === 0) return { alreadyAssigned: false as const, employee: null };
-
-    // Persistent branch cursor: pick the next employee after the last one used.
-    const cursor = await tx.branchCursor.findUnique({ where: { branchId: ticket.branchId } });
-    let index = 0;
-    if (cursor?.lastEmployeeId) {
-      const lastIdx = employees.findIndex((e) => e.id === cursor.lastEmployeeId);
-      index = (lastIdx + 1) % employees.length; // lastIdx = -1 → 0 (start of queue)
-    }
-    const chosen = employees[index];
-
-    await tx.branchCursor.upsert({
-      where: { branchId: ticket.branchId },
-      create: { branchId: ticket.branchId, lastEmployeeId: chosen.id, lastAssignedAt: new Date() },
-      update: { lastEmployeeId: chosen.id, lastAssignedAt: new Date() },
-    });
+    const chosen = await pickEmployee(tx, ticket, { strategy });
+    if (!chosen) return { alreadyAssigned: false as const, employee: null };
 
     await tx.ticketAssignment.updateMany({ where: { ticketId, isCurrent: true }, data: { isCurrent: false } });
     await tx.ticketAssignment.create({
@@ -136,7 +184,7 @@ export async function assignTicketRoundRobin(
         assignedById: actor?.id || null,
         method,
         isCurrent: true,
-        note: method === "ROUND_ROBIN" ? "Branch round-robin queue" : method === "RETRY" ? "Unassigned queue retry" : "Reopen re-assignment",
+        note: `${method === "ROUND_ROBIN" ? "Automatic assignment" : method === "RETRY" ? "Unassigned queue retry" : "Reopen re-assignment"} — ${chosen.routedBy}`,
       },
     });
     await tx.ticket.update({
@@ -317,4 +365,69 @@ export async function retryUnassignedTickets(branchId?: string): Promise<{ assig
     where: { status: "NEW_COMPLAINT", assignedToId: null, ...(branchId ? { branchId } : {}) },
   });
   return { assigned, remaining };
+}
+
+/**
+ * Leave handover: moves every open ticket of an employee who is away to an
+ * available colleague (same branch; department routing + assignment strategy
+ * apply). Tickets for which nobody is available stay with the employee and
+ * are reported back so a manager can handle them.
+ */
+export async function handoverOpenTickets(
+  employeeId: string,
+  actor: AssignmentActor & { id: string; name: string; role: string },
+  reason = "Employee unavailable (leave / away)",
+): Promise<{ moved: { ticketNumber: string; to: string }[]; kept: string[] }> {
+  const strategy = await getAssignmentStrategy();
+  const from = await db.staffUser.findUnique({ where: { id: employeeId }, select: { name: true } });
+  const tickets = await db.ticket.findMany({
+    where: { assignedToId: employeeId, status: { in: OPEN_STATUSES } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, ticketNumber: true, branchId: true, departmentId: true },
+  });
+  const moved: { ticketNumber: string; to: string }[] = [];
+  const kept: string[] = [];
+
+  for (const t of tickets) {
+    const chosen = await runInTransaction(async (tx) => {
+      const pick = await pickEmployee(tx, t, { excludeIds: [employeeId], strategy });
+      if (!pick) return null;
+      await tx.ticketAssignment.updateMany({ where: { ticketId: t.id, isCurrent: true }, data: { isCurrent: false } });
+      await tx.ticketAssignment.create({
+        data: {
+          ticketId: t.id,
+          assignedToId: pick.id,
+          assignedById: actor.id || null,
+          method: "HANDOVER",
+          isCurrent: true,
+          note: `Handover from ${from?.name || "colleague"}: ${reason} — ${pick.routedBy}`,
+        },
+      });
+      await tx.ticket.update({ where: { id: t.id }, data: { assignedToId: pick.id, assignedAt: new Date() } });
+      return pick;
+    });
+    if (!chosen) {
+      kept.push(t.ticketNumber);
+      continue;
+    }
+    moved.push({ ticketNumber: t.ticketNumber, to: chosen.name });
+    await logAudit({
+      ticketId: t.id,
+      actor,
+      action: "TICKET_REASSIGNED",
+      previousValue: from?.name || employeeId,
+      newValue: chosen.name,
+      details: `Leave handover: ${reason}`,
+    });
+    const { ticket } = await getTicketContext(t.id);
+    await queueNotification({
+      ticketId: t.id,
+      ticketNumber: ticket.ticketNumber,
+      event: "ASSIGNED",
+      recipientKind: "ASSIGNEE",
+      variables: notificationVariables({ ticket, assignee: { name: chosen.name, email: chosen.email } }),
+    });
+    await emitWebhook("ticket.assigned", t.id, { method: "HANDOVER", assignedBy: actor.name, from: from?.name || "", note: reason });
+  }
+  return { moved, kept };
 }

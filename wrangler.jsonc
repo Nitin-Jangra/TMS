@@ -29,6 +29,8 @@
   //  3. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0001_schema.sql
   //  4. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0002_seed_data.sql
   //  5. wrangler d1 execute fitclass --remote --file=cloudflare/d1/0004_fitclass_branches.sql
+  //  6. existing databases only (created before departments existed):
+  //     wrangler d1 execute fitclass --remote --file=cloudflare/d1/0005_service_features.sql
   "d1_databases": [
     {
       "binding": "DB",

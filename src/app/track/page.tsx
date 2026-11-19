@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { RatingForm } from "@/components/rating-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,8 @@ interface TrackedTicket {
   resolution: { message: string; resolvedAt: string } | null;
   closure: { closedAt: string } | null;
   reopenWindow: { open: boolean; deadline: string | null } | null;
+  feedback?: { rating: number; comment: string } | null;
+  canRate?: boolean;
 }
 
 const fmt = (iso: string) => new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
@@ -229,6 +232,14 @@ export default function TrackPage() {
                   <p className="mt-2 text-xs leading-relaxed text-emerald-100 sm:text-sm">{ticket.resolution.message}</p>
                   <p className="mt-2 text-[11px] text-emerald-400">Resolved {fmt(ticket.resolution.resolvedAt)}</p>
                 </div>
+              ) : null}
+
+              {ticket.canRate ? (
+                <RatingForm ticketNumber={ticket.ticketNumber} mobileNumber={mobile} />
+              ) : ticket.feedback ? (
+                <p className="rounded-2xl border border-[#ffffff14] bg-[#171722] p-4 text-xs text-[#a1a1aa]">
+                  You rated our support <strong className="text-white">{ticket.feedback.rating}/5</strong>. Thank you for your feedback!
+                </p>
               ) : null}
 
               {ticket.closure ? (

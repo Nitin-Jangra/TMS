@@ -89,7 +89,7 @@ assigned automatically to the next available support employee of that branch
 | Parameter | Meaning |
 |---|---|
 | `phone`, `email` | all tickets of one member |
-| `status` | `NEW_COMPLAINT`, `IN_PROGRESS`, `ON_HOLD`, `RESOLVED`, `CLOSED` |
+| `status` | `NEW_COMPLAINT`, `IN_PROGRESS`, `ON_HOLD`, `RESOLVED`, `CLOSED`, or `OPEN` (any of the first three) |
 | `branch` | branch code, LMS id or name |
 | `priority`, `source` | `source` is `PORTAL`, `API_LMS` or `API_CRM` |
 | `unassigned=true`, `overdue=true`, `escalated=true` | queues |
@@ -97,6 +97,7 @@ assigned automatically to the next available support employee of that branch
 | `ticketSearch`, `customerSearch`, `branchSearch`, `categorySearch`, `assigneeSearch` | keyword filter on one column (case-insensitive, partial match); `assigneeSearch=unassigned` returns unassigned tickets |
 | `from`, `to` | created date range (`YYYY-MM-DD`) |
 | `updatedSince` | ISO timestamp — only tickets changed since then (incremental sync) |
+| `departmentId` | tickets of one department (`none` = without a department) |
 | `sort`, `order` | sort by `ticketNumber`, `customer`, `branch`, `category`, `assignee`, `status` (lifecycle order), `priority` (Low → Critical) or `createdAt`; `order` is `asc` or `desc`. Default: newest first |
 | `assignedToId` | tickets of one employee (staff id) |
 | `page`, `pageSize` | `pageSize` max 100 |
@@ -210,6 +211,9 @@ Each event is one `POST` with a JSON body:
 | `ticket.escalated` | escalated | `reason`, `escalatedBy` |
 | `ticket.transferred` | moved to another branch | `toBranch`, `transferredBy` |
 | `ticket.message_added` | reply or internal note added | `visibility`, `body`, `author` |
+| `ticket.feedback` | member rated the support (1–5) | `rating`, `comment` |
+| `ticket.sla_warning` | most of the resolution time is used | `percentUsed` |
+| `ticket.sla_breached` | resolution deadline missed (level 2) or far past it (level 3) | `percentUsed`, `level` |
 
 Headers on every delivery:
 
@@ -243,8 +247,8 @@ Delivery rules:
 
 ## 8. Scheduled job
 
-Auto-closure of resolved tickets and retry of unassigned tickets run when this endpoint is
-called. Call it from any scheduler every 10–15 minutes:
+Auto-closure of resolved tickets, retry of unassigned tickets, the SLA escalation ladder and
+the daily digest run when this endpoint is called. Call it from any scheduler every 10–15 minutes:
 
 ```
 POST /integration/workers/run      (write scope)

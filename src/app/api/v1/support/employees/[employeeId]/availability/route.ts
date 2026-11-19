@@ -1,10 +1,14 @@
-// Availability toggle. When an employee becomes available, the unassigned
-// queue for their branch is retried automatically (round-robin).
+// Availability toggle.
+// - Becoming available retries the branch's unassigned queue.
+// - Becoming unavailable (leave / away) hands their open tickets to available
+//   colleagues when "auto_handover_on_leave" is on (send "handover": false to
+//   keep them).
 
 import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { retryUnassignedTickets } from "@/lib/assignment";
+import { handoverOpenTickets, retryUnassignedTickets } from "@/lib/assignment";
+import { getSetting } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 import { canManageAvailability } from "@/lib/types";
 
@@ -16,6 +20,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ em
 
     const body = await request.json().catch(() => null);
     const availabilityEnabled = (body as { availabilityEnabled?: boolean })?.availabilityEnabled;
+    const handoverRequested = (body as { handover?: boolean })?.handover;
     if (typeof availabilityEnabled !== "boolean") {
       return fail("VALIDATION_ERROR", "availabilityEnabled (boolean) is required.", 422);
     }
@@ -41,6 +46,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ em
     if (availabilityEnabled && employee.branchId) {
       retry = await retryUnassignedTickets(employee.branchId);
     }
-    return ok({ employeeId, availabilityEnabled, retry });
+    let handover: { moved: { ticketNumber: string; to: string }[]; kept: string[] } | null = null;
+    const autoHandover = (await getSetting("auto_handover_on_leave")) !== "false";
+    if (!availabilityEnabled && (handoverRequested ?? autoHandover)) {
+      handover = await handoverOpenTickets(employeeId, user, `${employee.name} marked unavailable by ${user.name}`);
+      if (handover.moved.length || handover.kept.length) {
+        await logAudit({
+          actor: user,
+          action: "LEAVE_HANDOVER",
+          previousValue: employee.name,
+          newValue: `${handover.moved.length} moved, ${handover.kept.length} kept`,
+          details: handover.kept.length ? `No colleague available for: ${handover.kept.join(", ")}` : "",
+        });
+      }
+    }
+    return ok({ employeeId, availabilityEnabled, retry, handover });
   });
 }

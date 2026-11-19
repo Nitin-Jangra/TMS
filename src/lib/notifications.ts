@@ -26,9 +26,14 @@ export type NotificationEvent =
   | "CLOSED"
   | "ESCALATED"
   | "ASSIGNMENT_FAILED"
-  | "CLOSURE_SCHEDULED";
+  | "CLOSURE_SCHEDULED"
+  | "SLA_WARNING"
+  | "SLA_BREACHED"
+  | "SLA_CRITICAL"
+  | "LOW_RATING"
+  | "DAILY_DIGEST";
 
-export type RecipientKind = "CUSTOMER" | "CENTRAL_SUPPORT" | "BRANCH" | "ASSIGNEE" | "BRANCH_MANAGER";
+export type RecipientKind = "CUSTOMER" | "CENTRAL_SUPPORT" | "BRANCH" | "ASSIGNEE" | "BRANCH_MANAGER" | "DEPARTMENT";
 
 export interface NotificationInput {
   ticketId?: string | null;
@@ -37,6 +42,9 @@ export interface NotificationInput {
   recipientKind: RecipientKind;
   recipientEmail?: string | null; // explicit recipient override
   variables?: Record<string, string>;
+  /** Ready-made subject/body (e.g. the daily digest) instead of a template. */
+  subject?: string;
+  body?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +80,16 @@ function renderSubject(event: NotificationEvent, recipientKind: RecipientKind, v
       return `[ACTION REQUIRED] No support employee available for ${tn}`;
     case "CLOSURE_SCHEDULED":
       return `FitClass: Ticket ${tn} resolved — feedback window`;
+    case "SLA_WARNING":
+      return `[SLA REMINDER] ${tn} is due ${v.dueIn || "soon"}`;
+    case "SLA_BREACHED":
+      return `[SLA BREACHED] ${tn} is past its resolution deadline`;
+    case "SLA_CRITICAL":
+      return `[CRITICAL] ${tn} is far past its deadline — action needed`;
+    case "LOW_RATING":
+      return `[LOW RATING] Member rated ${tn} ${v.rating || "?"}/5`;
+    case "DAILY_DIGEST":
+      return `FitClass daily ticket summary`;
     default:
       return `FitClass Support notification`;
   }
@@ -171,6 +189,10 @@ Good news! Your complaint ${tn} has been resolved.
 Resolution: ${resolution || "See your ticket page for details."}
 
 If you are not satisfied with the resolution, you can reopen this ticket within the next ${reopenHours} hours using your Ticket ID and registered contact number. After this window the ticket will be closed automatically.
+${v.feedbackUrl ? `
+How did we do? Please rate our support (takes 10 seconds):
+${v.feedbackUrl}
+` : ""}
 
 — FitClass Support Team`;
     case "CLOSURE_SCHEDULED":
@@ -212,6 +234,48 @@ ${ticketSummary}
 Escalation reason: ${reason || "SLA risk / manual escalation"}
 
 — FitClass CMS`;
+    case "SLA_WARNING":
+      return `Hello ${assignee || "team"},
+
+Reminder: ticket ${tn} has used ${v.percentUsed || "most"}% of its resolution time and is due ${v.dueIn || "soon"} (${v.dueAt || ""}).
+
+${ticketSummary}
+
+Please update or resolve it before the deadline.
+
+— FitClass CMS`;
+    case "SLA_BREACHED":
+      return `Ticket ${tn} has missed its resolution deadline (${v.dueAt || ""}).
+
+Assigned to: ${assignee || "nobody (unassigned)"}
+
+${ticketSummary}
+
+The ticket has been marked as escalated. Please follow up with the assignee or reassign it.
+
+— FitClass CMS`;
+    case "SLA_CRITICAL":
+      return `CRITICAL: ticket ${tn} is far past its resolution deadline (${v.dueAt || ""}, ${v.percentUsed || ""}% of the allowed time used).
+
+Assigned to: ${assignee || "nobody (unassigned)"}
+Department: ${v.departmentName || "—"}
+
+${ticketSummary}
+
+Immediate action is required.
+
+— FitClass CMS`;
+    case "LOW_RATING":
+      return `Member ${customer} rated the support for ticket ${tn} ${v.rating}/5.
+
+Comment: ${v.comment || "(none)"}
+Handled by: ${assignee || "—"}
+
+${ticketSummary}
+
+Consider calling the member to recover the experience.
+
+— FitClass CMS`;
     case "ASSIGNMENT_FAILED":
       return `IMPORTANT: Ticket ${tn} could not be auto-assigned.
 
@@ -233,8 +297,8 @@ The ticket is in the unassigned queue with status New Complaint. Assign it manua
 export async function queueNotification(input: NotificationInput): Promise<void> {
   const settings = await getSettings();
   const v = input.variables || {};
-  const subject = renderSubject(input.event, input.recipientKind, v);
-  const body = renderBody(input.event, input.recipientKind, v);
+  const subject = input.subject || renderSubject(input.event, input.recipientKind, v);
+  const body = input.body || renderBody(input.event, input.recipientKind, v);
 
   // Resolve recipient
   let recipientEmail = (input.recipientEmail || "").trim();
@@ -266,6 +330,12 @@ export async function queueNotification(input: NotificationInput): Promise<void>
         recipientEmail = v.branchManagerEmail || "";
         if (!recipientEmail) {
           skipReason = "Branch manager email not available.";
+        }
+        break;
+      case "DEPARTMENT":
+        recipientEmail = v.departmentEmail || "";
+        if (!recipientEmail) {
+          skipReason = "Department mailbox not configured.";
         }
         break;
     }

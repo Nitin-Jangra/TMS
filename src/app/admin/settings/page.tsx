@@ -14,7 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/types";
-import { Building2, Loader2, Mail, Save, Settings2, Tags, TimerReset, Webhook } from "lucide-react";
+import { Building2, Loader2, Mail, Network, Save, Settings2, Tags, TimerReset, Webhook, Workflow } from "lucide-react";
+import { DepartmentsPanel } from "@/components/admin/departments-panel";
+import { AutomationPanel } from "@/components/admin/automation-panel";
 
 interface Settings { [key: string]: string }
 interface Branch { id: string; code: string; name: string; notificationEmail: string; isActive: boolean }
@@ -172,7 +174,12 @@ export default function AdminSettingsPage() {
           <TabsTrigger value="closure" className="gap-1.5"><TimerReset className="h-3.5 w-3.5" aria-hidden />Closure policy</TabsTrigger>
           <TabsTrigger value="categories" className="gap-1.5"><Tags className="h-3.5 w-3.5" aria-hidden />Categories</TabsTrigger>
           <TabsTrigger value="sla" className="gap-1.5"><TimerReset className="h-3.5 w-3.5" aria-hidden />SLA</TabsTrigger>
+          <TabsTrigger value="departments" className="gap-1.5"><Network className="h-3.5 w-3.5" aria-hidden />Departments</TabsTrigger>
+          <TabsTrigger value="automation" className="gap-1.5"><Workflow className="h-3.5 w-3.5" aria-hidden />Automation</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="departments"><DepartmentsPanel /></TabsContent>
+        <TabsContent value="automation"><AutomationPanel /></TabsContent>
 
         {/* General */}
         <TabsContent value="general">

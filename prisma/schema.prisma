@@ -39,6 +39,24 @@ model Branch {
   crmExternalId String? @default("") // placeholder for CRM sync (branch reference in CRM)
 }
 
+// Departments (assignment groups): Accounts, Maintenance, Trainers, ...
+// Categories route tickets to a department; staff belong to one. Staff with
+// no department are generalists and pick up anything in their branch.
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String   @default("")
+  email       String   @default("") // optional team mailbox for escalations
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staff      StaffUser[]
+  categories ComplaintCategory[]
+  tickets    Ticket[]
+}
+
 // ---------------------------------------------------------------------------
 // Staff (development auth uses local credentials; production swaps in the
 // CRM auth adapter without changing this table's business usage)
@@ -56,12 +74,16 @@ model StaffUser {
   isActive            Boolean  @default(true)
   // Round-robin eligibility switches
   availabilityEnabled Boolean  @default(true)
+  departmentId        String?
   crmExternalId       String?  @default("") // placeholder for CRM sync (employee reference in CRM)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   branch          Branch?        @relation(fields: [branchId], references: [id])
+  department      Department?    @relation(fields: [departmentId], references: [id])
   assignedTickets Ticket[]       @relation("Assignee")
+  cannedResponses CannedResponse[]
+  savedViews      SavedView[]
   assignmentRecords TicketAssignment[]
   statusChanges   TicketStatusHistory[]
   auditLogs       AuditLog[]
@@ -75,12 +97,14 @@ model StaffUser {
 // ---------------------------------------------------------------------------
 
 model ComplaintCategory {
-  id        String  @id @default(cuid())
-  name      String  @unique
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
+  id           String  @id @default(cuid())
+  name         String  @unique
+  isActive     Boolean @default(true)
+  sortOrder    Int     @default(0)
+  departmentId String? // routing rule: tickets of this category go to this department
 
-  tickets Ticket[]
+  department Department? @relation(fields: [departmentId], references: [id])
+  tickets    Ticket[]
 }
 
 model TicketSequence {
@@ -104,6 +128,7 @@ model Ticket {
   customerEmail  String
   branchId       String
   categoryId     String
+  departmentId   String?
   description    String
   status         String   @default("NEW_COMPLAINT")
   priority       String   @default("MEDIUM")
@@ -120,11 +145,14 @@ model Ticket {
   escalatedAt    DateTime?
   slaResponseDueAt  DateTime?
   slaResolutionDueAt DateTime?
+  // Escalation ladder: 0 none, 1 warning sent, 2 breached, 3 critical
+  slaAlertLevel  Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   branch      Branch             @relation(fields: [branchId], references: [id])
   category    ComplaintCategory  @relation(fields: [categoryId], references: [id])
+  department  Department?        @relation(fields: [departmentId], references: [id])
   assignee    StaffUser?         @relation("Assignee", fields: [assignedToId], references: [id])
 
   statusHistory  TicketStatusHistory[]
@@ -136,6 +164,52 @@ model Ticket {
   reopenHistory  TicketReopenHistory[]
   closureJobs    TicketClosureJob[]
   slaTracking    SlaTracking?
+  feedback       TicketFeedback?
+
+  @@index([departmentId])
+}
+
+// Member satisfaction rating, collected after resolution (one per ticket).
+model TicketFeedback {
+  id        String   @id @default(cuid())
+  ticketId  String   @unique
+  rating    Int // 1-5
+  comment   String   @default("")
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+}
+
+// Reply templates. Shared ones are managed by managers/central staff;
+// any agent can keep personal ones. Placeholders like {{customerName}}
+// are filled in when inserted into a reply.
+model CannedResponse {
+  id         String   @id @default(cuid())
+  title      String
+  body       String
+  categoryId String? // optional: suggested for this complaint category
+  isShared   Boolean  @default(false)
+  ownerId    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  owner StaffUser? @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+}
+
+// Saved ticket-list filters ("My views").
+model SavedView {
+  id        String   @id @default(cuid())
+  ownerId   String
+  name      String
+  query     String // URL query string of the ticket list
+  isShared  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  owner StaffUser @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
 }
 
 model TicketStatusHistory {
