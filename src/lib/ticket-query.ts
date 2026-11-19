@@ -1,7 +1,16 @@
-// Shared ticket list querying with role scoping + filters for all dashboards.
+// Shared ticket list querying with role scoping, filters and sorting for all
+// dashboards and the integration API.
+//
+// Every filter is AND-ed, so combinations behave predictably (e.g. status +
+// unassigned + a keyword). Keyword matching uses SQLite / D1 LIKE, which is
+// case-insensitive for ASCII.
 
 import { db } from "@/lib/db";
+import type { AccessPolicy } from "@/lib/tickets";
 import { normalizePhone, type SessionUser } from "@/lib/types";
+
+export const SORT_FIELDS = ["ticketNumber", "customer", "branch", "category", "assignee", "status", "priority", "createdAt"] as const;
+export type SortField = (typeof SORT_FIELDS)[number];
 
 export interface TicketFilters {
   status?: string;
@@ -25,9 +34,14 @@ export interface TicketFilters {
   branchSearch?: string;
   categorySearch?: string;
   assigneeSearch?: string;
+  /** Column to sort by; omitted = default order (newest first). */
+  sort?: SortField;
+  order?: "asc" | "desc";
 }
 
 export function parseFilters(searchParams: URLSearchParams): TicketFilters {
+  const sort = searchParams.get("sort") || "";
+  const order = (searchParams.get("order") || "").toLowerCase();
   return {
     status: searchParams.get("status") || undefined,
     branchId: searchParams.get("branchId") || undefined,
@@ -50,44 +64,69 @@ export function parseFilters(searchParams: URLSearchParams): TicketFilters {
     branchSearch: searchParams.get("branchSearch") || undefined,
     categorySearch: searchParams.get("categorySearch") || undefined,
     assigneeSearch: searchParams.get("assigneeSearch") || undefined,
+    sort: (SORT_FIELDS as readonly string[]).includes(sort) ? (sort as SortField) : undefined,
+    order: order === "asc" ? "asc" : order === "desc" ? "desc" : undefined,
   };
 }
 
 /**
  * Deny-by-default role scoping:
- * - SUPPORT_AGENT  → every complaint raised in their own branch (branch-wide view).
- * - BRANCH_MANAGER → every complaint in their own branch.
- * - Central roles  → the whole tenant (all branches).
+ * - SUPPORT_AGENT / BRANCH_MANAGER → their own branch, or every branch when
+ *   they ask for it (`allBranches`) and cross-branch access is enabled.
+ * - Central roles → the whole tenant (all branches).
  */
-export function roleScope(user: SessionUser): { branchId?: string; assignedToId?: string } {
+export function roleScope(
+  user: SessionUser,
+  opts: { policy?: AccessPolicy; allBranches?: boolean } = {},
+): { branchId?: string; assignedToId?: string } {
   if (user.role === "SUPPORT_AGENT" || user.role === "BRANCH_MANAGER") {
-    return { branchId: user.branchId || undefined };
+    if (opts.allBranches && opts.policy?.crossBranch) return {};
+    return { branchId: user.branchId || "__no_branch__" };
   }
   return {};
 }
 
+/** YYYY-MM-DD → Date at the start / end of that day in India time (IST). */
+function istDay(day: string, end: boolean): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    const d = new Date(day);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(`${day}T${end ? "23:59:59.999" : "00:00:00.000"}+05:30`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const OPEN_STATUSES = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"];
+
 export function buildWhere(filters: TicketFilters, scope: { branchId?: string; assignedToId?: string }) {
-  const where: Record<string, unknown> = { ...scope };
-  if (filters.status) where.status = filters.status;
-  if (filters.branchId) where.branchId = filters.branchId;
-  if (filters.assignedToId) where.assignedToId = filters.assignedToId;
-  if (filters.categoryId) where.categoryId = filters.categoryId;
-  if (filters.priority) where.priority = filters.priority;
-  if (filters.unassigned) {
-    where.assignedToId = null;
-    where.status = "NEW_COMPLAINT";
-  }
-  if (filters.overdue) {
-    where.slaResolutionDueAt = { lt: new Date() };
-    where.status = { in: ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"] };
-  }
-  // Keyword filters. Every condition is AND-ed; each keyword may match any of
-  // the fields listed for it. SQLite / D1 LIKE is case-insensitive for ASCII.
   const and: Record<string, unknown>[] = [];
+  if (scope.branchId) and.push({ branchId: scope.branchId });
+  if (scope.assignedToId) and.push({ assignedToId: scope.assignedToId });
+
+  if (filters.status) and.push({ status: filters.status });
+  if (filters.branchId) and.push({ branchId: filters.branchId });
+  if (filters.assignedToId) and.push({ assignedToId: filters.assignedToId });
+  if (filters.categoryId) and.push({ categoryId: filters.categoryId });
+  if (filters.priority) and.push({ priority: filters.priority });
+  if (filters.unassigned) and.push({ assignedToId: null });
+  if (filters.overdue) and.push({ slaResolutionDueAt: { lt: new Date() } }, { status: { in: OPEN_STATUSES } });
+  if (filters.phone) and.push({ customerPhone: normalizePhone(filters.phone) });
+  if (filters.email) and.push({ customerEmail: filters.email.trim().toLowerCase() });
+  if (filters.source) and.push({ source: filters.source.toUpperCase() });
+  if (filters.escalated) and.push({ escalatedAt: { not: null } });
+  if (filters.updatedSince) {
+    const since = new Date(filters.updatedSince);
+    if (!Number.isNaN(since.getTime())) and.push({ updatedAt: { gte: since } });
+  }
+  const from = filters.from ? istDay(filters.from, false) : null;
+  const to = filters.to ? istDay(filters.to, true) : null;
+  if (from) and.push({ createdAt: { gte: from } });
+  if (to) and.push({ createdAt: { lte: to } });
+
   const words = (s?: string) => (s || "").trim().split(/\s+/).filter(Boolean).slice(0, 8);
   const digits = (w: string) => w.replace(/\D/g, "");
 
-  // Global search: every word must appear somewhere in the ticket.
+  // Global keyword search: every word must appear somewhere in the ticket.
   for (const w of words(filters.q)) {
     const or: Record<string, unknown>[] = [
       { ticketNumber: { contains: w.toUpperCase() } },
@@ -123,23 +162,8 @@ export function buildWhere(filters: TicketFilters, scope: { branchId?: string; a
       and.push({ OR: [{ assignee: { name: { contains: w } } }, { assignee: { email: { contains: w.toLowerCase() } } }] });
     }
   }
-  if (and.length) where.AND = and;
 
-  if (filters.phone) where.customerPhone = normalizePhone(filters.phone);
-  if (filters.email) where.customerEmail = filters.email.trim().toLowerCase();
-  if (filters.source) where.source = filters.source.toUpperCase();
-  if (filters.escalated) where.escalatedAt = { not: null };
-  if (filters.updatedSince) {
-    const since = new Date(filters.updatedSince);
-    if (!Number.isNaN(since.getTime())) where.updatedAt = { gte: since };
-  }
-  if (filters.from || filters.to) {
-    const createdAt: Record<string, Date> = {};
-    if (filters.from) createdAt.gte = new Date(filters.from);
-    if (filters.to) createdAt.lte = new Date(`${filters.to}T23:59:59.999Z`);
-    where.createdAt = createdAt;
-  }
-  return where;
+  return and.length ? { AND: and } : {};
 }
 
 export const TICKET_INCLUDE = {
@@ -148,14 +172,55 @@ export const TICKET_INCLUDE = {
   assignee: { select: { id: true, name: true, email: true, designation: true } },
 } as const;
 
+// Lifecycle / severity order used when sorting by status or priority
+// (alphabetical order would be meaningless for these).
+const STATUS_RANK: Record<string, number> = { NEW_COMPLAINT: 0, IN_PROGRESS: 1, ON_HOLD: 2, RESOLVED: 3, CLOSED: 4 };
+const PRIORITY_RANK: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
+
+function orderByFor(sort: SortField | undefined, dir: "asc" | "desc") {
+  switch (sort) {
+    case "ticketNumber":
+      return [{ ticketNumber: dir }];
+    case "customer":
+      return [{ customerName: dir }, { createdAt: "desc" as const }];
+    case "branch":
+      return [{ branch: { name: dir } }, { createdAt: "desc" as const }];
+    case "category":
+      return [{ category: { name: dir } }, { createdAt: "desc" as const }];
+    case "assignee":
+      return [{ assignee: { name: dir } }, { createdAt: "desc" as const }];
+    case "createdAt":
+      return [{ createdAt: dir }];
+    default:
+      return [{ createdAt: "desc" as const }];
+  }
+}
+
 export async function listTickets(
   filters: TicketFilters,
   scope: { branchId?: string; assignedToId?: string },
   page: { skip: number; take: number },
 ) {
   const where = buildWhere(filters, scope);
+  const dir = filters.order || "asc";
+
+  // Status / priority: sort by rank in memory over the (light) id list, then
+  // load the full rows for the requested page only.
+  if (filters.sort === "status" || filters.sort === "priority") {
+    const field = filters.sort;
+    const rank = field === "status" ? STATUS_RANK : PRIORITY_RANK;
+    const light = await db.ticket.findMany({ where, select: { id: true, status: true, priority: true, createdAt: true } });
+    const sign = dir === "asc" ? 1 : -1;
+    light.sort((a, b) => sign * ((rank[a[field]] ?? 99) - (rank[b[field]] ?? 99)) || b.createdAt.getTime() - a.createdAt.getTime());
+    const ids = light.slice(page.skip, page.skip + page.take).map((r) => r.id);
+    const rows = ids.length ? await db.ticket.findMany({ where: { id: { in: ids } }, include: TICKET_INCLUDE }) : [];
+    const pos = new Map(ids.map((id, i) => [id, i]));
+    rows.sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
+    return { rows, total: light.length };
+  }
+
   const [rows, total] = await Promise.all([
-    db.ticket.findMany({ where, include: TICKET_INCLUDE, orderBy: { createdAt: "desc" }, skip: page.skip, take: page.take }),
+    db.ticket.findMany({ where, include: TICKET_INCLUDE, orderBy: orderByFor(filters.sort, dir), skip: page.skip, take: page.take }),
     db.ticket.count({ where }),
   ]);
   return { rows, total };

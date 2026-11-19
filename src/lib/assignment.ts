@@ -200,23 +200,48 @@ export async function manuallyAssignTicket(
   toEmployeeId: string,
   actor: AssignmentActor & { id: string; name: string; role: string },
   note = "",
-): Promise<void> {
+  opts: { allowBranchMove?: boolean } = {},
+): Promise<{ movedToBranch: string | null }> {
   const { ticket } = await getTicketContext(ticketId);
   if (ticket.status === "CLOSED") throw new AssignmentError("Closed tickets are read-only and cannot be reassigned.");
   const employee = await db.staffUser.findUnique({ where: { id: toEmployeeId }, include: { branch: true } });
   if (!employee || !employee.isActive) throw new AssignmentError("Target employee not found or inactive.");
-  if (employee.branchId !== ticket.branchId) {
+  if (!employee.branchId || !employee.branch) {
+    throw new AssignmentError("Tickets can only be assigned to branch staff (support agents or branch managers).");
+  }
+  if (ticket.assignedToId === toEmployeeId) {
+    throw new AssignmentError(`This ticket is already assigned to ${employee.name}.`);
+  }
+
+  // Employee of another branch → move the ticket to that branch as well.
+  const moving = employee.branchId !== ticket.branchId;
+  if (moving && !opts.allowBranchMove) {
     throw new AssignmentError("Employee belongs to a different branch. Use branch transfer instead.");
   }
+  if (moving && !employee.branch.isActive) throw new AssignmentError("The employee's branch is inactive.");
 
   await runInTransaction(async (tx) => {
     await tx.ticketAssignment.updateMany({ where: { ticketId, isCurrent: true }, data: { isCurrent: false } });
     await tx.ticketAssignment.create({
       data: { ticketId, assignedToId: toEmployeeId, assignedById: actor.id || null, method: "MANUAL", isCurrent: true, note },
     });
-    await tx.ticket.update({ where: { id: ticketId }, data: { assignedToId: toEmployeeId, assignedAt: new Date() } });
+    await tx.ticket.update({
+      where: { id: ticketId },
+      data: { assignedToId: toEmployeeId, assignedAt: new Date(), ...(moving ? { branchId: employee.branchId! } : {}) },
+    });
   });
 
+  if (moving) {
+    await logAudit({
+      ticketId,
+      actor,
+      action: "BRANCH_TRANSFER",
+      previousValue: ticket.branchId,
+      newValue: employee.branch.name,
+      details: `Moved with reassignment to ${employee.name}.`,
+    });
+    await emitWebhook("ticket.transferred", ticketId, { fromBranchId: ticket.branchId, toBranch: employee.branch.name, transferredBy: actor.name });
+  }
   await logAudit({
     ticketId,
     actor,
@@ -230,9 +255,10 @@ export async function manuallyAssignTicket(
     ticketNumber: ticket.ticketNumber,
     event: "ASSIGNED",
     recipientKind: "ASSIGNEE",
-    variables: notificationVariables({ ticket, assignee: { name: employee.name, email: employee.email } }),
+    variables: notificationVariables({ ticket: moving ? { ...ticket, branch: employee.branch, branchId: employee.branch.id } : ticket, assignee: { name: employee.name, email: employee.email } }),
   });
   await emitWebhook("ticket.assigned", ticketId, { method: "MANUAL", assignedBy: actor.name, note });
+  return { movedToBranch: moving ? employee.branch.name : null };
 }
 
 /** Branch transfer (central support). Ticket is re-queued into the new branch. */

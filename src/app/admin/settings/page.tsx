@@ -63,6 +63,8 @@ export default function AdminSettingsPage() {
             notification_branch_enabled: settings.notification_branch_enabled,
             notification_central_enabled: settings.notification_central_enabled,
             maintenance_mode: settings.maintenance_mode,
+            staff_cross_branch_access: settings.staff_cross_branch_access ?? "true",
+            agents_can_reassign: settings.agents_can_reassign ?? "true",
           },
           reason: "Updated via settings panel",
         }),
@@ -208,6 +210,8 @@ export default function AdminSettingsPage() {
                   { key: "notification_branch_enabled", label: "Branch notifications", desc: "New complaint alerts to branch mailbox" },
                   { key: "notification_central_enabled", label: "Central support notifications", desc: "New complaint + escalation alerts to central mailbox" },
                   { key: "maintenance_mode", label: "Maintenance mode", desc: "Show maintenance notice on the customer portal" },
+                  { key: "staff_cross_branch_access", label: "Cross-branch ticket access", desc: "Branch staff can search, view and work on tickets of every branch (cover for colleagues on leave)" },
+                  { key: "agents_can_reassign", label: "Support agents can reassign", desc: "Support agents can hand a ticket to another employee or branch (branch managers and central staff always can)" },
                 ].map((row) => (
                   <div key={row.key} className="flex items-center justify-between rounded-md border border-slate-100 px-3 py-2.5">
                     <div>
@@ -215,7 +219,7 @@ export default function AdminSettingsPage() {
                       <p className="text-xs text-slate-400">{row.desc}</p>
                     </div>
                     <Switch
-                      checked={settings[row.key] === "true"}
+                      checked={(settings[row.key] ?? ("defaultOn" in row && row.defaultOn ? "true" : "false")) === "true"}
                       onCheckedChange={(v) => setSettings((s) => ({ ...s!, [row.key]: String(v) }))}
                       aria-label={row.label}
                     />

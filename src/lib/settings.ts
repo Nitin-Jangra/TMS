@@ -17,6 +17,8 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   notification_central_enabled: "true",
   webhook_url: "", // LMS endpoint that receives ticket events (blank = disabled)
   webhook_secret: "", // HMAC secret used to sign webhook deliveries
+  staff_cross_branch_access: "true", // branch staff can find/view/work tickets of every branch
+  agents_can_reassign: "true", // support agents can reassign / transfer tickets
 };
 
 export async function getSetting(key: string): Promise<string> {

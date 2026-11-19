@@ -7,7 +7,7 @@
 // description / branch / category / assignee / status / priority),
 // ticketSearch, customerSearch, branchSearch, categorySearch, assigneeSearch
 // (per-column keywords; assigneeSearch=unassigned for unassigned tickets),
-// from, to (created date, YYYY-MM-DD),
+// from, to (created date, YYYY-MM-DD, India time), sort + order (asc/desc),
 // updatedSince (ISO timestamp — for incremental sync), page, pageSize (max 100).
 
 import { fail, handleErrors, ok, paginationParams } from "@/lib/api-response";

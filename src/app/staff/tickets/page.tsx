@@ -1,11 +1,16 @@
 "use client";
 
-// Ticket list with a global keyword search, per-column filters (Ticket,
-// Customer, Branch, Category, Assignee, Status, Priority, Created) and quick
-// toggles (assigned to me, unassigned, overdue). All filtering happens on the
-// server so it covers every page, and the URL stays shareable.
+// Ticket list.
+// - Global keyword search (Search button / Enter) across every column, in your
+//   branch or — "All branches" — the whole workspace.
+// - "Assigned to" filter: anyone, me, unassigned or any colleague (cover for
+//   someone on leave). Colleagues who are away are marked.
+// - Per-column keyword filters (apply as you type) + status / priority menus.
+// - Click a column heading to sort: ascending → descending → normal.
+// All filtering and sorting runs on the server (covers every page); the URL
+// keeps the current view so it can be bookmarked or shared.
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -14,8 +19,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PriorityBadge, StatusBadge } from "@/components/staff-nav";
-import { TICKET_STATUSES, PRIORITIES, PRIORITY_LABELS } from "@/lib/types";
-import { ChevronLeft, ChevronRight, Filter, Loader2, Search, TriangleAlert, X } from "lucide-react";
+import { StaffPicker, type StaffEntry } from "@/components/staff-picker";
+import { TICKET_STATUSES, PRIORITIES, PRIORITY_LABELS, STATUS_LABELS } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import {
+  ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Globe2, Loader2, Search, ShieldAlert, TriangleAlert, UserRound, X,
+} from "lucide-react";
 
 interface TicketRow {
   id: string;
@@ -24,305 +33,479 @@ interface TicketRow {
   status: string;
   priority: string;
   createdAt: string;
+  escalatedAt?: string | null;
   slaResolutionDueAt: string | null;
-  branch: { name: string };
+  branch: { id: string; name: string };
   category: { name: string };
   assignee: { id: string; name: string } | null;
 }
 
-interface Meta {
-  branches: { id: string; name: string }[];
-  categories: { id: string; name: string }[];
-  isCentral: boolean;
-  role?: string;
-  branchName?: string | null;
+type SortField = "ticketNumber" | "customer" | "branch" | "category" | "assignee" | "status" | "priority" | "createdAt";
+type SortOrder = "asc" | "desc";
+
+/** Column keyword boxes: applied automatically shortly after typing stops. */
+const COL_KEYS = ["ticketSearch", "customerSearch", "branchSearch", "categorySearch"] as const;
+type ColKey = (typeof COL_KEYS)[number];
+type ColFilters = Record<ColKey, string>;
+const emptyCols = (): ColFilters => ({ ticketSearch: "", customerSearch: "", branchSearch: "", categorySearch: "" });
+
+interface View {
+  q: string; // global keywords (applied on Search / Enter)
+  cols: ColFilters;
+  status: string;
+  priority: string;
+  from: string;
+  to: string;
+  overdue: boolean;
+  escalated: boolean;
+  assigned: string; // "" anyone | "me" | "unassigned" | staff id
+  scope: "" | "all"; // "" = my branch (branch staff), "all" = every branch
+  sort: SortField | "";
+  order: SortOrder | "";
+  page: number;
 }
 
-/** Text filters: typed into the inputs, sent to the API after a short pause. */
-const TEXT_KEYS = ["q", "ticketSearch", "customerSearch", "branchSearch", "categorySearch", "assigneeSearch"] as const;
-type TextKey = (typeof TEXT_KEYS)[number];
-/** Instant filters: dropdowns, dates and toggle buttons. */
-const PICK_KEYS = ["status", "priority", "from", "to", "unassigned", "overdue", "mine"] as const;
-type PickKey = (typeof PICK_KEYS)[number];
+const emptyView = (): View => ({
+  q: "", cols: emptyCols(), status: "", priority: "", from: "", to: "", overdue: false, escalated: false,
+  assigned: "", scope: "", sort: "", order: "", page: 1,
+});
 
-type TextFilters = Record<TextKey, string>;
-type PickFilters = Record<PickKey, string>;
+function viewFromUrl(sp: URLSearchParams): View {
+  const v = emptyView();
+  v.q = sp.get("q") || "";
+  for (const k of COL_KEYS) v.cols[k] = sp.get(k) || "";
+  v.status = sp.get("status") || "";
+  v.priority = sp.get("priority") || "";
+  v.from = sp.get("from") || "";
+  v.to = sp.get("to") || "";
+  v.overdue = sp.get("overdue") === "true";
+  v.escalated = sp.get("escalated") === "true";
+  v.assigned = sp.get("mine") === "true" ? "me" : sp.get("unassigned") === "true" ? "unassigned" : sp.get("assignedToId") || "";
+  v.scope = sp.get("scope") === "all" ? "all" : "";
+  v.sort = (sp.get("sort") as SortField) || "";
+  v.order = sp.get("order") === "desc" ? "desc" : sp.get("order") === "asc" ? "asc" : "";
+  v.page = Math.max(1, Number(sp.get("page") || "1") || 1);
+  return v;
+}
+
+function viewToQuery(v: View): string {
+  const p = new URLSearchParams();
+  if (v.q.trim()) p.set("q", v.q.trim());
+  for (const k of COL_KEYS) if (v.cols[k].trim()) p.set(k, v.cols[k].trim());
+  if (v.status) p.set("status", v.status);
+  if (v.priority) p.set("priority", v.priority);
+  if (v.from) p.set("from", v.from);
+  if (v.to) p.set("to", v.to);
+  if (v.overdue) p.set("overdue", "true");
+  if (v.escalated) p.set("escalated", "true");
+  if (v.assigned === "me") p.set("mine", "true");
+  else if (v.assigned === "unassigned") p.set("unassigned", "true");
+  else if (v.assigned) p.set("assignedToId", v.assigned);
+  if (v.scope === "all") p.set("scope", "all");
+  if (v.sort && v.order) { p.set("sort", v.sort); p.set("order", v.order); }
+  p.set("page", String(v.page));
+  p.set("pageSize", "15");
+  return p.toString();
+}
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" });
-const emptyText = (): TextFilters => ({ q: "", ticketSearch: "", customerSearch: "", branchSearch: "", categorySearch: "", assigneeSearch: "" });
-const emptyPick = (): PickFilters => ({ status: "", priority: "", from: "", to: "", unassigned: "", overdue: "", mine: "" });
 
 function ListInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [view, setView] = useState<View>(() => viewFromUrl(searchParams));
+  const [qDraft, setQDraft] = useState(view.q); // global search box (not yet applied)
+  const [colDraft, setColDraft] = useState<ColFilters>(view.cols); // column boxes while typing
+
   const [rows, setRows] = useState<TicketRow[] | null>(null);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [meta, setMeta] = useState<Meta>({ branches: [], categories: [], isCentral: false });
+  const [error, setError] = useState("");
+  const [canAllBranches, setCanAllBranches] = useState(false);
 
-  // What the user is typing, and the debounced copy that drives the query.
-  const [typed, setTyped] = useState<TextFilters>(() => {
-    const t = emptyText();
-    for (const k of TEXT_KEYS) t[k] = searchParams.get(k) || "";
-    return t;
-  });
-  const [text, setText] = useState<TextFilters>(typed);
-  const [pick, setPick] = useState<PickFilters>(() => {
-    const p = emptyPick();
-    for (const k of PICK_KEYS) p[k] = searchParams.get(k) || "";
-    return p;
-  });
-  const [page, setPage] = useState(() => Math.max(1, Number(searchParams.get("page") || "1")));
+  const [me, setMe] = useState<{ id: string; role: string; branchId: string | null; branchName: string | null } | null>(null);
+  const [staff, setStaff] = useState<StaffEntry[]>([]);
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
-  // Debounce typing so the API is not called on every keystroke.
+  const isCentral = !!me && ["ROOT_ADMIN", "CENTRAL_ADMIN", "CENTRAL_AGENT"].includes(me.role);
+  const isBranchUser = !!me && (me.role === "SUPPORT_AGENT" || me.role === "BRANCH_MANAGER");
+  const searchingAll = isCentral || view.scope === "all";
+
+  /** Update the view; any change other than paging goes back to page 1. */
+  const update = useCallback((patch: Partial<View>) => {
+    setView((v) => ({ ...v, ...patch, page: patch.page ?? 1 }));
+  }, []);
+
+  // Column boxes: apply 400 ms after typing stops.
   useEffect(() => {
-    if (!TEXT_KEYS.some((k) => text[k].trim() !== typed[k].trim())) return;
-    const id = setTimeout(() => { setText({ ...typed }); setPage(1); }, 350);
+    const changed = COL_KEYS.some((k) => colDraft[k].trim() !== view.cols[k].trim());
+    if (!changed) return;
+    const id = setTimeout(() => update({ cols: { ...colDraft } }), 400);
     return () => clearTimeout(id);
-  }, [typed, text]);
+  }, [colDraft, view.cols, update]);
 
-  const setTypedKey = (k: TextKey, v: string) => setTyped((t) => ({ ...t, [k]: v }));
-  const setPickKey = (k: PickKey, v: string) => { setPick((p) => ({ ...p, [k]: v })); setPage(1); };
-  const toggle = (k: PickKey) => { setPick((p) => ({ ...p, [k]: p[k] === "true" ? "" : "true" })); setPage(1); };
-  const flush = () => { setText({ ...typed }); setPage(1); }; // Enter = search now
+  const query = useMemo(() => viewToQuery(view), [view]);
 
-  const query = useMemo(() => {
-    const p = new URLSearchParams();
-    for (const k of TEXT_KEYS) if (text[k].trim()) p.set(k, text[k].trim());
-    for (const k of PICK_KEYS) if (pick[k]) p.set(k, pick[k]);
-    p.set("page", String(page));
-    p.set("pageSize", "15");
-    return p.toString();
-  }, [text, pick, page]);
-
+  // Load tickets; a newer request cancels the older one so results never
+  // arrive out of order.
+  const abortRef = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     setLoading(true);
+    setError("");
     try {
-      const res = await fetch(`/api/v1/support/tickets?${query}`);
+      const res = await fetch(`/api/v1/support/tickets?${query}`, { signal: ctrl.signal });
       const body = await res.json();
+      if (ctrl.signal.aborted) return;
       if (body.success) {
         setRows(body.data.tickets);
         setTotal(body.data.total);
         setTotalPages(body.data.totalPages);
+        setCanAllBranches(!!body.data.canSearchAllBranches);
       } else {
         setRows([]);
+        setError(body.error?.message || "Could not load tickets.");
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") return;
       setRows([]);
+      setError("Network error — please try again.");
     }
-    setLoading(false);
+    if (!ctrl.signal.aborted) setLoading(false);
   }, [query]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount data loading
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- data loading
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => setMeta((m) => ({ ...m, branches: d.data?.branches ?? [] })));
-    fetch("/api/v1/public/categories").then((r) => r.json()).then((d) => setMeta((m) => ({ ...m, categories: d.data?.categories ?? [] })));
-    fetch("/api/v1/auth/me").then((r) => r.json()).then((d) => setMeta((m) => ({
-      ...m,
-      isCentral: ["ROOT_ADMIN", "CENTRAL_ADMIN", "CENTRAL_AGENT"].includes(d.data?.user?.role),
-      role: d.data?.user?.role,
-      branchName: d.data?.user?.branchName ?? null,
-    })));
-  }, []);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
-  // keep URL shareable
+  // Keep the URL shareable (without adding history entries).
   useEffect(() => { router.replace(`/staff/tickets?${query}`, { scroll: false }); }, [query, router]);
 
-  const activeFilters =
-    TEXT_KEYS.filter((k) => typed[k].trim()).length + PICK_KEYS.filter((k) => pick[k]).length;
-  const clearAll = () => { setTyped(emptyText()); setText(emptyText()); setPick(emptyPick()); setPage(1); };
-  const isBranchUser = meta.role === "SUPPORT_AGENT" || meta.role === "BRANCH_MANAGER";
+  useEffect(() => {
+    fetch("/api/v1/auth/me").then((r) => r.json()).then((d) => {
+      const u = d.data?.user;
+      if (u) setMe({ id: u.id, role: u.role, branchId: u.branchId ?? null, branchName: u.branchName ?? null });
+    }).catch(() => undefined);
+    fetch("/api/v1/support/staff-directory").then((r) => r.json()).then((d) => setStaff(d.data?.staff ?? [])).catch(() => undefined);
+    fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => setBranches(d.data?.branches ?? [])).catch(() => undefined);
+    fetch("/api/v1/public/categories").then((r) => r.json()).then((d) => setCategories(d.data?.categories ?? [])).catch(() => undefined);
+  }, []);
 
-  /** Small keyword box used in the column filter row (a render helper, not a
-   *  component, so the input keeps focus while typing). */
-  const colInput = (k: TextKey, placeholder: string, list?: string) => (
-    <div className="relative">
-      <Input
-        className="h-7 min-w-[90px] px-2 pr-6 text-[11px] font-normal"
-        placeholder={placeholder}
-        value={typed[k]}
-        list={list}
-        onChange={(e) => setTypedKey(k, e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") flush(); }}
-        aria-label={`Filter by ${placeholder}`}
-      />
-      {typed[k] ? (
+  const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
+
+  // Global search
+  const runSearch = () => update({ q: qDraft });
+  const clearSearch = () => { setQDraft(""); update({ q: "" }); };
+
+  // Assigned-to: a colleague from another branch needs the all-branches view.
+  const setAssigned = (value: string) => {
+    const person = staffById.get(value);
+    const otherBranch = !!person && isBranchUser && person.branchId !== me?.branchId;
+    update({ assigned: value, ...(otherBranch ? { scope: "all" as const } : {}) });
+  };
+
+  // Sorting: none → asc → desc → none
+  const cycleSort = (field: SortField) => {
+    if (view.sort !== field) update({ sort: field, order: "asc" });
+    else if (view.order === "asc") update({ sort: field, order: "desc" });
+    else update({ sort: "", order: "" });
+  };
+
+  const activeCount =
+    (view.q.trim() ? 1 : 0) +
+    COL_KEYS.filter((k) => view.cols[k].trim()).length +
+    [view.status, view.priority, view.from, view.to, view.assigned].filter(Boolean).length +
+    (view.overdue ? 1 : 0) + (view.escalated ? 1 : 0);
+
+  const clearAll = () => {
+    setQDraft("");
+    setColDraft(emptyCols());
+    setView((v) => ({ ...emptyView(), scope: v.scope, sort: v.sort, order: v.order }));
+  };
+
+  const assignedSpecial = [
+    { value: "", label: "Anyone" },
+    { value: "me", label: "Assigned to me" },
+    { value: "unassigned", label: "Unassigned" },
+  ];
+
+  /** Sortable column heading. */
+  const head = (field: SortField, label: string, className = "") => {
+    const active = view.sort === field && !!view.order;
+    const Icon = !active ? ArrowUpDown : view.order === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <TableHead className={cn("text-xs", className)} aria-sort={active ? (view.order === "asc" ? "ascending" : "descending") : "none"}>
         <button
           type="button"
-          className="absolute right-1.5 top-1.5 text-slate-400 hover:text-slate-600"
-          onClick={() => setTypedKey(k, "")}
-          aria-label="Clear filter"
+          onClick={() => cycleSort(field)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded px-1 py-0.5 -mx-1 font-medium hover:bg-slate-100 hover:text-slate-900",
+            active ? "text-[#22618b]" : "text-slate-600",
+          )}
+          title={!active ? `Sort by ${label} (ascending)` : view.order === "asc" ? "Sorted ascending — click for descending" : "Sorted descending — click to reset"}
         >
+          {label}
+          <Icon className={cn("h-3 w-3", active ? "opacity-100" : "opacity-40")} aria-hidden />
+        </button>
+      </TableHead>
+    );
+  };
+
+  /** Keyword box in the column filter row (render helper keeps focus). */
+  const colInput = (k: ColKey, placeholder: string, list?: string) => (
+    <div className="relative">
+      <Input
+        className="h-7 w-full min-w-[100px] px-2 pr-6 text-[11px] font-normal"
+        placeholder={placeholder}
+        value={colDraft[k]}
+        list={list}
+        onChange={(e) => setColDraft((d) => ({ ...d, [k]: e.target.value }))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") update({ cols: { ...colDraft } });
+          if (e.key === "Escape") setColDraft((d) => ({ ...d, [k]: "" }));
+        }}
+        aria-label={`Filter by ${placeholder}`}
+      />
+      {colDraft[k] ? (
+        <button type="button" className="absolute right-1.5 top-1.5 text-slate-400 hover:text-slate-600" onClick={() => setColDraft((d) => ({ ...d, [k]: "" }))} aria-label="Clear filter">
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
       ) : null}
     </div>
   );
 
+  const scopeText = isCentral
+    ? "All branches"
+    : view.scope === "all"
+      ? "All branches"
+      : `Your branch${me?.branchName ? ` — ${me.branchName}` : ""}`;
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-[#0a2350]">Tickets</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            {isBranchUser
-              ? `Complaints raised in your branch${meta.branchName ? ` — ${meta.branchName}` : ""} · `
-              : meta.isCentral
-                ? "All branches (tenant-wide) · "
-                : ""}
-            {total} ticket{total === 1 ? "" : "s"} · page {page} of {totalPages}
-          </p>
-        </div>
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
-          <Input
-            className="pl-8"
-            placeholder="Search keywords: ticket, name, mobile, branch, issue…"
-            value={typed.q}
-            onChange={(e) => setTypedKey("q", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") flush(); }}
-            aria-label="Search tickets by keyword"
-          />
-        </div>
+      <div>
+        <h1 className="text-xl font-bold text-[#0a2350]">Tickets</h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          {scopeText} · {total} ticket{total === 1 ? "" : "s"} · page {view.page} of {totalPages}
+          {view.sort && view.order ? ` · sorted by ${view.sort === "createdAt" ? "created" : view.sort} (${view.order === "asc" ? "ascending" : "descending"})` : ""}
+        </p>
       </div>
 
       <div className="brand-ring rounded-xl border border-slate-200 bg-white">
-        {/* Quick toggles */}
+        {/* Row 1: global search, scope, assigned to */}
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
-          <span className="flex items-center gap-1 text-xs font-medium text-slate-500"><Filter className="h-3.5 w-3.5" aria-hidden />Quick filters</span>
-          {meta.role === "SUPPORT_AGENT" ? (
-            <Button variant={pick.mine === "true" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => toggle("mine")}>
-              Assigned to me
+          <form
+            className="flex w-full max-w-md flex-1 items-center gap-2"
+            onSubmit={(e) => { e.preventDefault(); runSearch(); }}
+            role="search"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
+              <Input
+                className="h-9 pl-8 pr-7"
+                placeholder="Keywords: ticket no., name, mobile, branch, issue…"
+                value={qDraft}
+                onChange={(e) => setQDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") clearSearch(); }}
+                aria-label="Search tickets by keyword"
+              />
+              {qDraft ? (
+                <button type="button" className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600" onClick={clearSearch} aria-label="Clear search">
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              ) : null}
+            </div>
+            <Button type="submit" size="sm" className="h-9 bg-[#22618b] px-4 hover:bg-[#1b4f72]">
+              <Search className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Search
             </Button>
+          </form>
+
+          {isBranchUser && canAllBranches ? (
+            <div className="inline-flex rounded-md border border-slate-200 p-0.5" role="group" aria-label="Search in">
+              <button
+                type="button"
+                onClick={() => update({ scope: "" })}
+                className={cn("rounded px-2.5 py-1 text-xs", view.scope === "" ? "bg-[#22618b] text-white" : "text-slate-600 hover:bg-slate-100")}
+              >
+                My branch
+              </button>
+              <button
+                type="button"
+                onClick={() => update({ scope: "all" })}
+                className={cn("inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs", view.scope === "all" ? "bg-[#22618b] text-white" : "text-slate-600 hover:bg-slate-100")}
+              >
+                <Globe2 className="h-3 w-3" aria-hidden /> All branches
+              </button>
+            </div>
           ) : null}
-          <Button variant={pick.unassigned === "true" ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => toggle("unassigned")}>
-            Unassigned
-          </Button>
-          <Button variant={pick.overdue === "true" ? "destructive" : "outline"} size="sm" className="h-8 text-xs" onClick={() => toggle("overdue")}>
+
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1 text-xs text-slate-500"><UserRound className="h-3.5 w-3.5" aria-hidden />Assigned to</span>
+            <StaffPicker
+              staff={staff}
+              value={view.assigned}
+              onChange={setAssigned}
+              special={assignedSpecial}
+              placeholder="Anyone"
+              preferBranchId={me?.branchId}
+              className="w-[210px]"
+              ariaLabel="Assigned to filter"
+            />
+          </div>
+        </div>
+
+        {/* Row 2: quick toggles, dates, clear */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
+          <Button variant={view.overdue ? "destructive" : "outline"} size="sm" className="h-8 text-xs" onClick={() => update({ overdue: !view.overdue })} aria-pressed={view.overdue}>
             <TriangleAlert className="mr-1 h-3 w-3" aria-hidden /> Overdue
           </Button>
-          <span className="text-[11px] text-slate-400">Use the boxes under each column heading to filter by that column. Several words = all must match.</span>
-          {activeFilters > 0 ? (
+          <Button variant={view.escalated ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => update({ escalated: !view.escalated })} aria-pressed={view.escalated}>
+            <ShieldAlert className="mr-1 h-3 w-3" aria-hidden /> Escalated
+          </Button>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span>Created</span>
+            <Input type="date" className="h-8 w-[140px] px-2 text-xs" value={view.from} max={view.to || undefined} onChange={(e) => update({ from: e.target.value })} aria-label="Created from" />
+            <span>to</span>
+            <Input type="date" className="h-8 w-[140px] px-2 text-xs" value={view.to} min={view.from || undefined} onChange={(e) => update({ to: e.target.value })} aria-label="Created to" />
+          </div>
+          {activeCount > 0 ? (
             <Button variant="ghost" size="sm" className="ml-auto h-8 text-xs" onClick={clearAll}>
-              <X className="mr-1 h-3 w-3" aria-hidden /> Clear all ({activeFilters})
+              <X className="mr-1 h-3 w-3" aria-hidden /> Clear filters ({activeCount})
             </Button>
           ) : null}
         </div>
 
-        {/* Suggestions for the branch / category keyword boxes */}
-        <datalist id="fc-branch-options">
-          {meta.branches.map((b) => <option key={b.id} value={b.name} />)}
-        </datalist>
-        <datalist id="fc-category-options">
-          {meta.categories.map((c) => <option key={c.id} value={c.name} />)}
-        </datalist>
+        <datalist id="fc-branch-options">{branches.map((b) => <option key={b.id} value={b.name} />)}</datalist>
+        <datalist id="fc-category-options">{categories.map((c) => <option key={c.id} value={c.name} />)}</datalist>
 
-        <Table>
+        <Table className="min-w-[960px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="text-xs">Ticket</TableHead>
-              <TableHead className="text-xs">Customer</TableHead>
-              <TableHead className="text-xs">Branch</TableHead>
-              <TableHead className="text-xs">Category</TableHead>
-              <TableHead className="text-xs">Assignee</TableHead>
-              <TableHead className="text-xs">Status</TableHead>
-              <TableHead className="text-xs">Priority</TableHead>
-              <TableHead className="text-xs text-right">Created</TableHead>
+              {head("ticketNumber", "Ticket", "w-[150px]")}
+              {head("customer", "Customer")}
+              {head("branch", "Branch")}
+              {head("category", "Category")}
+              {head("assignee", "Assignee")}
+              {head("status", "Status", "w-[140px]")}
+              {head("priority", "Priority", "w-[120px]")}
+              {head("createdAt", "Created", "w-[100px]")}
             </TableRow>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-              <TableHead className="py-1.5">{colInput("ticketSearch", "FC-2026…")}</TableHead>
-              <TableHead className="py-1.5">{colInput("customerSearch", "Name / mobile / email")}</TableHead>
-              <TableHead className="py-1.5">
-                {isBranchUser ? <span className="text-[11px] font-normal text-slate-400">Your branch</span> : colInput("branchSearch", "Branch / code", "fc-branch-options")}
+              <TableHead className="py-1.5 align-middle">{colInput("ticketSearch", "Ticket no.")}</TableHead>
+              <TableHead className="py-1.5 align-middle">{colInput("customerSearch", "Name or mobile")}</TableHead>
+              <TableHead className="py-1.5 align-middle">
+                {searchingAll ? colInput("branchSearch", "Branch", "fc-branch-options") : <span className="text-[11px] font-normal text-slate-400">Your branch</span>}
               </TableHead>
-              <TableHead className="py-1.5">{colInput("categorySearch", "Category", "fc-category-options")}</TableHead>
-              <TableHead className="py-1.5">{colInput("assigneeSearch", "Name or “unassigned”")}</TableHead>
-              <TableHead className="py-1.5">
-                <Select value={pick.status || "all"} onValueChange={(v) => setPickKey("status", v === "all" ? "" : v)}>
-                  <SelectTrigger className="h-7 min-w-[110px] text-[11px] font-normal" aria-label="Status filter"><SelectValue placeholder="All" /></SelectTrigger>
+              <TableHead className="py-1.5 align-middle">{colInput("categorySearch", "Category", "fc-category-options")}</TableHead>
+              <TableHead className="py-1.5 align-middle">
+                <span className="text-[11px] font-normal text-slate-400">Use “Assigned to” above</span>
+              </TableHead>
+              <TableHead className="py-1.5 align-middle">
+                <Select value={view.status || "all"} onValueChange={(v) => update({ status: v === "all" ? "" : v })}>
+                  <SelectTrigger size="sm" className="h-7 w-full text-[11px] font-normal" aria-label="Status filter"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
-                    {TICKET_STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}
+                    {TICKET_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s] || s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </TableHead>
-              <TableHead className="py-1.5">
-                <Select value={pick.priority || "all"} onValueChange={(v) => setPickKey("priority", v === "all" ? "" : v)}>
-                  <SelectTrigger className="h-7 min-w-[95px] text-[11px] font-normal" aria-label="Priority filter"><SelectValue placeholder="All" /></SelectTrigger>
+              <TableHead className="py-1.5 align-middle">
+                <Select value={view.priority || "all"} onValueChange={(v) => update({ priority: v === "all" ? "" : v })}>
+                  <SelectTrigger size="sm" className="h-7 w-full text-[11px] font-normal" aria-label="Priority filter"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All priorities</SelectItem>
                     {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </TableHead>
-              <TableHead className="py-1.5">
-                <div className="flex flex-col items-end gap-1">
-                  <Input type="date" className="h-7 w-[130px] px-1.5 text-[11px] font-normal" value={pick.from} max={pick.to || undefined} onChange={(e) => setPickKey("from", e.target.value)} aria-label="Created from" title="Created from" />
-                  <Input type="date" className="h-7 w-[130px] px-1.5 text-[11px] font-normal" value={pick.to} min={pick.from || undefined} onChange={(e) => setPickKey("to", e.target.value)} aria-label="Created to" title="Created to" />
-                </div>
-              </TableHead>
+              <TableHead className="py-1.5" />
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {loading && rows === null ? (
+          <TableBody className={cn(loading && rows !== null && "opacity-60 transition-opacity")}>
+            {rows === null ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={8} className="p-10 text-center text-sm text-slate-400">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" aria-hidden /> Loading tickets...
                 </TableCell>
               </TableRow>
-            ) : !rows || rows.length === 0 ? (
+            ) : error ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="p-10 text-center text-sm text-red-600">
+                  {error} <Button variant="link" size="sm" onClick={load}>Retry</Button>
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={8} className="p-12 text-center">
                   <p className="text-sm font-medium text-slate-600">No tickets match these filters.</p>
-                  <p className="mt-1 text-xs text-slate-400">Try fewer keywords, clearing filters or registering a new complaint.</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Try fewer keywords or clear filters.
+                    {isBranchUser && canAllBranches && view.scope !== "all" ? (
+                      <> Looking for a ticket from another branch? <button type="button" className="text-[#22618b] underline" onClick={() => update({ scope: "all" })}>Search all branches</button>.</>
+                    ) : null}
+                  </p>
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((t) => (
-                <TableRow key={t.id} className={`cursor-pointer ${loading ? "opacity-60" : ""}`} onClick={() => router.push(`/staff/tickets/${t.id}`)}>
-                  <TableCell className="font-mono text-xs font-semibold text-[#0a2350]">
-                    {t.ticketNumber}
-                    {t.slaResolutionDueAt && !["RESOLVED", "CLOSED"].includes(t.status) && new Date(t.slaResolutionDueAt) < new Date() ? (
-                      <span className="ml-1.5 inline-flex items-center text-red-500" title="Overdue"><TriangleAlert className="h-3 w-3" aria-hidden /></span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-xs">{t.customerName}</TableCell>
-                  <TableCell className="text-xs text-slate-500">{t.branch.name}</TableCell>
-                  <TableCell className="text-xs text-slate-500">{t.category.name}</TableCell>
-                  <TableCell className="text-xs">
-                    {t.assignee ? t.assignee.name : <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">Unassigned</span>}
-                  </TableCell>
-                  <TableCell><StatusBadge status={t.status} /></TableCell>
-                  <TableCell><PriorityBadge priority={t.priority} /></TableCell>
-                  <TableCell className="text-right text-xs text-slate-400">{fmt(t.createdAt)}</TableCell>
-                </TableRow>
-              ))
+              rows.map((t) => {
+                const overdue = t.slaResolutionDueAt && !["RESOLVED", "CLOSED"].includes(t.status) && new Date(t.slaResolutionDueAt) < new Date();
+                const away = t.assignee ? staffById.get(t.assignee.id)?.availabilityEnabled === false : false;
+                return (
+                  <TableRow key={t.id} className="cursor-pointer" onClick={() => router.push(`/staff/tickets/${t.id}`)}>
+                    <TableCell className="font-mono text-xs font-semibold text-[#0a2350]">
+                      <Link href={`/staff/tickets/${t.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">{t.ticketNumber}</Link>
+                      {overdue ? <span className="ml-1.5 inline-flex items-center text-red-500" title="Overdue"><TriangleAlert className="h-3 w-3" aria-hidden /></span> : null}
+                      {t.escalatedAt ? <span className="ml-1 inline-flex items-center text-purple-600" title="Escalated"><ShieldAlert className="h-3 w-3" aria-hidden /></span> : null}
+                    </TableCell>
+                    <TableCell className="text-xs">{t.customerName}</TableCell>
+                    <TableCell className={cn("text-xs", me?.branchId && t.branch.id !== me.branchId && isBranchUser ? "font-medium text-[#22618b]" : "text-slate-500")}>{t.branch.name}</TableCell>
+                    <TableCell className="text-xs text-slate-500">{t.category.name}</TableCell>
+                    <TableCell className="text-xs">
+                      {t.assignee ? (
+                        <span>
+                          {t.assignee.name}
+                          {away ? <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-800" title="Availability off — on leave / away">away</span> : null}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">Unassigned</span>
+                      )}
+                    </TableCell>
+                    <TableCell><StatusBadge status={t.status} /></TableCell>
+                    <TableCell><PriorityBadge priority={t.priority} /></TableCell>
+                    <TableCell className="text-xs text-slate-400">{fmt(t.createdAt)}</TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
 
-        {totalPages > 1 ? (
-          <div className="flex items-center justify-between border-t border-slate-100 p-3">
-            <p className="text-xs text-slate-400">Page {page} of {totalPages}</p>
+        <div className="flex items-center justify-between border-t border-slate-100 p-3">
+          <p className="text-xs text-slate-400">
+            {loading && rows !== null ? <><Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden />Updating… </> : null}
+            Page {view.page} of {totalPages} · {total} ticket{total === 1 ? "" : "s"}
+          </p>
+          {totalPages > 1 ? (
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="h-8">
+              <Button variant="outline" size="sm" disabled={view.page <= 1} onClick={() => update({ page: Math.max(1, view.page - 1) })} className="h-8">
                 <ChevronLeft className="h-4 w-4" aria-hidden /> Prev
               </Button>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="h-8">
+              <Button variant="outline" size="sm" disabled={view.page >= totalPages} onClick={() => update({ page: Math.min(totalPages, view.page + 1) })} className="h-8">
                 Next <ChevronRight className="h-4 w-4" aria-hidden />
               </Button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       <p className="text-xs text-slate-400">
-        Tip: click any row to open the ticket. Use the{" "}
-        <Link href="/staff/assignment" className="text-[#2c6bdf] hover:underline">assignment queue</Link> to
-        manually assign unallocated complaints.
-        {meta.role === "SUPPORT_AGENT" ? " Your view covers every complaint raised in your branch; use “Assigned to me” for your own work queue." : ""}
+        Tip: click a column heading to sort (ascending → descending → normal). Pick a colleague under “Assigned to” to see and work on their tickets while
+        they are away, and use the reassign panel inside a ticket to hand it to the right person. Unallocated complaints are also in the{" "}
+        <Link href="/staff/assignment" className="text-[#2c6bdf] hover:underline">assignment queue</Link>.
       </p>
     </div>
   );

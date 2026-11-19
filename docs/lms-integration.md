@@ -97,6 +97,8 @@ assigned automatically to the next available support employee of that branch
 | `ticketSearch`, `customerSearch`, `branchSearch`, `categorySearch`, `assigneeSearch` | keyword filter on one column (case-insensitive, partial match); `assigneeSearch=unassigned` returns unassigned tickets |
 | `from`, `to` | created date range (`YYYY-MM-DD`) |
 | `updatedSince` | ISO timestamp — only tickets changed since then (incremental sync) |
+| `sort`, `order` | sort by `ticketNumber`, `customer`, `branch`, `category`, `assignee`, `status` (lifecycle order), `priority` (Low → Critical) or `createdAt`; `order` is `asc` or `desc`. Default: newest first |
+| `assignedToId` | tickets of one employee (staff id) |
 | `page`, `pageSize` | `pageSize` max 100 |
 
 `GET /integration/tickets/{ticketNumber}` (read) — the full record: status history, messages,

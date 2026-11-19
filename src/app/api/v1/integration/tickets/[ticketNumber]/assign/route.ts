@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tic
       if (employeeRef) {
         const employee = await resolveEmployee(employeeRef);
         if (!employee) return fail("EMPLOYEE_NOT_FOUND", `No employee matches "${employeeRef}".`, 422);
-        await manuallyAssignTicket(ticket.id, employee.id, actor, pick(body, "note"));
+        await manuallyAssignTicket(ticket.id, employee.id, actor, pick(body, "note"), { allowBranchMove: true });
         return ok({ ticketNumber: ticket.ticketNumber, assigned: true, assignee: { id: employee.id, name: employee.name, email: employee.email } });
       }
       const assignee = await assignTicketRoundRobin(ticket.id, actor, "ROUND_ROBIN");

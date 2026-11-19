@@ -4,7 +4,8 @@
 import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canAccessTicket } from "@/lib/tickets";
+import { canAccessTicket, canReassignTicket, getAccessPolicy } from "@/lib/tickets";
+import { isCentralRole } from "@/lib/types";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ ticketId: string }> }) {
   return handleErrors(async () => {
@@ -29,8 +30,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tic
       },
     });
     if (!ticket) return fail("NOT_FOUND", "Ticket not found.", 404);
-    if (!canAccessTicket(user, ticket)) return fail("FORBIDDEN", "You do not have permission to view this ticket.", 403);
+    const policy = await getAccessPolicy();
+    if (!canAccessTicket(user, ticket, policy)) return fail("FORBIDDEN", "You do not have permission to view this ticket.", 403);
 
-    return ok({ ticket, viewer: { id: user.id, role: user.role, branchId: user.branchId } });
+    const canReassign = canReassignTicket(user, ticket, policy);
+    return ok({
+      ticket,
+      viewer: {
+        id: user.id,
+        role: user.role,
+        branchId: user.branchId,
+        canReassign,
+        // Assigning to someone in another branch moves the ticket there.
+        canAssignAcrossBranches: canReassign && (isCentralRole(user.role) || policy.crossBranch),
+      },
+    });
   });
 }

@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { PriorityBadge, StatusBadge } from "@/components/staff-nav";
 import { useToast } from "@/hooks/use-toast";
 import { STATUS_LABELS } from "@/lib/types";
+import { StaffPicker, type StaffEntry } from "@/components/staff-picker";
 import {
   AlertTriangle, ArrowLeftRight, ArrowUpRight, FileText, Loader2, MessageSquarePlus,
   Paperclip, PauseCircle, PlayCircle, Reply, RotateCcw, Send, ShieldAlert, Timer, TriangleAlert, UserRound,
@@ -54,7 +55,7 @@ interface Detail {
     reopenHistory: { id: string; reason: string; reopenedAt: string }[];
     slaTracking: { firstResponseMetAt: string | null; firstResponseBreached: boolean; resolutionBreached: boolean } | null;
   };
-  viewer: { id: string; role: string; branchId: string | null };
+  viewer: { id: string; role: string; branchId: string | null; canReassign?: boolean; canAssignAcrossBranches?: boolean };
 }
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—");
@@ -76,12 +77,14 @@ export default function TicketDetailPage() {
   const [noteText, setNoteText] = useState("");
 
   // assignment
-  const [eligible, setEligible] = useState<{ id: string; name: string; designation: string }[]>([]);
+  const [staff, setStaff] = useState<StaffEntry[]>([]);
   const [assignTo, setAssignTo] = useState("");
+  const [assignNote, setAssignNote] = useState("");
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [transferTo, setTransferTo] = useState("");
 
-  const canAssign = ["ROOT_ADMIN", "CENTRAL_ADMIN", "CENTRAL_AGENT", "BRANCH_MANAGER"].includes(detail?.viewer.role || "");
+  const canAssign = !!detail?.viewer.canReassign;
+  const acrossBranches = !!detail?.viewer.canAssignAcrossBranches;
   const isClosed = detail?.ticket.status === "CLOSED";
 
   const load = useCallback(async () => {
@@ -92,13 +95,13 @@ export default function TicketDetailPage() {
       return;
     }
     setDetail(body.data);
-    if (["ROOT_ADMIN", "CENTRAL_ADMIN", "CENTRAL_AGENT", "BRANCH_MANAGER"].includes(body.data.viewer.role)) {
-      fetch(`/api/v1/support/assignment/eligible-employees/${body.data.ticket.branch.id}`)
+    if (body.data.viewer.canReassign) {
+      fetch("/api/v1/support/staff-directory")
         .then((r) => r.json())
-        .then((d) => { if (d.success) setEligible(d.data.eligible); })
+        .then((d) => { if (d.success) setStaff(d.data.staff); })
         .catch(() => undefined);
-      if (["ROOT_ADMIN", "CENTRAL_ADMIN", "CENTRAL_AGENT"].includes(body.data.viewer.role)) {
-        fetch("/api/v1/admin/branches")
+      if (body.data.viewer.canAssignAcrossBranches) {
+        fetch("/api/v1/public/branches")
           .then((r) => r.json())
           .then((d) => { if (d.success) setBranches(d.data.branches); })
           .catch(() => undefined);
@@ -331,27 +334,51 @@ export default function TicketDetailPage() {
               {canAssign && !isClosed ? (
                 <>
                   <div className="space-y-1.5">
-                    <Label>Assign / reassign within {t.branch.name}</Label>
-                    <Select value={assignTo} onValueChange={setAssignTo}>
-                      <SelectTrigger aria-label="Select employee"><SelectValue placeholder="Select employee" /></SelectTrigger>
-                      <SelectContent>
-                        {eligible.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                        {eligible.length === 0 ? <SelectItem value="__none" disabled>No eligible employees</SelectItem> : null}
-                      </SelectContent>
-                    </Select>
+                    <Label>{t.assignee ? "Reassign to" : "Assign to"}</Label>
+                    <StaffPicker
+                      staff={acrossBranches ? staff : staff.filter((p) => p.branchId === t.branch.id)}
+                      value={assignTo}
+                      onChange={setAssignTo}
+                      placeholder="Search employee…"
+                      preferBranchId={t.branch.id}
+                      excludeIds={t.assignee ? [t.assignee.id] : []}
+                      className="h-9 w-full"
+                      ariaLabel="Select employee"
+                    />
+                    {(() => {
+                      const target = staff.find((p) => p.id === assignTo);
+                      if (!target) return null;
+                      return (
+                        <p className="text-[11px] text-slate-500">
+                          {target.branchId !== t.branch.id ? (
+                            <span className="font-medium text-amber-700">The ticket will move from {t.branch.name} to {target.branch?.name}. </span>
+                          ) : null}
+                          {!target.availabilityEnabled ? <span className="text-amber-700">{target.name} is marked away. </span> : null}
+                          {target.openTickets} open ticket{target.openTickets === 1 ? "" : "s"}.
+                        </p>
+                      );
+                    })()}
+                    <Input
+                      value={assignNote}
+                      onChange={(e) => setAssignNote(e.target.value)}
+                      placeholder="Reason (optional)"
+                      className="h-9 text-xs"
+                      maxLength={500}
+                      aria-label="Reassignment reason"
+                    />
                     <Button size="sm" className="w-full bg-[#0a2350] hover:bg-[#10306b]" disabled={!!busy || !assignTo}
                       onClick={async () => {
-                        const okRes = await act("assign", () => fetch(`/api/v1/support/tickets/${t.id}/assign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ employeeId: assignTo }) }), "Ticket assigned");
-                        if (okRes) setAssignTo("");
+                        const okRes = await act("assign", () => fetch(`/api/v1/support/tickets/${t.id}/assign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ employeeId: assignTo, note: assignNote.trim() }) }), t.assignee ? "Ticket reassigned" : "Ticket assigned");
+                        if (okRes) { setAssignTo(""); setAssignNote(""); }
                       }}>
-                      {busy === "assign" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" aria-hidden />} Apply assignment
+                      {busy === "assign" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" aria-hidden />} {t.assignee ? "Reassign ticket" : "Assign ticket"}
                     </Button>
                   </div>
                   {branches.length > 0 ? (
                     <div className="space-y-1.5 border-t border-slate-100 pt-3">
                       <Label>Transfer to another branch</Label>
                       <Select value={transferTo} onValueChange={setTransferTo}>
-                        <SelectTrigger aria-label="Select branch"><SelectValue placeholder="Select branch" /></SelectTrigger>
+                        <SelectTrigger className="w-full" aria-label="Select branch"><SelectValue placeholder="Select branch" /></SelectTrigger>
                         <SelectContent>
                           {branches.filter((b) => b.id !== t.branch.id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                         </SelectContent>

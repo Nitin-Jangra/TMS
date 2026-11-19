@@ -6,7 +6,7 @@
 import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
-import { getReopenWindowHours, isAutoClosureEnabled } from "@/lib/settings";
+import { getReopenWindowHours, getSettings, isAutoClosureEnabled } from "@/lib/settings";
 import { initSlaTracking, markFirstResponse, markResolution } from "@/lib/sla";
 import { assignTicketRoundRobin, notifyAssignmentFailed } from "@/lib/assignment";
 import { canTransition, normalizePhone, type SessionUser, type TicketStatus } from "@/lib/types";
@@ -540,7 +540,34 @@ export async function escalateTicket(ticketId: string, reasonInput: string, acto
 // Access control helper for staff ticket access (resource-level RBAC)
 // ---------------------------------------------------------------------------
 
-export function canAccessTicket(user: SessionUser, ticket: { branchId: string; assignedToId: string | null }): boolean {
+/**
+ * Workspace-wide access policy (Root Admin → Settings → General).
+ * - crossBranch:     branch staff may find, view and work on tickets of any
+ *                    branch (cover for a colleague on leave, global search).
+ * - agentsReassign:  support agents may reassign / transfer tickets (fix a
+ *                    ticket that landed with the wrong person or branch).
+ */
+export interface AccessPolicy {
+  crossBranch: boolean;
+  agentsReassign: boolean;
+}
+
+/** Most restrictive policy — used when a caller does not pass one. */
+export const STRICT_POLICY: AccessPolicy = { crossBranch: false, agentsReassign: false };
+
+export async function getAccessPolicy(): Promise<AccessPolicy> {
+  const settings = await getSettings();
+  return {
+    crossBranch: settings.staff_cross_branch_access !== "false",
+    agentsReassign: settings.agents_can_reassign !== "false",
+  };
+}
+
+export function canAccessTicket(
+  user: SessionUser,
+  ticket: { branchId: string; assignedToId: string | null },
+  policy: AccessPolicy = STRICT_POLICY,
+): boolean {
   switch (user.role) {
     case "ROOT_ADMIN":
     case "CENTRAL_ADMIN":
@@ -549,8 +576,28 @@ export function canAccessTicket(user: SessionUser, ticket: { branchId: string; a
       return true;
     case "BRANCH_MANAGER":
     case "SUPPORT_AGENT":
-      // Branch-level visibility — only complaints raised in their own branch.
-      return !!user.branchId && user.branchId === ticket.branchId;
+      // Own branch always; any branch when cross-branch access is enabled.
+      return policy.crossBranch || (!!user.branchId && user.branchId === ticket.branchId);
+    default:
+      return false;
+  }
+}
+
+/** May this user assign / reassign / transfer the given ticket? */
+export function canReassignTicket(
+  user: SessionUser,
+  ticket: { branchId: string; assignedToId: string | null },
+  policy: AccessPolicy = STRICT_POLICY,
+): boolean {
+  if (!canAccessTicket(user, ticket, policy)) return false;
+  switch (user.role) {
+    case "ROOT_ADMIN":
+    case "CENTRAL_ADMIN":
+    case "CENTRAL_AGENT":
+    case "BRANCH_MANAGER":
+      return true;
+    case "SUPPORT_AGENT":
+      return policy.agentsReassign;
     default:
       return false;
   }

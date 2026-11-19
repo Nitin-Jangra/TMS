@@ -18,6 +18,8 @@ const ALLOWED_KEYS = [
   "notification_branch_enabled",
   "notification_central_enabled",
   "webhook_url",
+  "staff_cross_branch_access",
+  "agents_can_reassign",
   "webhook_secret",
 ];
 

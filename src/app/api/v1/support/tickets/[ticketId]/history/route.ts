@@ -3,7 +3,7 @@
 import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canAccessTicket } from "@/lib/tickets";
+import { canAccessTicket, getAccessPolicy } from "@/lib/tickets";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ ticketId: string }> }) {
   return handleErrors(async () => {
@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tic
       },
     });
     if (!ticket) return fail("NOT_FOUND", "Ticket not found.", 404);
-    if (!canAccessTicket(user, ticket)) return fail("FORBIDDEN", "You do not have permission to view this ticket.", 403);
+    if (!canAccessTicket(user, ticket, await getAccessPolicy())) return fail("FORBIDDEN", "You do not have permission to view this ticket.", 403);
 
     return ok({ statusHistory: ticket.statusHistory, assignments: ticket.assignments, reopenHistory: ticket.reopenHistory });
   });
