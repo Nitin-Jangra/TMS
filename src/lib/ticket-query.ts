@@ -20,6 +20,11 @@ export interface TicketFilters {
   source?: string;
   updatedSince?: string;
   escalated?: boolean;
+  ticketSearch?: string;
+  customerSearch?: string;
+  branchSearch?: string;
+  categorySearch?: string;
+  assigneeSearch?: string;
 }
 
 export function parseFilters(searchParams: URLSearchParams): TicketFilters {
@@ -40,6 +45,11 @@ export function parseFilters(searchParams: URLSearchParams): TicketFilters {
     source: searchParams.get("source") || undefined,
     updatedSince: searchParams.get("updatedSince") || undefined,
     escalated: searchParams.get("escalated") === "true" || undefined,
+    ticketSearch: searchParams.get("ticketSearch") || undefined,
+    customerSearch: searchParams.get("customerSearch") || undefined,
+    branchSearch: searchParams.get("branchSearch") || undefined,
+    categorySearch: searchParams.get("categorySearch") || undefined,
+    assigneeSearch: searchParams.get("assigneeSearch") || undefined,
   };
 }
 
@@ -71,21 +81,50 @@ export function buildWhere(filters: TicketFilters, scope: { branchId?: string; a
     where.slaResolutionDueAt = { lt: new Date() };
     where.status = { in: ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"] };
   }
-  if (filters.q) {
-    where.OR = [
-      { ticketNumber: { contains: filters.q.toUpperCase() } },
-      { customerName: { contains: filters.q } },
-      { customerPhone: { contains: filters.q.replace(/\D/g, "") } },
+  // Keyword filters. Every condition is AND-ed; each keyword may match any of
+  // the fields listed for it. SQLite / D1 LIKE is case-insensitive for ASCII.
+  const and: Record<string, unknown>[] = [];
+  const words = (s?: string) => (s || "").trim().split(/\s+/).filter(Boolean).slice(0, 8);
+  const digits = (w: string) => w.replace(/\D/g, "");
+
+  // Global search: every word must appear somewhere in the ticket.
+  for (const w of words(filters.q)) {
+    const or: Record<string, unknown>[] = [
+      { ticketNumber: { contains: w.toUpperCase() } },
+      { customerName: { contains: w } },
+      { customerEmail: { contains: w.toLowerCase() } },
+      { description: { contains: w } },
+      { branch: { name: { contains: w } } },
+      { branch: { code: { contains: w.toUpperCase() } } },
+      { branch: { city: { contains: w } } },
+      { category: { name: { contains: w } } },
+      { assignee: { name: { contains: w } } },
+      { status: { contains: w.toUpperCase().replace(/\s+/g, "_") } },
+      { priority: { contains: w.toUpperCase() } },
     ];
+    if (digits(w).length >= 3) or.push({ customerPhone: { contains: digits(w) } });
+    and.push({ OR: or });
   }
-  if (filters.phone) where.customerPhone = normalizePhone(filters.phone);
-  if (filters.email) where.customerEmail = filters.email.trim().toLowerCase();
-  if (filters.source) where.source = filters.source.toUpperCase();
-  if (filters.escalated) where.escalatedAt = { not: null };
-  if (filters.updatedSince) {
-    const since = new Date(filters.updatedSince);
-    if (!Number.isNaN(since.getTime())) where.updatedAt = { gte: since };
+  // Per-column keyword filters (ticket list header row).
+  for (const w of words(filters.ticketSearch)) and.push({ ticketNumber: { contains: w.toUpperCase() } });
+  for (const w of words(filters.customerSearch)) {
+    const or: Record<string, unknown>[] = [{ customerName: { contains: w } }, { customerEmail: { contains: w.toLowerCase() } }];
+    if (digits(w).length >= 3) or.push({ customerPhone: { contains: digits(w) } });
+    and.push({ OR: or });
   }
+  for (const w of words(filters.branchSearch)) {
+    and.push({ OR: [{ branch: { name: { contains: w } } }, { branch: { code: { contains: w.toUpperCase() } } }, { branch: { city: { contains: w } } }] });
+  }
+  for (const w of words(filters.categorySearch)) and.push({ category: { name: { contains: w } } });
+  if (filters.assigneeSearch?.trim().toLowerCase() === "unassigned") {
+    and.push({ assignedToId: null });
+  } else {
+    for (const w of words(filters.assigneeSearch)) {
+      and.push({ OR: [{ assignee: { name: { contains: w } } }, { assignee: { email: { contains: w.toLowerCase() } } }] });
+    }
+  }
+  if (and.length) where.AND = and;
+
   if (filters.phone) where.customerPhone = normalizePhone(filters.phone);
   if (filters.email) where.customerEmail = filters.email.trim().toLowerCase();
   if (filters.source) where.source = filters.source.toUpperCase();

@@ -3,7 +3,11 @@
 //
 // Filters: status, priority, source, branch (id / code / external id / name),
 // categoryId, assignedToId, unassigned, overdue, escalated, phone, email,
-// q (ticket number / name / phone), from, to (created date, YYYY-MM-DD),
+// q (keywords; every word must match ticket no. / customer / phone / email /
+// description / branch / category / assignee / status / priority),
+// ticketSearch, customerSearch, branchSearch, categorySearch, assigneeSearch
+// (per-column keywords; assigneeSearch=unassigned for unassigned tickets),
+// from, to (created date, YYYY-MM-DD),
 // updatedSince (ISO timestamp — for incremental sync), page, pageSize (max 100).
 
 import { fail, handleErrors, ok, paginationParams } from "@/lib/api-response";

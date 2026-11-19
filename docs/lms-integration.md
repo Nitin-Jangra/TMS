@@ -93,7 +93,8 @@ assigned automatically to the next available support employee of that branch
 | `branch` | branch code, LMS id or name |
 | `priority`, `source` | `source` is `PORTAL`, `API_LMS` or `API_CRM` |
 | `unassigned=true`, `overdue=true`, `escalated=true` | queues |
-| `q` | search ticket number / member name / phone |
+| `q` | keyword search — every word must appear in the ticket number, member name, phone, email, description, branch, category, assignee, status or priority |
+| `ticketSearch`, `customerSearch`, `branchSearch`, `categorySearch`, `assigneeSearch` | keyword filter on one column (case-insensitive, partial match); `assigneeSearch=unassigned` returns unassigned tickets |
 | `from`, `to` | created date range (`YYYY-MM-DD`) |
 | `updatedSince` | ISO timestamp — only tickets changed since then (incremental sync) |
 | `page`, `pageSize` | `pageSize` max 100 |
