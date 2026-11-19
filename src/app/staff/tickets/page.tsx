@@ -339,7 +339,138 @@ function ListInner() {
         </div>
       </div>
 
-      <div className="brand-ring rounded-xl border border-slate-200 bg-white">
+      <div className="rounded border border-[#d1d7dc] bg-white shadow-sm overflow-hidden">
+        {/* ServiceNow Quick Filter View Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-[#d1d7dc] bg-white px-3 pt-1">
+          <button
+            type="button"
+            onClick={() => update({ status: "", assigned: "", overdue: false, escalated: false })}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition whitespace-nowrap",
+              !view.status && !view.assigned && !view.overdue && !view.escalated
+                ? "border-[#1f70c1] text-[#1f70c1]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            All Incidents
+          </button>
+          <button
+            type="button"
+            onClick={() => update({ assigned: "me", status: "", overdue: false, escalated: false })}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition whitespace-nowrap",
+              view.assigned === "me"
+                ? "border-[#1f70c1] text-[#1f70c1]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            Assigned to Me
+          </button>
+          <button
+            type="button"
+            onClick={() => update({ assigned: "unassigned", status: "", overdue: false, escalated: false })}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition whitespace-nowrap",
+              view.assigned === "unassigned"
+                ? "border-[#1f70c1] text-[#1f70c1]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            Unassigned Queue
+          </button>
+          <button
+            type="button"
+            onClick={() => update({ overdue: true, status: "", assigned: "", escalated: false })}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition whitespace-nowrap",
+              view.overdue
+                ? "border-red-600 text-red-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <TriangleAlert className="h-3.5 w-3.5" />
+            SLA Overdue
+          </button>
+          <button
+            type="button"
+            onClick={() => update({ status: "RESOLVED", assigned: "", overdue: false, escalated: false })}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition whitespace-nowrap",
+              view.status === "RESOLVED"
+                ? "border-emerald-600 text-emerald-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            Resolved
+          </button>
+        </div>
+
+        {/* ServiceNow Condition Breadcrumb Bar */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-xs text-slate-600">
+          <span className="font-bold uppercase tracking-wider text-[10px] text-slate-400 mr-1">Condition Trail:</span>
+          <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">All</span>
+          <span className="text-slate-400">▶</span>
+          <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">Active = true</span>
+
+          {view.scope === "all" ? (
+            <>
+              <span className="text-slate-400">▶</span>
+              <span className="inline-flex items-center gap-1 rounded bg-[#dbeafe] px-2 py-0.5 text-[11px] font-medium text-[#1e40af]">
+                Scope = All Branches
+                <button type="button" onClick={() => update({ scope: "" })} className="hover:text-red-600">×</button>
+              </span>
+            </>
+          ) : null}
+
+          {view.status ? (
+            <>
+              <span className="text-slate-400">▶</span>
+              <span className="inline-flex items-center gap-1 rounded bg-[#e0f2fe] px-2 py-0.5 text-[11px] font-medium text-[#0369a1]">
+                State = {STATUS_LABELS[view.status] || view.status}
+                <button type="button" onClick={() => update({ status: "" })} className="hover:text-red-600">×</button>
+              </span>
+            </>
+          ) : null}
+
+          {view.assigned === "me" ? (
+            <>
+              <span className="text-slate-400">▶</span>
+              <span className="inline-flex items-center gap-1 rounded bg-[#fef3c7] px-2 py-0.5 text-[11px] font-medium text-[#92400e]">
+                Assigned to = Me
+                <button type="button" onClick={() => update({ assigned: "" })} className="hover:text-red-600">×</button>
+              </span>
+            </>
+          ) : view.assigned === "unassigned" ? (
+            <>
+              <span className="text-slate-400">▶</span>
+              <span className="inline-flex items-center gap-1 rounded bg-[#fee2e2] px-2 py-0.5 text-[11px] font-medium text-[#991b1b]">
+                Assigned to = Unassigned
+                <button type="button" onClick={() => update({ assigned: "" })} className="hover:text-red-600">×</button>
+              </span>
+            </>
+          ) : null}
+
+          {view.q ? (
+            <>
+              <span className="text-slate-400">▶</span>
+              <span className="inline-flex items-center gap-1 rounded bg-[#ede9fe] px-2 py-0.5 text-[11px] font-medium text-[#5b21b6]">
+                Keyword contains "{view.q}"
+                <button type="button" onClick={clearSearch} className="hover:text-red-600">×</button>
+              </span>
+            </>
+          ) : null}
+
+          {activeCount > 0 ? (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="ml-auto text-[11px] font-semibold text-[#1f70c1] hover:underline"
+            >
+              Clear All Conditions
+            </button>
+          ) : null}
+        </div>
+
         {/* Row 1: global search, scope, assigned to */}
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
           <form

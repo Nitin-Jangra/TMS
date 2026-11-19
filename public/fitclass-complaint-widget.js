@@ -38,15 +38,15 @@
       pointer-events: auto;
     }
     .msq-modal-card {
-      background: #13131a;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 16px;
+      background: #161F28;
+      border: 1px solid #2A374A;
+      border-radius: 12px;
       width: 100%;
       max-width: 520px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(114, 189, 208, 0.15);
-      color: #f4f4f7;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      color: #F4F6F8;
       padding: 24px;
       position: relative;
       transform: translateY(20px);
@@ -62,7 +62,7 @@
       right: 18px;
       background: transparent;
       border: none;
-      color: #a1a1aa;
+      color: #94A3B8;
       font-size: 22px;
       cursor: pointer;
       line-height: 1;
@@ -74,24 +74,24 @@
       display: flex;
       gap: 8px;
       margin-bottom: 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid #2A374A;
       padding-bottom: 12px;
     }
     .msq-tab-btn {
       background: transparent;
       border: none;
-      color: #a1a1aa;
+      color: #94A3B8;
       font-size: 13px;
       font-weight: 700;
       padding: 8px 14px;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
       transition: all 0.15s;
     }
     .msq-tab-btn.active {
-      background: rgba(114, 189, 208, 0.12);
-      color: #72bdd0;
-      border: 1px solid rgba(114, 189, 208, 0.3);
+      background: #1F70C1;
+      color: #ffffff;
+      border: 1px solid #1F70C1;
     }
     .msq-field {
       margin-bottom: 14px;
@@ -103,15 +103,15 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #a1a1aa;
+      color: #94A3B8;
       margin-bottom: 6px;
     }
     .msq-input, .msq-select, .msq-textarea {
       width: 100%;
-      background: #171722;
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: #0F161E;
+      border: 1px solid #2A374A;
       color: #ffffff;
-      border-radius: 10px;
+      border-radius: 6px;
       padding: 10px 12px;
       font-size: 13px;
       outline: none;
@@ -119,25 +119,25 @@
       transition: border-color 0.15s, box-shadow 0.15s;
     }
     .msq-input:focus, .msq-select:focus, .msq-textarea:focus {
-      border-color: #72bdd0;
-      box-shadow: 0 0 0 2px rgba(114, 189, 208, 0.2);
+      border-color: #1F70C1;
+      box-shadow: 0 0 0 2px rgba(31, 112, 193, 0.3);
     }
     .msq-btn-primary {
       width: 100%;
-      background: linear-gradient(135deg, #72bdd0 0%, #1a4c6e 100%);
+      background: #1F70C1;
       color: #ffffff;
       border: none;
-      border-radius: 10px;
+      border-radius: 6px;
       padding: 12px;
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 16px rgba(114, 189, 208, 0.4);
-      transition: brightness 0.15s, transform 0.1s;
+      box-shadow: 0 4px 12px rgba(31, 112, 193, 0.3);
+      transition: background 0.15s, transform 0.1s;
       margin-top: 6px;
     }
     .msq-btn-primary:hover {
-      filter: brightness(1.1);
+      background: #185999;
     }
     .msq-btn-primary:active {
       transform: scale(0.99);
@@ -150,39 +150,40 @@
       position: fixed;
       bottom: 24px;
       right: 24px;
-      background: linear-gradient(135deg, #72bdd0 0%, #1a4c6e 100%);
+      background: #161F28;
       color: #ffffff;
-      border: none;
+      border: 1px solid #2A374A;
       border-radius: 30px;
       padding: 12px 20px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 6px 20px rgba(114, 189, 208, 0.5);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
       z-index: 999990;
       display: flex;
       align-items: center;
       gap: 8px;
-      transition: transform 0.15s, box-shadow 0.15s;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
       font-family: inherit;
     }
     .msq-floating-trigger:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(114, 189, 208, 0.65);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      background: #1F2B38;
     }
     .msq-ticket-badge {
-      background: #171722;
-      border: 1px solid rgba(114, 189, 208, 0.35);
-      border-radius: 12px;
+      background: #0F161E;
+      border: 1px solid #2A374A;
+      border-radius: 8px;
       padding: 20px;
       text-align: center;
       margin: 16px 0;
     }
     .msq-ticket-num {
-      font-size: 26px;
+      font-size: 24px;
       font-family: monospace;
       font-weight: 800;
-      color: #72bdd0;
+      color: #30C497;
       letter-spacing: 1px;
       margin: 8px 0;
     }
@@ -192,9 +193,9 @@
       border-radius: 20px;
       font-size: 11px;
       font-weight: 700;
-      background: rgba(114, 189, 208, 0.15);
-      color: #72bdd0;
-      border: 1px solid rgba(114, 189, 208, 0.3);
+      background: #EBF4FA;
+      color: #00639B;
+      border: 1px solid #0084D1;
     }
   `;
   document.head.appendChild(style);
@@ -206,10 +207,10 @@
     <div class="msq-modal-card">
       <button class="msq-close-btn" aria-label="Close modal">&times;</button>
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
-        <div style="background: linear-gradient(135deg, #22618b, #1a4c6e); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff; font-size: 16px;">M</div>
+        <div style="background: #1F70C1; width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff; font-size: 16px;">FC</div>
         <div>
-          <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff;">FITCLASS</h3>
-          <p style="margin: 2px 0 0; font-size: 11px; font-weight: 700; color: #72bdd0; letter-spacing: 0.5px;">MEMBER CARE & SUPPORT</p>
+          <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #ffffff;">FITCLASS</h3>
+          <p style="margin: 2px 0 0; font-size: 10px; font-weight: 700; color: #30C497; letter-spacing: 0.5px;">SERVICENOW ITIL DESK</p>
         </div>
       </div>
 

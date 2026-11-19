@@ -79,6 +79,8 @@ export default function TicketDetailPage() {
   const [resolution, setResolution] = useState("");
   const [replyText, setReplyText] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [journalMode, setJournalMode] = useState<"comments" | "work_notes">("comments");
+  const [activityFilter, setActivityFilter] = useState<"all" | "comments" | "notes" | "history">("all");
 
   // assignment
   const [staff, setStaff] = useState<StaffEntry[]>([]);
@@ -159,49 +161,53 @@ export default function TicketDetailPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* ServiceNow Record Sub-Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-[#d1d7dc] bg-white p-4 shadow-sm">
         <div>
-          <button onClick={() => router.push("/staff/tickets")} className="mb-1 flex items-center text-xs text-slate-400 hover:text-[#2c6bdf]">
-            ← Back to tickets
-          </button>
+          <div className="mb-1 flex items-center gap-1.5 text-xs text-slate-500">
+            <button onClick={() => router.push("/staff/tickets")} className="hover:text-[#1f70c1] hover:underline font-medium">
+              Incidents & Tickets
+            </button>
+            <span>/</span>
+            <span className="font-semibold text-slate-700">{t.ticketNumber}</span>
+          </div>
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-mono text-xl font-bold text-[#0a2350]">{t.ticketNumber}</h1>
+            <h1 className="font-mono text-xl font-bold text-[#161f28]">{t.ticketNumber}</h1>
             <StatusBadge status={t.status} />
             <PriorityBadge priority={t.priority} />
-            {overdue ? <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 ring-1 ring-red-200"><TriangleAlert className="h-3 w-3" aria-hidden />Overdue</span> : null}
-            {t.escalatedAt ? <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700 ring-1 ring-purple-200"><ShieldAlert className="h-3 w-3" aria-hidden />Escalated</span> : null}
-            {t.reopenCount > 0 ? <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-300"><RotateCcw className="h-3 w-3" aria-hidden />Reopened ×{t.reopenCount}</span> : null}
+            {overdue ? <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-800 ring-1 ring-red-300"><TriangleAlert className="h-3 w-3" />SLA Breached</span> : null}
+            {t.escalatedAt ? <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-semibold text-purple-800 ring-1 ring-purple-300"><ShieldAlert className="h-3 w-3" />Escalated</span> : null}
+            {t.reopenCount > 0 ? <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-300"><RotateCcw className="h-3 w-3" />Reopened ({t.reopenCount})</span> : null}
           </div>
         </div>
 
-        {/* Status actions */}
-        <div className="flex flex-wrap gap-2">
+        {/* Status Actions (ServiceNow Header Actions) */}
+        <div className="flex flex-wrap items-center gap-2">
           {!isClosed && t.status === "NEW_COMPLAINT" ? (
-            <Button size="sm" className="bg-[#2c6bdf] hover:bg-[#1c4297]" disabled={!!busy}
+            <Button size="sm" className="bg-[#1f70c1] hover:bg-[#155799] text-white" disabled={!!busy}
               onClick={() => act("start", () => fetch(`/api/v1/support/tickets/${t.id}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ toStatus: "IN_PROGRESS", note: "Started working on the ticket" }) }), "Ticket started")}>
               {busy === "start" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <PlayCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />}
-              Start working
+              Start Working
             </Button>
           ) : null}
           {!isClosed && (t.status === "IN_PROGRESS" || t.status === "ON_HOLD") ? (
             <>
               {t.status === "IN_PROGRESS" ? (
-                <Button size="sm" variant="outline" disabled={!!busy} onClick={() => setHoldOpen(true)}>
-                  <PauseCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Put on hold
+                <Button size="sm" variant="outline" className="border-slate-300" disabled={!!busy} onClick={() => setHoldOpen(true)}>
+                  <PauseCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Place on Hold
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" disabled={!!busy}
+                <Button size="sm" variant="outline" className="border-slate-300" disabled={!!busy}
                   onClick={() => act("resume", () => fetch(`/api/v1/support/tickets/${t.id}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ toStatus: "IN_PROGRESS", note: "Resumed from hold" }) }), "Ticket resumed")}>
                   {busy === "resume" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <PlayCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />}
-                  Resume
+                  Resume Work
                 </Button>
               )}
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={!!busy} onClick={() => setResolveOpen(true)}>
-                <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Resolve
+              <Button size="sm" className="bg-[#059669] hover:bg-[#047857] text-white" disabled={!!busy} onClick={() => setResolveOpen(true)}>
+                <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Resolve Incident
               </Button>
               {!t.escalatedAt ? (
-                <Button size="sm" variant="outline" disabled={!!busy}
+                <Button size="sm" variant="outline" className="border-slate-300" disabled={!!busy}
                   onClick={() => act("escalate", () => fetch(`/api/v1/support/tickets/${t.id}/escalate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: "Manual escalation from dashboard" }) }), "Ticket escalated")}>
                   <ShieldAlert className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Escalate
                 </Button>
@@ -211,15 +217,45 @@ export default function TicketDetailPage() {
         </div>
       </div>
 
+      {/* ServiceNow Progress State Flow Chevron Bar */}
+      <div className="flex overflow-x-auto rounded border border-[#d1d7dc] bg-white p-1 text-xs shadow-sm select-none">
+        {[
+          { key: "NEW_COMPLAINT", step: "1. New", label: "New Complaint" },
+          { key: "IN_PROGRESS", step: "2. Work in Progress", label: "Work in Progress" },
+          { key: "ON_HOLD", step: "3. Pending / Hold", label: "On Hold" },
+          { key: "RESOLVED", step: "4. Resolved", label: "Resolved" },
+          { key: "CLOSED", step: "5. Closed", label: "Closed" },
+        ].map((s) => {
+          const isCurrent = t.status === s.key;
+          const statusOrder = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"];
+          const isPassed = statusOrder.indexOf(t.status) > statusOrder.indexOf(s.key);
+          return (
+            <div
+              key={s.key}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-center border-r last:border-r-0 font-semibold transition whitespace-nowrap ${
+                isCurrent
+                  ? "bg-[#1f70c1] text-white font-bold shadow-xs"
+                  : isPassed
+                  ? "bg-[#ecfdf5] text-[#065f46]"
+                  : "bg-[#f8fafc] text-slate-400"
+              }`}
+            >
+              {isPassed ? <CheckCircle2 className="h-3.5 w-3.5 text-[#059669]" /> : null}
+              <span>{s.step}</span>
+            </div>
+          );
+        })}
+      </div>
+
       {isClosed ? (
-        <div className="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-600">
+        <div className="flex items-center gap-2 rounded border border-slate-300 bg-slate-100 p-3 text-xs text-slate-600">
           <Timer className="h-4 w-4 text-slate-400" aria-hidden />
-          This ticket is <strong>Closed</strong> and permanently read-only. No role can modify closed tickets — they are retained as historical records only.
+          This incident is <strong>Closed</strong> and permanently read-only in compliance with ITIL audit rules.
         </div>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Left column: complaint + conversation */}
+        {/* Left column: ServiceNow Form sections + Dual-channel Activity Stream */}
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold text-[#0a2350]">Complaint details</CardTitle></CardHeader>
@@ -268,63 +304,180 @@ export default function TicketDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold text-[#0a2350]">Conversation</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {t.messages.length === 0 ? (
-                <p className="rounded-md border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">No messages yet. Reply to the customer or add an internal note below.</p>
-              ) : (
-                t.messages.map((m) => (
-                  <div key={m.id} className={`rounded-lg border p-3 ${m.visibility === "INTERNAL" ? "border-amber-200 bg-amber-50/70" : "border-slate-200 bg-white"}`}>
-                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-medium text-slate-700">
-                        {m.authorName}
-                        <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${m.visibility === "INTERNAL" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500"}`}>
-                          {m.visibility === "INTERNAL" ? "Internal note" : "To customer"}
-                        </span>
-                      </p>
-                      <span className="text-[11px] text-slate-400">{fmt(m.createdAt)}</span>
-                    </div>
-                    <p className="text-sm leading-relaxed text-slate-700">{m.body}</p>
-                  </div>
-                ))
-              )}
-
+          {/* Dual-Channel Activity Stream (ServiceNow Polaris Journal) */}
+          <Card className="border border-[#d1d7dc] shadow-sm">
+            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Activity Stream & Journal
+                </CardTitle>
+                <div className="flex items-center gap-1 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("all")}
+                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "all" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    All ({t.messages.length + t.statusHistory.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("comments")}
+                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "comments" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    Comments
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("notes")}
+                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "notes" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    Work Notes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityFilter("history")}
+                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "history" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    History
+                  </button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4">
+              {/* Dual-Channel Composer */}
               {!isClosed ? (
-                <div className="space-y-3 pt-2">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="reply">Customer reply</Label>
-                      <CannedPicker
-                        context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
-                        onInsert={(text) => setReplyText((cur) => (cur.trim() ? `${cur.trimEnd()}
+                <div className="rounded border border-[#d1d7dc] bg-white p-3 shadow-xs">
+                  {/* Mode Tabs */}
+                  <div className="mb-2 flex items-center gap-1 border-b border-slate-200 pb-2">
+                    <button
+                      type="button"
+                      onClick={() => setJournalMode("comments")}
+                      className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold transition ${
+                        journalMode === "comments"
+                          ? "bg-[#eff6ff] text-[#1d4ed8] border border-[#bfdbfe]"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <Reply className="h-3.5 w-3.5" />
+                      Additional Comments (Customer Visible)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setJournalMode("work_notes")}
+                      className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold transition ${
+                        journalMode === "work_notes"
+                          ? "bg-[#fffbeb] text-[#b45309] border border-[#fde68a]"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <MessageSquarePlus className="h-3.5 w-3.5" />
+                      Work Notes (Staff Internal Only)
+                    </button>
+                  </div>
 
-${text}` : text))}
+                  {journalMode === "comments" ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span className="text-[#1d4ed8] font-medium">Customer-facing reply (will be dispatched via email)</span>
+                        <CannedPicker
+                          context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                          onInsert={(text) => setReplyText((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
+                          disabled={!!busy}
+                        />
+                      </div>
+                      <Textarea
+                        rows={3}
+                        placeholder="Write a clear response to the customer..."
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        className="rounded border-[#bfdbfe] bg-[#eff6ff]/30 text-xs focus:border-[#3b82f6]"
                         disabled={!!busy}
                       />
+                      <Button
+                        size="sm"
+                        className="bg-[#1f70c1] hover:bg-[#155799] text-white text-xs font-semibold"
+                        disabled={!!busy || replyText.trim().length < 2}
+                        onClick={async () => {
+                          const okRes = await act("reply", () => fetch(`/api/v1/support/tickets/${t.id}/replies`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reply: replyText.trim() }) }), "Reply sent to customer");
+                          if (okRes) setReplyText("");
+                        }}
+                      >
+                        {busy === "reply" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
+                        Post Customer Update
+                      </Button>
                     </div>
-                    <Textarea id="reply" rows={3} placeholder="Write a customer-facing reply (emails the customer)..." value={replyText} onChange={(e) => setReplyText(e.target.value)} disabled={!!busy} />
-                    <Button size="sm" className="bg-[#2c6bdf] hover:bg-[#1c4297]" disabled={!!busy || replyText.trim().length < 2}
-                      onClick={async () => {
-                        const okRes = await act("reply", () => fetch(`/api/v1/support/tickets/${t.id}/replies`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reply: replyText.trim() }) }), "Reply sent to customer");
-                        if (okRes) setReplyText("");
-                      }}>
-                      {busy === "reply" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <Send className="mr-1.5 h-3.5 w-3.5" aria-hidden />} Send reply
-                    </Button>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="note" className="flex items-center gap-1.5"><MessageSquarePlus className="h-3.5 w-3.5 text-amber-500" aria-hidden />Internal note <span className="font-normal text-slate-400">(never emailed)</span></Label>
-                    <Textarea id="note" rows={2} placeholder="Internal observation for the team..." value={noteText} onChange={(e) => setNoteText(e.target.value)} disabled={!!busy} />
-                    <Button size="sm" variant="outline" disabled={!!busy || noteText.trim().length < 2}
-                      onClick={async () => {
-                        const okRes = await act("note", () => fetch(`/api/v1/support/tickets/${t.id}/notes`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note: noteText.trim() }) }), "Internal note added");
-                        if (okRes) setNoteText("");
-                      }}>
-                      {busy === "note" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null} Add note
-                    </Button>
-                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-xs text-[#b45309] font-medium">
+                        Private Work Note (Internal to staff — strictly hidden from customer)
+                      </div>
+                      <Textarea
+                        rows={3}
+                        placeholder="Document investigation findings, telephone calls, or vendor follow-ups..."
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        className="rounded border-[#fde68a] bg-[#fffbeb]/40 text-xs focus:border-[#f59e0b]"
+                        disabled={!!busy}
+                      />
+                      <Button
+                        size="sm"
+                        className="bg-[#d97706] hover:bg-[#b45309] text-white text-xs font-semibold"
+                        disabled={!!busy || noteText.trim().length < 2}
+                        onClick={async () => {
+                          const okRes = await act("note", () => fetch(`/api/v1/support/tickets/${t.id}/notes`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note: noteText.trim() }) }), "Internal note added");
+                          if (okRes) setNoteText("");
+                        }}
+                      >
+                        {busy === "note" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <MessageSquarePlus className="mr-1.5 h-3.5 w-3.5" />}
+                        Save Work Note
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : null}
+
+              {/* Feed Stream */}
+              <div className="space-y-3 pt-2">
+                {t.messages.length === 0 ? (
+                  <p className="rounded border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+                    No communication posted on this incident yet.
+                  </p>
+                ) : (
+                  t.messages
+                    .filter((m) => {
+                      if (activityFilter === "comments") return m.visibility !== "INTERNAL";
+                      if (activityFilter === "notes") return m.visibility === "INTERNAL";
+                      return true;
+                    })
+                    .map((m) => (
+                      <div
+                        key={m.id}
+                        className={`rounded p-3 text-xs shadow-xs ${
+                          m.visibility === "INTERNAL"
+                            ? "sn-work-notes"
+                            : "sn-customer-comments"
+                        }`}
+                      >
+                        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-black/5 pb-1">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span className="text-slate-800">{m.authorName}</span>
+                            <span
+                              className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${
+                                m.visibility === "INTERNAL"
+                                  ? "bg-amber-200 text-amber-900"
+                                  : "bg-blue-200 text-blue-900"
+                              }`}
+                            >
+                              {m.visibility === "INTERNAL" ? "Work Note (Internal)" : "Customer Comment"}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">{fmt(m.createdAt)}</span>
+                        </div>
+                        <p className="text-xs leading-relaxed text-slate-800 whitespace-pre-wrap">{m.body}</p>
+                      </div>
+                    ))
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -348,10 +501,51 @@ ${text}` : text))}
           </Card>
         </div>
 
-        {/* Right column: assignment */}
+        {/* Right column: ServiceNow Contextual Side Panel */}
         <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold text-[#0a2350]">Assignment</CardTitle></CardHeader>
+          {/* ServiceNow SLA Countdown Widget */}
+          <Card className="border border-[#d1d7dc] shadow-sm">
+            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
+              <CardTitle className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <Timer className="h-4 w-4 text-[#1f70c1]" />
+                  Service Level Agreement (SLA)
+                </span>
+                <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${overdue ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
+                  {overdue ? "SLA Breached" : "Within Target"}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 p-4 text-xs">
+              <div>
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span>Resolution Target:</span>
+                  <span className="font-semibold text-slate-800">{fmt(t.slaResolutionDueAt)}</span>
+                </div>
+                {/* Visual Risk Gauge */}
+                <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                  <div
+                    className={`h-full transition-all ${overdue ? "w-full bg-red-600" : t.status === "RESOLVED" || t.status === "CLOSED" ? "w-full bg-emerald-500" : "w-3/4 bg-[#1f70c1]"}`}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 border-t border-slate-100 pt-2">
+                <div>
+                  <span className="text-slate-400 block">First Response:</span>
+                  <span className="font-medium text-slate-700">{t.slaTracking?.firstResponseMetAt ? "Met ✓" : t.slaTracking?.firstResponseBreached ? "Breached ✕" : "Pending"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Reopen Window:</span>
+                  <span className="font-medium text-slate-700">{t.autoCloseAt ? fmt(t.autoCloseAt) : "72 Hours"}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-[#d1d7dc] shadow-sm">
+            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Assignment & Routing</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-md bg-slate-50 p-3 text-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Current assignee</p>

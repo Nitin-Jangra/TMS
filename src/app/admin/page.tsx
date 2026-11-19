@@ -26,11 +26,11 @@ interface Overview {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  NEW_COMPLAINT: "bg-sky-500",
-  IN_PROGRESS: "bg-blue-600",
-  ON_HOLD: "bg-amber-500",
-  RESOLVED: "bg-emerald-500",
-  CLOSED: "bg-slate-400",
+  NEW_COMPLAINT: "bg-[#0084D1]",
+  IN_PROGRESS: "bg-[#D97706]",
+  ON_HOLD: "bg-[#7C3AED]",
+  RESOLVED: "bg-[#059669]",
+  CLOSED: "bg-[#64748B]",
 };
 
 export default function MasterAdminPage() {
@@ -76,61 +76,101 @@ export default function MasterAdminPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-[#0a2350]">Master Complaint Panel</h1>
-          <p className="mt-0.5 text-sm text-slate-500">All branches, all statuses, all assignments — refreshed live (generated {new Date(data.generatedAt).toLocaleTimeString("en-IN")}).</p>
+          <h1 className="text-xl font-bold text-slate-900">Master Incident & Branch Operations</h1>
+          <p className="mt-0.5 text-xs text-slate-500">All 34 branches, real-time ITIL statuses, and round-robin queues (refreshed live {new Date(data.generatedAt).toLocaleTimeString("en-IN")}).</p>
         </div>
-        <Button variant="outline" size="sm" onClick={runWorkers} disabled={busy}>
+        <Button variant="outline" size="sm" onClick={runWorkers} disabled={busy} className="h-9 border-[#D1D7DC] text-xs font-semibold text-slate-700 hover:bg-slate-100">
           {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCcw className="mr-2 h-3.5 w-3.5" aria-hidden />}
-          Run closure + assignment workers now
+          Run background assignment sweep
         </Button>
       </div>
 
       {/* Totals */}
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
-        <Card className="border-[#0a2350]/20 bg-[#0a2350] text-white"><CardContent className="p-4"><p className="text-[11px] font-medium text-blue-200">Total complaints</p><p className="mt-1 text-3xl font-bold tabular-nums">{t.total}</p></CardContent></Card>
+        <Card className="border-[#161F28] bg-[#161F28] text-white shadow-xs">
+          <CardContent className="p-4">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Volume</p>
+            <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{t.total}</p>
+          </CardContent>
+        </Card>
         {TICKET_STATUSES.map((s) => (
-          <Card key={s}><CardContent className="p-4"><p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500"><span className={`h-2 w-2 rounded-full ${STATUS_DOT[s]}`} aria-hidden />{STATUS_LABELS[s]}</p><p className="mt-1 text-3xl font-bold tabular-nums text-[#0a2350]">{t[s] ?? 0}</p></CardContent></Card>
+          <Card key={s} className="border-[#D1D7DC] shadow-xs">
+            <CardContent className="p-4">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <span className={`h-2 w-2 rounded-full ${STATUS_DOT[s]}`} aria-hidden />{STATUS_LABELS[s]}
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{t[s] ?? 0}</p>
+            </CardContent>
+          </Card>
         ))}
-        <Card><CardContent className="p-4"><p className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600"><Inbox className="h-3 w-3" aria-hidden />Unassigned</p><p className="mt-1 text-3xl font-bold tabular-nums text-amber-700">{t.unassigned}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="flex items-center gap-1.5 text-[11px] font-medium text-red-600"><TriangleAlert className="h-3 w-3" aria-hidden />Overdue</p><p className="mt-1 text-3xl font-bold tabular-nums text-red-700">{t.overdue}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500"><Clock3 className="h-3 w-3" aria-hidden />Avg first response</p><p className="mt-1 text-2xl font-bold tabular-nums text-[#0a2350]">{data.avgFirstResponseMinutes ?? "—"}<span className="text-sm font-medium text-slate-400"> min</span></p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500"><Activity className="h-3 w-3" aria-hidden />Avg resolution</p><p className="mt-1 text-2xl font-bold tabular-nums text-[#0a2350]">{data.avgResolutionHours ?? "—"}<span className="text-sm font-medium text-slate-400"> h</span></p></CardContent></Card>
+        <Card className="border-[#D1D7DC] shadow-xs">
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-600">
+              <Inbox className="h-3 w-3" aria-hidden />Unassigned
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-700">{t.unassigned}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#D1D7DC] shadow-xs">
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-red-600">
+              <TriangleAlert className="h-3 w-3" aria-hidden />Overdue SLA
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-red-700">{t.overdue}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#D1D7DC] shadow-xs">
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <Clock3 className="h-3 w-3" aria-hidden />First Response
+            </p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{data.avgFirstResponseMinutes ?? "—"}<span className="text-xs font-normal text-slate-500"> min</span></p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#D1D7DC] shadow-xs">
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <Activity className="h-3 w-3" aria-hidden />Avg Resolution
+            </p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{data.avgResolutionHours ?? "—"}<span className="text-xs font-normal text-slate-500"> h</span></p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Branch x status matrix */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#0a2350]">
-            <Table2 className="h-4 w-4 text-[#2c6bdf]" aria-hidden />Complaints by branch and status
+      <Card className="border-[#D1D7DC] shadow-xs">
+        <CardHeader className="border-b border-[#E2E8F0] pb-3">
+          <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+            <Table2 className="h-4 w-4 text-[#1F70C1]" aria-hidden />Complaints Matrix by Branch
           </CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm" aria-label="Branch status matrix">
+        <CardContent className="overflow-x-auto pt-2">
+          <table className="w-full min-w-[760px] text-xs" aria-label="Branch status matrix">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
-                <th className="pb-2 pr-4 font-medium">Branch</th>
-                {TICKET_STATUSES.map((s) => <th key={s} className="pb-2 pr-4 text-center font-medium">{STATUS_LABELS[s]}</th>)}
-                <th className="pb-2 pr-4 text-center font-medium">Total</th>
-                <th className="pb-2 text-center font-medium">Unassigned</th>
+              <tr className="border-b border-[#D1D7DC] bg-[#FAFBFC] text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th className="py-2.5 px-3">Branch Location</th>
+                {TICKET_STATUSES.map((s) => <th key={s} className="py-2.5 px-2 text-center">{STATUS_LABELS[s]}</th>)}
+                <th className="py-2.5 px-2 text-center">Total</th>
+                <th className="py-2.5 px-2 text-center">Unassigned</th>
               </tr>
             </thead>
             <tbody>
               {data.branches.map((b) => (
-                <tr key={b.branchId} className="border-b border-slate-100 last:border-0">
-                  <td className="py-2.5 pr-4">
-                    <p className="font-medium text-[#0a2350]">{b.branchName}</p>
-                    <p className="text-[11px] text-slate-400">{b.branchCode} · email: {b.notificationEmail ? b.notificationEmail : <span className="italic text-slate-400">not set (blank)</span>}</p>
+                <tr key={b.branchId} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+                  <td className="py-2.5 px-3">
+                    <p className="font-semibold text-slate-900">{b.branchName}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">{b.branchCode} · {b.notificationEmail ? b.notificationEmail : "no email"}</p>
                   </td>
                   {TICKET_STATUSES.map((s) => (
-                    <td key={s} className="py-2.5 pr-4 text-center">
-                      <span className={`inline-flex min-w-[34px] justify-center rounded-md px-2 py-0.5 text-sm font-semibold tabular-nums ${b.counts[s] ? "bg-slate-100 text-[#0a2350]" : "text-slate-300"}`}>
+                    <td key={s} className="py-2.5 px-2 text-center tabular-nums text-slate-700">
+                      <span className={`inline-flex min-w-[34px] justify-center rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${b.counts[s] ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-300"}`}>
                         {b.counts[s] ?? 0}
                       </span>
                     </td>
                   ))}
-                  <td className="py-2.5 pr-4 text-center font-bold tabular-nums text-[#0a2350]">{b.total}</td>
+                  <td className="py-2.5 pr-4 text-center font-bold tabular-nums text-slate-900">{b.total}</td>
                   <td className="py-2.5 text-center">
-                    {b.unassigned ? <span className="rounded-md bg-amber-100 px-2 py-0.5 text-sm font-bold text-amber-800">{b.unassigned}</span> : <span className="text-slate-300">0</span>}
+                    {b.unassigned ? <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">{b.unassigned}</span> : <span className="text-slate-300">0</span>}
                   </td>
                 </tr>
               ))}
@@ -142,14 +182,14 @@ export default function MasterAdminPage() {
       {/* Assignment overview */}
       <div className="grid gap-4 md:grid-cols-2">
         {data.branches.map((b) => (
-          <Card key={b.branchId}>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between text-sm font-semibold text-[#0a2350]">
-                <span className="flex items-center gap-2"><Building2 className="h-4 w-4 text-[#2c6bdf]" aria-hidden />{b.branchName}</span>
-                <span className="text-[11px] font-normal text-slate-400">cursor → {b.employees.find((e) => e.id === b.cursorLastEmployeeId)?.name || "—"}</span>
+          <Card key={b.branchId} className="border-[#D1D7DC] shadow-xs">
+            <CardHeader className="border-b border-[#E2E8F0] pb-2.5">
+              <CardTitle className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-700">
+                <span className="flex items-center gap-2"><Building2 className="h-4 w-4 text-[#1F70C1]" aria-hidden />{b.branchName}</span>
+                <span className="text-[10px] font-mono font-normal text-slate-400">Next → {b.employees.find((e) => e.id === b.cursorLastEmployeeId)?.name || "—"}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-3">
               {b.employees.length === 0 ? (
                 <p className="rounded-md border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
                   No support employees in this branch — new complaints land in the unassigned queue.
@@ -157,27 +197,27 @@ export default function MasterAdminPage() {
               ) : (
                 <ul className="space-y-1.5">
                   {b.employees.map((e) => (
-                    <li key={e.id} className="flex items-center justify-between rounded-md border border-slate-100 px-3 py-2 text-sm">
+                    <li key={e.id} className="flex items-center justify-between rounded-md border border-slate-100 px-3 py-2 text-xs">
                       <span className="flex items-center gap-2">
                         <UsersRound className="h-3.5 w-3.5 text-slate-400" aria-hidden />
                         <span>
-                          <span className="text-slate-700">{e.name}</span>
-                          <span className="text-[11px] text-slate-400"> · {e.role === "BRANCH_MANAGER" ? "Manager" : "Support"}</span>
+                          <span className="text-slate-800 font-semibold">{e.name}</span>
+                          <span className="text-[11px] text-slate-400"> · {e.role === "BRANCH_MANAGER" ? "Manager" : "Agent"}</span>
                         </span>
                       </span>
                       <span className="flex items-center gap-3 text-[11px]">
-                        <span className={`rounded-full px-2 py-0.5 font-medium ${e.isActive ? (e.availabilityEnabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500") : "bg-red-50 text-red-600"}`}>
+                        <span className={`rounded-full px-2 py-0.5 font-bold text-[10px] ${e.isActive ? (e.availabilityEnabled ? "bg-[#D1FAE5] text-[#065F46] border border-[#059669]/20" : "bg-slate-100 text-slate-500") : "bg-red-50 text-red-600"}`}>
                           {e.isActive ? (e.availabilityEnabled ? "In rotation" : "Unavailable") : "Inactive"}
                         </span>
-                        <span className="tabular-nums text-slate-600"><strong className="text-[#0a2350]">{e.openCount}</strong> open · <strong className="text-[#0a2350]">{e.resolvedCount}</strong> done</span>
+                        <span className="tabular-nums text-slate-600"><strong className="text-slate-900">{e.openCount}</strong> open · <strong className="text-slate-900">{e.resolvedCount}</strong> done</span>
                       </span>
                     </li>
                   ))}
                 </ul>
               )}
-              <div className="mt-3 flex gap-3 text-[11px] text-slate-400">
-                <Link href={`/staff/tickets?branchId=${b.branchId}`} className="text-[#2c6bdf] hover:underline">View branch tickets</Link>
-                <Link href="/staff/assignment" className="text-[#2c6bdf] hover:underline">Assignment queue</Link>
+              <div className="mt-3 flex gap-3 text-xs text-slate-500">
+                <Link href={`/staff/tickets?branchId=${b.branchId}`} className="text-[#1F70C1] font-semibold hover:underline">View branch tickets</Link>
+                <Link href="/staff/assignment" className="text-[#1F70C1] font-semibold hover:underline">Assignment queue</Link>
               </div>
             </CardContent>
           </Card>

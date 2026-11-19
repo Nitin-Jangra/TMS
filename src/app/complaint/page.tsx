@@ -4,9 +4,11 @@
 // name, mobile, email, branch (dynamic), category (dynamic), description,
 // optional attachment, mandatory privacy consent. Idempotency key prevents
 // duplicate submissions.
+// ServiceNow Service Portal / Employee Center Record Producer UI.
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Loader2, Paperclip, Send } from "lucide-react";
+import { AlertCircle, ChevronRight, FileText, HelpCircle, Info, Loader2, Paperclip, Send, ShieldCheck } from "lucide-react";
 
 interface BranchOption { id: string; code: string; name: string; city: string | null }
 interface CategoryOption { id: string; name: string }
@@ -105,181 +107,268 @@ export default function ComplaintPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0c0c10] text-[#f4f4f7] selection:bg-[#22618b]/30 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-[#F4F6F8] text-[#1E293B] selection:bg-[#1F70C1]/20 selection:text-[#1F70C1]">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:py-12">
-        <div className="rounded-2xl border border-[#ffffff14] bg-[#13131a] p-7 shadow-2xl sm:p-9">
-          <div className="mb-6">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(114, 189, 208,0.3)] bg-[rgba(114, 189, 208,0.08)] px-3 py-1 text-xs font-bold text-[#72bdd0]">
-              FitClass Member Support
-            </span>
-            <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Register a Complaint</h1>
-            <p className="mt-1.5 text-xs text-[#a1a1aa] sm:text-sm">
-              All fields are required unless marked optional. You will receive an official ticket number
-              like <span className="font-mono font-bold text-[#72bdd0]">FC-2026-000123</span> immediately with automated email alerts.
-            </p>
+
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:py-10">
+        {/* ServiceNow Breadcrumb Trail */}
+        <div className="mb-6 flex items-center gap-2 text-xs font-medium text-slate-500">
+          <Link href="/" className="hover:text-[#1F70C1] transition-colors">Employee Center</Link>
+          <ChevronRight className="h-3 w-3 text-slate-400" />
+          <Link href="/" className="hover:text-[#1F70C1] transition-colors">Service Catalog</Link>
+          <ChevronRight className="h-3 w-3 text-slate-400" />
+          <span className="text-slate-900 font-semibold">Incident Record Producer</span>
+        </div>
+
+        {/* Record Producer Container */}
+        <div className="overflow-hidden rounded-xl border border-[#D1D7DC] bg-white shadow-sm">
+          {/* Header Banner */}
+          <div className="border-b border-[#D1D7DC] bg-[#FAFBFC] p-6 sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EBF4FA] text-[#00639B] border border-[#0084D1]/20">
+                  <FileText className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                      Report an Issue or Complaint
+                    </h1>
+                    <span className="hidden sm:inline-flex items-center rounded-full bg-[#EBF4FA] px-2.5 py-0.5 text-[11px] font-bold text-[#00639B] border border-[#0084D1]/20">
+                      Standard ITIL Intake
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600 sm:text-sm">
+                    Submit an official request to your branch management team. Tickets are automatically tracked against strict SLAs.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {topError ? (
-            <Alert variant="destructive" className="mb-6 border-red-500/30 bg-red-950/40 text-red-200">
-              <AlertCircle className="h-4 w-4" aria-hidden />
-              <AlertDescription className="text-xs">{topError}</AlertDescription>
-            </Alert>
-          ) : null}
+          <div className="p-6 sm:p-8">
+            {topError ? (
+              <Alert variant="destructive" className="mb-6 border-red-200 bg-red-50 text-red-800">
+                <AlertCircle className="h-4 w-4 text-red-600" aria-hidden />
+                <AlertDescription className="text-xs font-medium">{topError}</AlertDescription>
+              </Alert>
+            ) : null}
 
-          <form className="space-y-5" onSubmit={onSubmit} noValidate>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="customerName" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Your Full Name</Label>
+            <form onSubmit={onSubmit} noValidate className="space-y-7">
+              {/* SECTION 1: Requester Information */}
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#FAFBFC] p-5">
+                <div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    1. Requester Information
+                  </h2>
+                  <span className="text-[11px] text-slate-500 font-medium">* Required for ticket dispatch</span>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customerName" className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Full Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customerName"
+                      value={form.customerName}
+                      onChange={(e) => set("customerName", e.target.value)}
+                      placeholder="e.g. Rahul Sharma"
+                      className="h-10 rounded-md border-[#D1D7DC] bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#1F70C1] focus:ring-1 focus:ring-[#1F70C1]"
+                      aria-invalid={!!errors.customerName}
+                    />
+                    {errors.customerName ? <p className="text-xs text-red-600 font-medium">{errors.customerName}</p> : null}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="customerPhone" className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Mobile Number <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="customerPhone"
+                      inputMode="tel"
+                      value={form.customerPhone}
+                      onChange={(e) => set("customerPhone", e.target.value)}
+                      placeholder="10-digit mobile number"
+                      className="h-10 rounded-md border-[#D1D7DC] bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#1F70C1] focus:ring-1 focus:ring-[#1F70C1]"
+                      aria-invalid={!!errors.customerPhone}
+                    />
+                    {errors.customerPhone ? <p className="text-xs text-red-600 font-medium">{errors.customerPhone}</p> : null}
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <Label htmlFor="customerEmail" className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    Email Address (for resolution alerts & audit updates) <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="customerEmail"
+                    type="email"
+                    value={form.customerEmail}
+                    onChange={(e) => set("customerEmail", e.target.value)}
+                    placeholder="name@example.com"
+                    className="h-10 rounded-md border-[#D1D7DC] bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#1F70C1] focus:ring-1 focus:ring-[#1F70C1]"
+                    aria-invalid={!!errors.customerEmail}
+                  />
+                  {errors.customerEmail ? <p className="text-xs text-red-600 font-medium">{errors.customerEmail}</p> : null}
+                </div>
+              </div>
+
+              {/* SECTION 2: Incident Details & Routing */}
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#FAFBFC] p-5">
+                <div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    2. Classification & Routing
+                  </h2>
+                  <span className="text-[11px] text-slate-500 font-medium">Auto-dispatches to branch queue</span>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Branch / Center Location <span className="text-red-500">*</span>
+                    </Label>
+                    {branches === null ? (
+                      <Skeleton className="h-10 w-full rounded-md bg-slate-200" />
+                    ) : (
+                      <Select value={form.branchId} onValueChange={(v) => set("branchId", v)}>
+                        <SelectTrigger className="h-10 rounded-md border-[#D1D7DC] bg-white text-sm text-slate-900 focus:border-[#1F70C1] focus:ring-1 focus:ring-[#1F70C1]">
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60 border-[#D1D7DC] bg-white text-slate-900 shadow-lg">
+                          {branches.map((b) => (
+                            <SelectItem key={b.id} value={b.id} className="cursor-pointer py-2 focus:bg-[#EBF4FA] focus:text-[#00639B]">
+                              {b.name} {b.city ? `(${b.city})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {errors.branchId ? <p className="text-xs text-red-600 font-medium">{errors.branchId}</p> : null}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Category <span className="text-red-500">*</span>
+                    </Label>
+                    {categories === null ? (
+                      <Skeleton className="h-10 w-full rounded-md bg-slate-200" />
+                    ) : (
+                      <Select value={form.categoryId} onValueChange={(v) => set("categoryId", v)}>
+                        <SelectTrigger className="h-10 rounded-md border-[#D1D7DC] bg-white text-sm text-slate-900 focus:border-[#1F70C1] focus:ring-1 focus:ring-[#1F70C1]">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent className="border-[#D1D7DC] bg-white text-slate-900 shadow-lg">
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.id} className="cursor-pointer py-2 focus:bg-[#EBF4FA] focus:text-[#00639B]">
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {errors.categoryId ? <p className="text-xs text-red-600 font-medium">{errors.categoryId}</p> : null}
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="description" className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Detailed Description of Issue <span className="text-red-500">*</span>
+                    </Label>
+                    <span className="text-[11px] text-slate-400">Min 10 characters</span>
+                  </div>
+                  <Textarea
+                    id="description"
+                    rows={4}
+                    value={form.description}
+                    onChange={(e) => set("description", e.target.value)}
+                    placeholder="Provide specific details regarding your experience, location within the club, date/time, and staff involved if applicable..."
+                    className="rounded-md border-[#D1D7DC] bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#1F70C1] focus:ring-1 focus:ring-[#1F70C1]"
+                    aria-invalid={!!errors.description}
+                  />
+                  {errors.description ? <p className="text-xs text-red-600 font-medium">{errors.description}</p> : null}
+                </div>
+              </div>
+
+              {/* SECTION 3: Attachments & Proof */}
+              <div className="rounded-lg border border-[#E2E8F0] bg-[#FAFBFC] p-5">
+                <div className="mb-3 flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5 text-slate-500" />
+                    3. Supporting Documents & Photos (Optional)
+                  </h2>
+                  <span className="text-[11px] text-slate-500">Max 10MB</span>
+                </div>
                 <Input
-                  id="customerName"
-                  value={form.customerName}
-                  onChange={(e) => set("customerName", e.target.value)}
-                  placeholder="e.g. Rahul Khanna"
-                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
-                  aria-invalid={!!errors.customerName}
+                  id="attachment"
+                  ref={attachmentRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  className="h-10 rounded-md border-[#D1D7DC] bg-white text-xs text-slate-600 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
                 />
-                {errors.customerName ? <p className="text-xs text-red-400">{errors.customerName}</p> : null}
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Accepted formats: PNG, JPG, WEBP, or PDF. Useful for maintenance defects or payment receipts.
+                </p>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="customerPhone" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Mobile Number</Label>
-                <Input
-                  id="customerPhone"
-                  inputMode="tel"
-                  value={form.customerPhone}
-                  onChange={(e) => set("customerPhone", e.target.value)}
-                  placeholder="10-digit mobile number"
-                  className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
-                  aria-invalid={!!errors.customerPhone}
-                />
-                {errors.customerPhone ? <p className="text-xs text-red-400">{errors.customerPhone}</p> : null}
+
+              {/* SECTION 4: Terms & Consent */}
+              <div className="rounded-lg border border-[#D1D7DC] bg-slate-50 p-4">
+                <label className="flex items-start gap-3 cursor-pointer" htmlFor="privacyConsent">
+                  <Checkbox
+                    id="privacyConsent"
+                    checked={form.privacyConsent}
+                    onCheckedChange={(v) => set("privacyConsent", v === true)}
+                    className="mt-0.5 border-[#94A3B8] data-[state=checked]:bg-[#1F70C1] data-[state=checked]:border-[#1F70C1]"
+                  />
+                  <div className="text-xs text-slate-600 leading-relaxed">
+                    <p className="font-semibold text-slate-800">Authorization & Tracking Agreement</p>
+                    <p className="mt-0.5">
+                      I consent to FitClass storing these details to investigate and resolve my incident under the ITIL service management framework. I understand my phone number and email will be used to send automated resolution alerts and verify self-service tracking.
+                    </p>
+                  </div>
+                </label>
+                {errors.privacyConsent ? <p className="mt-2 pl-7 text-xs text-red-600 font-medium">{errors.privacyConsent}</p> : null}
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="customerEmail" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Email Address (for resolution alerts)</Label>
-              <Input
-                id="customerEmail"
-                type="email"
-                value={form.customerEmail}
-                onChange={(e) => set("customerEmail", e.target.value)}
-                placeholder="you@example.com"
-                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
-                aria-invalid={!!errors.customerEmail}
-              />
-              {errors.customerEmail ? <p className="text-xs text-red-400">{errors.customerEmail}</p> : null}
-            </div>
+              {/* Actions & SLA Notice */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <ShieldCheck className="h-4 w-4 text-[#036974]" />
+                  <span>SLA Guarantee: P1 Critical within 15m · General inquiry within 24h</span>
+                </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Branch / Location</Label>
-                {branches === null ? (
-                  <Skeleton className="h-11 w-full rounded-xl bg-[#171722]" />
-                ) : (
-                  <Select value={form.branchId} onValueChange={(v) => set("branchId", v)}>
-                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#72bdd0]" aria-label="Select branch" aria-invalid={!!errors.branchId}>
-                      <SelectValue placeholder="Select your branch" />
-                    </SelectTrigger>
-                    <SelectContent className="border-[#ffffff1f] bg-[#13131a] text-[#f4f4f7]">
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id} className="focus:bg-[#1c1c28] focus:text-[#72bdd0]">
-                          {b.name} {b.city ? `(${b.city})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {errors.branchId ? <p className="text-xs text-red-400">{errors.branchId}</p> : null}
+                <div className="flex items-center gap-3">
+                  <Link href="/">
+                    <Button variant="outline" type="button" className="h-11 rounded-md border-[#D1D7DC] text-xs font-semibold text-slate-700 hover:bg-slate-100 px-5">
+                      Cancel
+                    </Button>
+                  </Link>
+
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="h-11 rounded-md bg-[#1F70C1] hover:bg-[#185999] text-xs font-bold text-white shadow-sm transition px-6"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                        Registering Ticket...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" aria-hidden />
+                        Submit Request
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Complaint Category</Label>
-                {categories === null ? (
-                  <Skeleton className="h-11 w-full rounded-xl bg-[#171722]" />
-                ) : (
-                  <Select value={form.categoryId} onValueChange={(v) => set("categoryId", v)}>
-                    <SelectTrigger className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] focus:border-[#72bdd0]" aria-label="Select complaint category" aria-invalid={!!errors.categoryId}>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent className="border-[#ffffff1f] bg-[#13131a] text-[#f4f4f7]">
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className="focus:bg-[#1c1c28] focus:text-[#72bdd0]">{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {errors.categoryId ? <p className="text-xs text-red-400">{errors.categoryId}</p> : null}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">Complaint Description</Label>
-              <Textarea
-                id="description"
-                rows={5}
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                placeholder="Tell us what happened, when and where. Include any relevant details..."
-                className="rounded-xl border-[#ffffff1f] bg-[#171722] text-[#f4f4f7] placeholder-[#71717a] focus:border-[#72bdd0]"
-                aria-invalid={!!errors.description}
-              />
-              {errors.description ? <p className="text-xs text-red-400">{errors.description}</p> : null}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="attachment" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#a1a1aa]">
-                <Paperclip className="h-3.5 w-3.5 text-[#72bdd0]" aria-hidden />
-                Attachment <span className="font-normal lowercase text-[#71717a]">(optional)</span>
-              </Label>
-              <Input
-                id="attachment"
-                ref={attachmentRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,application/pdf"
-                className="h-11 rounded-xl border-[#ffffff1f] bg-[#171722] text-xs text-[#a1a1aa] file:mr-3 file:rounded-lg file:border-0 file:bg-[#252538] file:px-3 file:py-1 file:text-xs file:font-semibold file:text-[#f4f4f7]"
-              />
-              <p className="text-[11px] text-[#71717a]">Images (png/jpg/webp) or PDF, up to 10 MB.</p>
-            </div>
-
-            <div className="rounded-xl border border-[#ffffff14] bg-[#171722] p-4">
-              <label className="flex items-start gap-3 text-xs leading-relaxed text-[#d4d4d8] cursor-pointer" htmlFor="privacyConsent">
-                <Checkbox
-                  id="privacyConsent"
-                  checked={form.privacyConsent}
-                  onCheckedChange={(v) => set("privacyConsent", v === true)}
-                  className="mt-0.5 border-[#ffffff33] data-[state=checked]:bg-[#22618b] data-[state=checked]:border-[#72bdd0]"
-                />
-                <span>
-                  I consent to FitClass storing and using these details to investigate and resolve my
-                  complaint. I understand my mobile number and email will be used to verify tracking access and send status updates.
-                </span>
-              </label>
-              {errors.privacyConsent ? <p className="mt-2 pl-7 text-xs text-red-400">{errors.privacyConsent}</p> : null}
-            </div>
-
-            <Button
-              type="submit"
-              disabled={submitting}
-              style={{
-                background: "linear-gradient(135deg, #22618b, #1a4c6e)",
-                boxShadow: "0 4px 18px rgba(114, 189, 208, 0.4)",
-              }}
-              className="h-12 w-full rounded-xl border-none text-sm font-extrabold tracking-wide text-white transition hover:brightness-110 active:scale-[0.99] sm:w-auto sm:px-8"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  Registering Ticket...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" aria-hidden />
-                  Submit Complaint
-                </>
-              )}
-            </Button>
-          </form>
+            </form>
+          </div>
         </div>
       </main>
+
       <SiteFooter />
     </div>
   );

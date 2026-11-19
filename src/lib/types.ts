@@ -51,13 +51,13 @@ export const STATUS_LABELS: Record<string, string> = {
   CLOSED: "Closed",
 };
 
-/** Tailwind classes for status badges (navy theme). */
+/** Tailwind classes for status badges (ServiceNow Polaris ITIL theme). */
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
-  NEW_COMPLAINT: "bg-sky-50 text-sky-800 ring-sky-200",
-  IN_PROGRESS: "bg-blue-50 text-blue-800 ring-blue-200",
-  ON_HOLD: "bg-amber-50 text-amber-800 ring-amber-200",
-  RESOLVED: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  CLOSED: "bg-slate-100 text-slate-600 ring-slate-300",
+  NEW_COMPLAINT: "bg-[#EBF4FA] text-[#00639B] ring-[#BCE0F5]",
+  IN_PROGRESS: "bg-[#FEF3C7] text-[#92400E] ring-[#FDE68A]",
+  ON_HOLD: "bg-[#EDE9FE] text-[#5B21B6] ring-[#DDD6FE]",
+  RESOLVED: "bg-[#D1FAE5] text-[#065F46] ring-[#A7F3D0]",
+  CLOSED: "bg-[#F1F5F9] text-[#334155] ring-[#E2E8F0]",
 };
 
 export const PRIORITY_LABELS: Record<string, string> = {
