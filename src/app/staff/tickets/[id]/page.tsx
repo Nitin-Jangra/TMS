@@ -257,44 +257,46 @@ export default function TicketDetailPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Left column: ServiceNow Form sections + Dual-channel Activity Stream */}
         <div className="space-y-4 lg:col-span-2">
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold text-[#0a2350]">Complaint details</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <p className="rounded-md bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">{t.description}</p>
-              <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                <p className="flex items-center gap-1.5 text-slate-600"><UserRound className="h-3.5 w-3.5 text-slate-400" aria-hidden />{t.customerName}</p>
-                <p className="text-slate-600">Phone: <span className="font-mono text-xs">{t.customerPhone}</span></p>
-                <p className="truncate text-slate-600">Email: {t.customerEmail}</p>
-                <p className="text-slate-600">Branch: {t.branch.name} ({t.branch.code})</p>
-                <p className="text-slate-600">Category: {t.category.name}</p>
+          <Card className="border border-[#d1d7dc] shadow-sm">
+            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Incident Details & Requester</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 p-4">
+              <p className="rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-800 border border-slate-200/60 font-medium">{t.description}</p>
+              <div className="grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
+                <p className="flex items-center gap-1.5 text-slate-700 font-semibold"><UserRound className="h-3.5 w-3.5 text-slate-400" aria-hidden />{t.customerName}</p>
+                <p className="text-slate-600">Phone: <span className="font-mono text-xs text-slate-800">{t.customerPhone}</span></p>
+                <p className="truncate text-slate-600">Email: <span className="text-slate-800">{t.customerEmail}</span></p>
+                <p className="text-slate-600">Branch: <strong className="text-slate-800">{t.branch.name}</strong> ({t.branch.code})</p>
+                <p className="text-slate-600">Category: <strong className="text-slate-800">{t.category.name}</strong></p>
                 <p className="text-slate-600">Department: {t.department?.name || <span className="text-slate-400">None (general queue)</span>}</p>
-                <p className="text-slate-600">Source: {t.source}</p>
+                <p className="text-slate-600">Channel / Source: <span className="font-mono text-[11px] uppercase">{t.source}</span></p>
                 <p className="text-slate-600">Submitted: {fmt(t.createdAt)}</p>
                 <p className="text-slate-600">Assigned: {t.assignee ? `${fmt(t.assignedAt)} → ${t.assignee.name}` : "Not assigned"}</p>
                 {t.autoCloseAt && t.status === "RESOLVED" ? <p className="text-slate-600">Auto-close deadline: {fmt(t.autoCloseAt)}</p> : null}
                 {t.closedAt ? <p className="text-slate-600">Closed: {fmt(t.closedAt)}</p> : null}
-                <p className="text-slate-600">SLA response due: {fmt(t.slaResponseDueAt)} {t.slaTracking?.firstResponseBreached ? <span className="text-red-600">(breached)</span> : null}</p>
-                <p className="text-slate-600">SLA resolution due: {fmt(t.slaResolutionDueAt)} {t.slaTracking?.resolutionBreached ? <span className="text-red-600">(breached)</span> : null}</p>
+                <p className="text-slate-600">SLA response due: {fmt(t.slaResponseDueAt)} {t.slaTracking?.firstResponseBreached ? <span className="text-red-600 font-bold">(breached)</span> : null}</p>
+                <p className="text-slate-600">SLA resolution due: {fmt(t.slaResolutionDueAt)} {t.slaTracking?.resolutionBreached ? <span className="text-red-600 font-bold">(breached)</span> : null}</p>
               </div>
               {t.feedback ? (
-                <div className={`flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm ${t.feedback.rating <= 2 ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
-                  <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Member rating</span>
+                <div className={`flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs ${t.feedback.rating <= 2 ? "border-red-200 bg-red-50 text-red-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">CSAT Score:</span>
                   <span className="flex items-center gap-0.5" aria-label={`${t.feedback.rating} out of 5 stars`}>
                     {[1, 2, 3, 4, 5].map((n) => (
                       <Star key={n} className={`h-4 w-4 ${n <= t.feedback!.rating ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} aria-hidden />
                     ))}
                   </span>
-                  <span className="font-semibold text-slate-700">{t.feedback.rating}/5</span>
-                  {t.feedback.comment ? <span className="w-full text-slate-600">“{t.feedback.comment}”</span> : null}
+                  <span className="font-bold">{t.feedback.rating}/5</span>
+                  {t.feedback.comment ? <span className="w-full text-slate-700 italic">“{t.feedback.comment}”</span> : null}
                 </div>
               ) : null}
               {t.attachments.length > 0 ? (
                 <div>
                   <Separator className="my-3" />
-                  <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-slate-500"><Paperclip className="h-3.5 w-3.5" aria-hidden />Attachments</p>
+                  <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500"><Paperclip className="h-3.5 w-3.5" aria-hidden />Evidence Attachments</p>
                   <div className="flex flex-wrap gap-2">
                     {t.attachments.map((a) => (
-                      <a key={a.id} href={`/api/v1/attachments/${a.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-[#2c6bdf] hover:bg-[#eaf1fb]">
+                      <a key={a.id} href={`/api/v1/attachments/${a.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 rounded-md border border-[#d1d7dc] bg-white px-2.5 py-1.5 text-xs text-[#1f70c1] hover:bg-[#eff6ff] font-medium shadow-2xs">
                         <FileText className="h-3.5 w-3.5" aria-hidden />{a.originalName} <span className="text-slate-400">({Math.round(a.sizeBytes / 1024)} KB)</span>
                       </a>
                     ))}
@@ -481,13 +483,15 @@ export default function TicketDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold text-[#0a2350]">Status history</CardTitle></CardHeader>
-            <CardContent>
+          <Card className="border border-[#d1d7dc] shadow-sm">
+            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Audit & State Transition History</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
               <ol className="relative space-y-3 border-l-2 border-slate-200 pl-5">
                 {t.statusHistory.map((h) => (
                   <li key={h.id} className="relative">
-                    <span className="absolute -left-[26.5px] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#2c6bdf] ring-2 ring-white" aria-hidden />
+                    <span className="absolute -left-[26.5px] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#1f70c1] ring-2 ring-white" aria-hidden />
                     <p className="text-sm text-slate-800">
                       {h.fromStatus ? `${STATUS_LABELS[h.fromStatus] || h.fromStatus} → ` : ""}
                       <strong>{STATUS_LABELS[h.toStatus] || h.toStatus}</strong>
@@ -593,7 +597,7 @@ export default function TicketDetailPage() {
                       maxLength={500}
                       aria-label="Reassignment reason"
                     />
-                    <Button size="sm" className="w-full bg-[#0a2350] hover:bg-[#10306b]" disabled={!!busy || !assignTo}
+                    <Button size="sm" className="w-full bg-[#1f70c1] hover:bg-[#185999] text-white text-xs font-semibold shadow-xs" disabled={!!busy || !assignTo}
                       onClick={async () => {
                         const okRes = await act("assign", () => fetch(`/api/v1/support/tickets/${t.id}/assign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ employeeId: assignTo, note: assignNote.trim() }) }), t.assignee ? "Ticket reassigned" : "Ticket assigned");
                         if (okRes) { setAssignTo(""); setAssignNote(""); }
@@ -661,8 +665,10 @@ export default function TicketDetailPage() {
           </Card>
 
           {t.reopenHistory.length > 0 ? (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-semibold text-[#0a2350]">Reopen history</CardTitle></CardHeader>
+            <Card className="border border-[#d1d7dc] shadow-sm">
+              <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Reopen Audit History</CardTitle>
+              </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-xs text-slate-600">
                   {t.reopenHistory.map((r) => (

@@ -279,7 +279,7 @@ function ListInner() {
           onClick={() => cycleSort(field)}
           className={cn(
             "inline-flex items-center gap-1 rounded px-1 py-0.5 -mx-1 font-medium hover:bg-slate-100 hover:text-slate-900",
-            active ? "text-[#22618b]" : "text-slate-600",
+            active ? "text-[#1f70c1] font-bold" : "text-slate-600",
           )}
           title={!active ? `Sort by ${label} (ascending)` : view.order === "asc" ? "Sorted ascending — click for descending" : "Sorted descending — click to reset"}
         >
@@ -323,8 +323,8 @@ function ListInner() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-[#0a2350]">Tickets</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <h1 className="text-xl font-bold text-slate-900">Incident Management Data Grid</h1>
+          <p className="mt-0.5 text-xs text-slate-500">
             {scopeText} · {total} ticket{total === 1 ? "" : "s"} · page {view.page} of {totalPages}
             {view.sort && view.order ? ` · sorted by ${view.sort === "createdAt" ? "created" : view.sort} (${view.order === "asc" ? "ascending" : "descending"})` : ""}
           </p>
