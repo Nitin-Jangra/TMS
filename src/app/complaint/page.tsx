@@ -1,10 +1,12 @@
 "use client";
 
-// Customer complaint registration form. Fields per spec section 5:
-// name, mobile, email, branch (dynamic), category (dynamic), description,
-// optional attachment, mandatory privacy consent. Idempotency key prevents
-// duplicate submissions.
+// Customer complaint registration form.
 // ServiceNow Service Portal / Employee Center Record Producer UI.
+// Features:
+// 1. Full ITIL Incident Record Producer layout with Polaris design tokens.
+// 2. Email OTP identity verification before final ticket creation.
+// 3. Multi-file attachment support (images + PDFs) with D1 storage size guarding.
+// 4. Idempotency-Key duplicate submission prevention.
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -18,10 +20,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, ChevronRight, FileText, HelpCircle, Info, Loader2, Paperclip, Send, ShieldCheck } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from "@/components/ui/input-otp";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  FileText,
+  ImageIcon,
+  KeyRound,
+  Loader2,
+  Paperclip,
+  RotateCcw,
+  Send,
+  ShieldCheck,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react";
 
-interface BranchOption { id: string; code: string; name: string; city: string | null }
-interface CategoryOption { id: string; name: string }
+interface BranchOption {
+  id: string;
+  code: string;
+  name: string;
+  city: string | null;
+}
+interface CategoryOption {
+  id: string;
+  name: string;
+}
 
 const EMPTY_FORM = {
   customerName: "",
@@ -33,6 +71,15 @@ const EMPTY_FORM = {
   privacyConsent: false,
 };
 
+const MAX_FILE_SIZE_BYTES = 1.9 * 1024 * 1024; // 1.9MB per row on Cloudflare D1
+const MAX_ATTACHMENTS = 5;
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function ComplaintPage() {
   const router = useRouter();
   const [form, setForm] = useState(EMPTY_FORM);
@@ -40,26 +87,58 @@ export default function ComplaintPage() {
   const [categories, setCategories] = useState<CategoryOption[] | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [topError, setTopError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const attachmentRef = useRef<HTMLInputElement>(null);
+  
+  // Attachments state
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // OTP Verification state
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpToken, setOtpToken] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+  const [devCodeHint, setDevCodeHint] = useState("");
+
   const idempotencyKey = useRef(`portal-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
+  // Fetch branches and categories
   useEffect(() => {
-    fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => setBranches(d.data?.branches ?? [])).catch(() => setBranches([]));
-    fetch("/api/v1/public/categories").then((r) => r.json()).then((d) => setCategories(d.data?.categories ?? [])).catch(() => setCategories([]));
+    fetch("/api/v1/public/branches")
+      .then((r) => r.json())
+      .then((d) => setBranches(d.data?.branches ?? []))
+      .catch(() => setBranches([]));
+
+    fetch("/api/v1/public/categories")
+      .then((r) => r.json())
+      .then((d) => setCategories(d.data?.categories ?? []))
+      .catch(() => setCategories([]));
   }, []);
+
+  // Resend countdown timer
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   const set = (key: keyof typeof EMPTY_FORM, value: string | boolean) => {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
+  // Form field validation
   function validate(): boolean {
     const e: Record<string, string> = {};
-    if (form.customerName.trim().length < 2) e.customerName = "Please enter your full name.";
+    if (form.customerName.trim().length < 2) e.customerName = "Please enter your full name (at least 2 characters).";
     if (!/^\d{10,12}$/.test(form.customerPhone.replace(/\D/g, ""))) e.customerPhone = "Enter a valid 10-12 digit mobile number.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.customerEmail)) e.customerEmail = "Enter a valid email address.";
-    if (!form.branchId) e.branchId = "Select your branch.";
+    if (!form.branchId) e.branchId = "Select your branch location.";
     if (!form.categoryId) e.categoryId = "Select a complaint category.";
     if (form.description.trim().length < 10) e.description = "Please describe your complaint (minimum 10 characters).";
     if (!form.privacyConsent) e.privacyConsent = "Privacy consent is required.";
@@ -67,42 +146,191 @@ export default function ComplaintPage() {
     return Object.keys(e).length === 0;
   }
 
-  async function onSubmit(ev: React.FormEvent) {
+  // Handle file additions
+  function handleFilesAdded(incoming: FileList | null) {
+    if (!incoming || incoming.length === 0) return;
+    setFileError("");
+
+    const newFiles: File[] = [];
+    let oversizedCount = 0;
+
+    for (let i = 0; i < incoming.length; i++) {
+      const f = incoming[i];
+      if (files.length + newFiles.length >= MAX_ATTACHMENTS) {
+        setFileError(`You can attach a maximum of ${MAX_ATTACHMENTS} files.`);
+        break;
+      }
+      if (f.size > MAX_FILE_SIZE_BYTES) {
+        oversizedCount++;
+        continue;
+      }
+      // Check for duplicate file names
+      const duplicate = files.some((existing) => existing.name === f.name && existing.size === f.size);
+      if (!duplicate) {
+        newFiles.push(f);
+      }
+    }
+
+    if (oversizedCount > 0) {
+      setFileError(`${oversizedCount} file(s) exceeded the 1.9 MB storage limit and were skipped.`);
+    }
+
+    if (newFiles.length > 0) {
+      setFiles((prev) => [...prev, ...newFiles]);
+    }
+
+    // Reset input so user can pick the same file again if desired
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFileError("");
+  }
+
+  // Step 1: Request OTP and open verification modal
+  async function handleStartVerification(ev: React.FormEvent) {
     ev.preventDefault();
     setTopError("");
     if (!validate()) return;
-    setSubmitting(true);
+
+    setSendingOtp(true);
+    setOtpError("");
     try {
-      const res = await fetch("/api/v1/public/complaints", {
+      const res = await fetch("/api/v1/public/otp/send", {
         method: "POST",
-        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey.current },
-        body: JSON.stringify(form),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: form.customerEmail,
+          phone: form.customerPhone,
+          name: form.customerName,
+        }),
       });
+
       const body = await res.json();
       if (!res.ok || !body.success) {
-        if (body.error?.code === "VALIDATION_ERROR" && body.error.details) {
-          setErrors(body.error.details);
-          setTopError("Please correct the highlighted fields.");
-        } else {
-          setTopError(body.error?.message || "Something went wrong. Please try again.");
-        }
+        setTopError(body.error?.message || "Failed to dispatch verification code. Please try again.");
         return;
       }
-      const ticketNumber = body.data.ticketNumber as string;
-      // Optional attachment upload (non-blocking failure)
-      const file = attachmentRef.current?.files?.[0];
-      if (file) {
-        const fd = new FormData();
-        fd.append("ticketNumber", ticketNumber);
-        fd.append("mobileNumber", form.customerPhone);
-        fd.append("file", file);
-        await fetch("/api/v1/public/tickets/attachments", { method: "POST", body: fd }).catch(() => undefined);
-      }
-      router.push(`/complaint/success?ticket=${encodeURIComponent(ticketNumber)}`);
+
+      setOtpToken(body.data.token);
+      setDevCodeHint(body.data.devCode || "");
+      setResendTimer(60);
+      setOtpCode("");
+      setOtpModalOpen(true);
     } catch {
       setTopError("Network error. Please check your connection and try again.");
     } finally {
-      setSubmitting(false);
+      setSendingOtp(false);
+    }
+  }
+
+  // Resend OTP
+  async function handleResendOtp() {
+    if (resendTimer > 0 || sendingOtp) return;
+    setSendingOtp(true);
+    setOtpError("");
+    try {
+      const res = await fetch("/api/v1/public/otp/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: form.customerEmail,
+          phone: form.customerPhone,
+          name: form.customerName,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        setOtpError(body.error?.message || "Failed to resend code. Please try again.");
+        return;
+      }
+      setOtpToken(body.data.token);
+      setDevCodeHint(body.data.devCode || "");
+      setResendTimer(60);
+    } catch {
+      setOtpError("Network error. Please try again.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
+  // Step 2: Verify OTP and finalize ticket registration
+  async function handleVerifyAndSubmit() {
+    if (!otpCode || otpCode.length !== 6) {
+      setOtpError("Please enter the complete 6-digit code.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    setOtpError("");
+
+    try {
+      // 1. Verify OTP with backend
+      const verifyRes = await fetch("/api/v1/public/otp/verify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: form.customerEmail,
+          phone: form.customerPhone,
+          code: otpCode,
+          token: otpToken,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || !verifyData.success) {
+        setOtpError(verifyData.error?.message || "Invalid verification code.");
+        setVerifyingOtp(false);
+        return;
+      }
+
+      const submissionToken = verifyData.data.submissionToken as string;
+
+      // 2. Submit Complaint Ticket
+      const complaintRes = await fetch("/api/v1/public/complaints", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey.current,
+        },
+        body: JSON.stringify({
+          ...form,
+          submissionToken,
+        }),
+      });
+
+      const complaintData = await complaintRes.json();
+      if (!complaintRes.ok || !complaintData.success) {
+        setOtpError(complaintData.error?.message || "Failed to create ticket. Please try again.");
+        setVerifyingOtp(false);
+        return;
+      }
+
+      const ticketNumber = complaintData.data.ticketNumber as string;
+
+      // 3. Upload multiple attachments if any exist
+      if (files.length > 0) {
+        const fd = new FormData();
+        fd.append("ticketNumber", ticketNumber);
+        fd.append("mobileNumber", form.customerPhone);
+        for (const f of files) {
+          fd.append("files", f);
+        }
+        await fetch("/api/v1/public/tickets/attachments", {
+          method: "POST",
+          body: fd,
+        }).catch((err) => console.error("Attachment upload error:", err));
+      }
+
+      // 4. Success -> redirect to tracking / confirmation view
+      setOtpModalOpen(false);
+      router.push(`/complaint/success?ticket=${encodeURIComponent(ticketNumber)}`);
+    } catch {
+      setOtpError("Network error while submitting complaint. Please try again.");
+      setVerifyingOtp(false);
     }
   }
 
@@ -139,7 +367,7 @@ export default function ComplaintPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-slate-600 sm:text-sm">
-                    Submit an official request to your branch management team. Tickets are automatically tracked against strict SLAs.
+                    Submit an official request to your branch management team. Verified with one-time security OTP.
                   </p>
                 </div>
               </div>
@@ -154,7 +382,7 @@ export default function ComplaintPage() {
               </Alert>
             ) : null}
 
-            <form onSubmit={onSubmit} noValidate className="space-y-7">
+            <form onSubmit={handleStartVerification} noValidate className="space-y-7">
               {/* SECTION 1: Requester Information */}
               <div className="rounded-lg border border-[#E2E8F0] bg-[#FAFBFC] p-5">
                 <div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
@@ -198,9 +426,14 @@ export default function ComplaintPage() {
                 </div>
 
                 <div className="mt-4 space-y-1.5">
-                  <Label htmlFor="customerEmail" className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Email Address (for resolution alerts & audit updates) <span className="text-red-500">*</span>
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="customerEmail" className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Email Address (for resolution alerts & security OTP) <span className="text-red-500">*</span>
+                    </Label>
+                    <span className="text-[10px] font-semibold text-[#1F70C1] flex items-center gap-1">
+                      <KeyRound className="h-3 w-3" /> OTP Verified
+                    </span>
+                  </div>
                   <Input
                     id="customerEmail"
                     type="email"
@@ -291,25 +524,97 @@ export default function ComplaintPage() {
                 </div>
               </div>
 
-              {/* SECTION 3: Attachments & Proof */}
+              {/* SECTION 3: Multi-File Attachments & Proof */}
               <div className="rounded-lg border border-[#E2E8F0] bg-[#FAFBFC] p-5">
                 <div className="mb-3 flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                     <Paperclip className="h-3.5 w-3.5 text-slate-500" />
                     3. Supporting Documents & Photos (Optional)
                   </h2>
-                  <span className="text-[11px] text-slate-500">Max 10MB</span>
+                  <span className="text-[11px] text-slate-500">
+                    {files.length} / {MAX_ATTACHMENTS} attached · Max 1.9MB per file
+                  </span>
                 </div>
-                <Input
-                  id="attachment"
-                  ref={attachmentRef}
+
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
                   type="file"
+                  multiple
                   accept="image/png,image/jpeg,image/webp,application/pdf"
-                  className="h-10 rounded-md border-[#D1D7DC] bg-white text-xs text-slate-600 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
+                  className="hidden"
+                  onChange={(e) => handleFilesAdded(e.target.files)}
                 />
-                <p className="mt-1.5 text-[11px] text-slate-500">
-                  Accepted formats: PNG, JPG, WEBP, or PDF. Useful for maintenance defects or payment receipts.
-                </p>
+
+                {/* Dropzone trigger */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleFilesAdded(e.dataTransfer.files);
+                  }}
+                  className="group flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#CBD5E1] bg-white p-6 text-center cursor-pointer transition hover:border-[#1F70C1] hover:bg-[#F8FAFC]"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EBF4FA] text-[#1F70C1] group-hover:bg-[#1F70C1] group-hover:text-white transition">
+                    <UploadCloud className="h-5 w-5" />
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-slate-800">
+                    Click to browse or drag and drop files here
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    PNG, JPG, WEBP, or PDF (Up to {MAX_ATTACHMENTS} files, max 1.9MB each for database storage)
+                  </p>
+                </div>
+
+                {fileError ? (
+                  <p className="mt-2 text-xs font-medium text-amber-700 flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {fileError}
+                  </p>
+                ) : null}
+
+                {/* Selected Files List */}
+                {files.length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      Attached Files ({files.length}):
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {files.map((file, idx) => (
+                        <div
+                          key={`${file.name}-${idx}`}
+                          className="flex items-center justify-between rounded-md border border-[#D1D7DC] bg-white p-2.5 shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            {file.type.startsWith("image/") ? (
+                              <ImageIcon className="h-4 w-4 shrink-0 text-[#1F70C1]" />
+                            ) : (
+                              <FileText className="h-4 w-4 shrink-0 text-slate-600" />
+                            )}
+                            <div className="overflow-hidden">
+                              <p className="truncate text-xs font-semibold text-slate-800" title={file.name}>
+                                {file.name}
+                              </p>
+                              <p className="text-[10px] text-slate-500">{formatBytes(file.size)}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFile(idx);
+                            }}
+                            className="ml-2 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-600 transition"
+                            title="Remove attachment"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {/* SECTION 4: Terms & Consent */}
@@ -347,18 +652,18 @@ export default function ComplaintPage() {
 
                   <Button
                     type="submit"
-                    disabled={submitting}
+                    disabled={sendingOtp}
                     className="h-11 rounded-md bg-[#1F70C1] hover:bg-[#185999] text-xs font-bold text-white shadow-sm transition px-6"
                   >
-                    {submitting ? (
+                    {sendingOtp ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                        Registering Ticket...
+                        Sending Security Code...
                       </>
                     ) : (
                       <>
-                        <Send className="mr-2 h-4 w-4" aria-hidden />
-                        Submit Request
+                        <KeyRound className="mr-2 h-4 w-4" aria-hidden />
+                        Verify & Submit Request
                       </>
                     )}
                   </Button>
@@ -368,6 +673,129 @@ export default function ComplaintPage() {
           </div>
         </div>
       </main>
+
+      {/* OTP Verification Modal (Polaris / Service Portal Themed) */}
+      <Dialog open={otpModalOpen} onOpenChange={setOtpModalOpen}>
+        <DialogContent className="max-w-md border-[#D1D7DC] bg-white p-6 shadow-2xl text-slate-900 sm:rounded-xl">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#EBF4FA] text-[#00639B] border border-[#0084D1]/20">
+              <ShieldCheck className="h-6 w-6 text-[#1F70C1]" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-900">
+              Verify Your Identity
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 mt-1">
+              To prevent unauthorized submissions, we dispatched a 6-digit one-time code to:
+              <br />
+              <strong className="text-slate-900 font-semibold">{form.customerEmail}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Dev/Demo Hint if simulated or local */}
+          {devCodeHint ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-center text-xs text-amber-900">
+              <span className="font-semibold">Demo Sandbox:</span> Your code is{" "}
+              <code className="rounded bg-amber-200/80 px-1.5 py-0.5 font-mono font-bold text-amber-950">
+                {devCodeHint}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpCode(devCodeHint);
+                  setOtpError("");
+                }}
+                className="ml-2 font-bold text-[#1F70C1] underline hover:text-[#185999]"
+              >
+                Auto-fill
+              </button>
+            </div>
+          ) : null}
+
+          {/* OTP Input */}
+          <div className="my-3 flex flex-col items-center justify-center">
+            <Label className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Enter 6-Digit One-Time Code
+            </Label>
+            <InputOTP
+              maxLength={6}
+              value={otpCode}
+              onChange={(val) => {
+                setOtpCode(val);
+                setOtpError("");
+              }}
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} className="h-11 w-10 text-base font-bold border-[#CBD5E1]" />
+                <InputOTPSlot index={1} className="h-11 w-10 text-base font-bold border-[#CBD5E1]" />
+                <InputOTPSlot index={2} className="h-11 w-10 text-base font-bold border-[#CBD5E1]" />
+              </InputOTPGroup>
+              <InputOTPSeparator />
+              <InputOTPGroup>
+                <InputOTPSlot index={3} className="h-11 w-10 text-base font-bold border-[#CBD5E1]" />
+                <InputOTPSlot index={4} className="h-11 w-10 text-base font-bold border-[#CBD5E1]" />
+                <InputOTPSlot index={5} className="h-11 w-10 text-base font-bold border-[#CBD5E1]" />
+              </InputOTPGroup>
+            </InputOTP>
+
+            {otpError ? (
+              <p className="mt-3 text-xs font-semibold text-red-600 flex items-center gap-1.5 text-center">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {otpError}
+              </p>
+            ) : null}
+
+            {/* Resend Timer */}
+            <div className="mt-4 text-center text-xs text-slate-500">
+              Didn&apos;t receive the email code?{" "}
+              {resendTimer > 0 ? (
+                <span>
+                  Resend in <span className="font-semibold text-slate-800">{resendTimer}s</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={sendingOtp}
+                  className="font-bold text-[#1F70C1] hover:underline"
+                >
+                  Resend Code
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={verifyingOtp}
+              onClick={() => setOtpModalOpen(false)}
+              className="w-full sm:w-auto h-10 rounded-md border-[#D1D7DC] text-xs font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              Cancel / Edit
+            </Button>
+            <Button
+              type="button"
+              disabled={otpCode.length !== 6 || verifyingOtp}
+              onClick={handleVerifyAndSubmit}
+              className="w-full sm:w-auto h-10 rounded-md bg-[#1F70C1] hover:bg-[#185999] text-xs font-bold text-white shadow-sm transition"
+            >
+              {verifyingOtp ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying & Creating Ticket...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Confirm & Submit Incident
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <SiteFooter />
     </div>

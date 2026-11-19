@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { resolveBranch, resolveCategory } from "@/lib/integration";
 import { isValidEmail, isValidPhone } from "@/lib/types";
 import { createComplaint } from "@/lib/tickets";
+import { verifyOtpCode, verifySubmissionProofToken } from "@/lib/otp";
 import { randomBytes } from "crypto";
 
 export async function POST(request: Request) {
@@ -41,6 +42,25 @@ export async function POST(request: Request) {
 
     if (Object.keys(errors).length) {
       return fail("VALIDATION_ERROR", Object.values(errors)[0], 422, errors);
+    }
+
+    // OTP / Identity Verification check
+    const submissionToken = String(b.submissionToken || b.verificationToken || "").trim();
+    const otpCode = String(b.otpCode || b.otp || "").trim();
+    const otpToken = String(b.otpToken || "").trim();
+
+    if (submissionToken) {
+      const proof = verifySubmissionProofToken(rawEmail, rawPhone, submissionToken);
+      if (!proof.valid) {
+        return fail("OTP_VERIFICATION_REQUIRED", proof.error || "Identity verification expired or invalid. Please verify via OTP.", 403);
+      }
+    } else if (otpCode && otpToken) {
+      const directVerify = verifyOtpCode(rawEmail, rawPhone, otpCode, otpToken);
+      if (!directVerify.valid) {
+        return fail("OTP_VERIFICATION_REQUIRED", directVerify.error || "Invalid 6-digit verification code.", 403);
+      }
+    } else if (process.env.REQUIRE_COMPLAINT_OTP === "true") {
+      return fail("OTP_VERIFICATION_REQUIRED", "Email OTP verification is required to submit an incident.", 403);
     }
 
     // Branch: id, code (BR001), external id or name. A branch that was named

@@ -356,3 +356,122 @@ ${adminUrl}
 
   return { subject, text, html };
 }
+
+export function renderOtpEmail(params: {
+  customerName: string;
+  otpCode: string;
+  expiresInMinutes?: number;
+  appUrl?: string;
+}): { subject: string; text: string; html: string } {
+  const { customerName, otpCode, expiresInMinutes = 10 } = params;
+  const supportEmail = getSupportEmail();
+  const subject = `[FitClass Verification] Your One-Time Security Code: ${otpCode}`;
+
+  const text = `Dear ${customerName || "Member"},
+
+Your verification code for submitting an incident request at FitClass is:
+
+${otpCode}
+
+This code will expire in ${expiresInMinutes} minutes.
+
+For your protection, never share this code with anyone. FitClass staff will never ask you for your verification code.
+
+If you did not initiate this request, you can safely disregard this email.
+
+Warm regards,
+FitClass Member Support Team
+Email: ${supportEmail}
+`.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F4F6F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1E293B;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #F4F6F8; padding: 36px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 540px; background-color: #FFFFFF; border-radius: 12px; border: 1px solid #D1D7DC; overflow: hidden; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+          
+          <!-- Polaris Dark Chrome Header -->
+          <tr>
+            <td style="background-color: #161F28; padding: 22px 28px; text-align: left; border-bottom: 2px solid #1F70C1;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td>
+                    <span style="font-size: 18px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #FFFFFF;">FITCLASS</span>
+                    <span style="display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 700; color: #30C497; background-color: rgba(48, 196, 151, 0.15); border: 1px solid rgba(48, 196, 151, 0.3); padding: 2px 8px; border-radius: 4px; vertical-align: middle;">IDENTITY VERIFICATION</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 32px 28px;">
+              <h2 style="margin: 0 0 12px; font-size: 19px; font-weight: 700; color: #0F172A;">
+                One-Time Verification Code
+              </h2>
+              
+              <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #475569;">
+                Hello <strong style="color: #0F172A;">${customerName || "Valued Member"}</strong>,
+              </p>
+
+              <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #475569;">
+                To finalize the registration of your service incident and verify your contact details, please enter the following 6-digit verification code:
+              </p>
+
+              <!-- OTP Digits Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 20px 0 28px;">
+                <tr>
+                  <td align="center" style="background-color: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 20px;">
+                    <div style="font-size: 34px; font-weight: 800; letter-spacing: 10px; color: #1F70C1; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;">
+                      ${otpCode}
+                    </div>
+                    <div style="margin-top: 8px; font-size: 12px; font-weight: 600; color: #64748B;">
+                      Expires in ${expiresInMinutes} minutes
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="background-color: #FEF3C7; border: 1px solid #FDE68A; border-left: 4px solid #D97706; border-radius: 6px; padding: 12px 14px; margin-bottom: 24px;">
+                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #92400E;">
+                  <strong>Security Reminder:</strong> Never share this code with anyone. FitClass support agents will never ask you for this one-time code over the phone or email.
+                </p>
+              </div>
+
+              <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #64748B;">
+                If you did not initiate this complaint or service request, you may safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 28px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center;">
+              <p style="margin: 0 0 4px; font-size: 12px; color: #64748B;">
+                FitClass Enterprise Service Management · ITIL Portal
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #94A3B8;">
+                Support Contact: <a href="mailto:${supportEmail}" style="color: #1F70C1; text-decoration: none;">${supportEmail}</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return { subject, text, html };
+}

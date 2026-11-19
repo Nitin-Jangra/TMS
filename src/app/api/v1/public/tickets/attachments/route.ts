@@ -31,36 +31,83 @@ export async function POST(request: Request) {
 
     const settings = await getSettings();
     const maxMb = Number(settings.max_upload_mb || "10");
-    const allowed = (settings.allowed_upload_types || "").split(",").map((s) => s.trim());
+    const allowed = (settings.allowed_upload_types || "").split(",").map((s) => s.trim()).filter(Boolean);
 
-    const file = form.get("file");
-    if (!(file instanceof File)) return fail("VALIDATION_ERROR", "No file provided.", 422);
-    if (file.size > maxMb * 1024 * 1024) return fail("FILE_TOO_LARGE", `File exceeds the ${maxMb} MB limit.`, 422);
-    if (exceedsStorageLimit(file.size, maxMb)) {
-      const cappedMb = (D1_BLOB_LIMIT_BYTES / (1024 * 1024)).toFixed(1);
-      return fail(
-        "FILE_TOO_LARGE",
-        `The hosted environment accepts files up to ${cappedMb} MB (database storage row limit).`,
-        422,
-      );
+    // Accept single or multiple files from 'files' or 'file' field
+    const multiFiles = form.getAll("files");
+    const singleFiles = form.getAll("file");
+    const rawList = multiFiles.length > 0 ? multiFiles : singleFiles;
+    const candidateFiles = rawList.filter(
+      (f): f is File => f instanceof File && f.size > 0
+    );
+
+    if (candidateFiles.length === 0) {
+      return fail("VALIDATION_ERROR", "No valid files provided.", 422);
     }
-    if (!allowed.includes(file.type)) return fail("FILE_TYPE_NOT_ALLOWED", `File type ${file.type || "unknown"} is not allowed.`, 422);
 
-    // Random server-generated filename; original name kept for display only.
-    const storedName = `${randomUUID()}.bin`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await putAttachmentBytes(storedName, buffer);
+    if (candidateFiles.length > 10) {
+      return fail("TOO_MANY_FILES", "You may upload a maximum of 10 attachments per request.", 422);
+    }
 
-    const attachment = await db.ticketAttachment.create({
-      data: {
-        ticketId: ticket.id,
-        originalName: file.name.slice(0, 200),
-        storedName,
-        mimeType: file.type,
-        sizeBytes: file.size,
+    const cappedMb = (D1_BLOB_LIMIT_BYTES / (1024 * 1024)).toFixed(1);
+    const createdAttachments: Array<{
+      id: string;
+      originalName: string;
+      sizeBytes: number;
+      mimeType: string;
+    }> = [];
+
+    // Pre-flight validation on all files before writing to storage
+    for (const file of candidateFiles) {
+      if (file.size > maxMb * 1024 * 1024) {
+        return fail("FILE_TOO_LARGE", `File "${file.name}" exceeds the ${maxMb} MB limit.`, 422);
+      }
+      if (exceedsStorageLimit(file.size, maxMb)) {
+        return fail(
+          "FILE_TOO_LARGE",
+          `File "${file.name}" exceeds ${cappedMb} MB (database storage row limit).`,
+          422
+        );
+      }
+      if (allowed.length > 0 && !allowed.includes(file.type)) {
+        return fail("FILE_TYPE_NOT_ALLOWED", `File type "${file.type || "unknown"}" is not permitted for "${file.name}".`, 422);
+      }
+    }
+
+    // Persist all validated files
+    for (const file of candidateFiles) {
+      const storedName = `${randomUUID()}.bin`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await putAttachmentBytes(storedName, buffer);
+
+      const attachment = await db.ticketAttachment.create({
+        data: {
+          ticketId: ticket.id,
+          originalName: file.name.slice(0, 200),
+          storedName,
+          mimeType: file.type || "application/octet-stream",
+          sizeBytes: file.size,
+        },
+      });
+
+      createdAttachments.push({
+        id: attachment.id,
+        originalName: attachment.originalName,
+        sizeBytes: attachment.sizeBytes,
+        mimeType: attachment.mimeType,
+      });
+    }
+
+    return ok(
+      {
+        count: createdAttachments.length,
+        attachments: createdAttachments,
+        attachmentId: createdAttachments[0]?.id,
+        originalName: createdAttachments[0]?.originalName,
+        sizeBytes: createdAttachments[0]?.sizeBytes,
+        storage: usesD1AttachmentStorage() ? "d1" : "disk",
       },
-    });
-
-    return ok({ attachmentId: attachment.id, originalName: attachment.originalName, sizeBytes: attachment.sizeBytes, storage: usesD1AttachmentStorage() ? "d1" : "disk" }, { status: 201 });
+      { status: 201 }
+    );
   });
 }
