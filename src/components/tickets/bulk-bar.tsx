@@ -15,7 +15,8 @@ import { StaffPicker, type StaffEntry } from "@/components/staff-picker";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, X } from "lucide-react";
 
-type Mode = "assign" | "department" | "status" | "escalate";
+export type BulkMode = "assign" | "department" | "status" | "escalate";
+type Mode = BulkMode;
 
 export function BulkBar({
   selectedIds,
@@ -25,6 +26,9 @@ export function BulkBar({
   canReassign,
   onClear,
   onDone,
+  mode: controlledMode,
+  onModeChange,
+  hideBar = false,
 }: {
   selectedIds: string[];
   staff: StaffEntry[];
@@ -33,9 +37,16 @@ export function BulkBar({
   canReassign: boolean;
   onClear: () => void;
   onDone: () => void;
+  /** Controlled mode: open a dialog from outside (e.g. an actions menu). */
+  mode?: Mode | null;
+  onModeChange?: (mode: Mode | null) => void;
+  /** Render only the dialogs, not the button bar. */
+  hideBar?: boolean;
 }) {
   const { toast } = useToast();
-  const [mode, setMode] = useState<Mode | null>(null);
+  const [innerMode, setInnerMode] = useState<Mode | null>(null);
+  const mode = controlledMode !== undefined ? controlledMode : innerMode;
+  const setMode = (m: Mode | null) => { setInnerMode(m); onModeChange?.(m); };
   const [employeeId, setEmployeeId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [reassign, setReassign] = useState(true);
@@ -90,6 +101,7 @@ export function BulkBar({
 
   return (
     <>
+      {!hideBar ? (
       <div className="flex flex-wrap items-center gap-2 border-b border-[#22618b]/20 bg-[#22618b]/5 px-3 py-2" role="region" aria-label="Bulk actions">
         <span className="text-xs font-semibold text-[#22618b]">{selectedIds.length} selected</span>
         {canReassign ? (
@@ -104,6 +116,7 @@ export function BulkBar({
           <X className="mr-1 h-3 w-3" aria-hidden /> Clear selection
         </Button>
       </div>
+      ) : null}
 
       <Dialog open={!!mode} onOpenChange={(o) => { if (!o) close(); }}>
         <DialogContent className="sm:max-w-md">

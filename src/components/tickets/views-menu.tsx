@@ -32,7 +32,7 @@ export const BUILT_IN_VIEWS: { name: string; query: string; hint: string }[] = [
   { name: "Open, most urgent first", query: "status=OPEN&sort=priority&order=desc", hint: "Every open ticket, critical at the top" },
 ];
 
-export function ViewsMenu({ currentQuery, onApply }: { currentQuery: string; onApply: (query: string, name: string) => void }) {
+export function ViewsMenu({ currentQuery, onApply, triggerClassName }: { currentQuery: string; onApply: (query: string, name: string) => void; triggerClassName?: string }) {
   const { toast } = useToast();
   const [views, setViews] = useState<SavedView[]>([]);
   const [canShare, setCanShare] = useState(false);
@@ -87,7 +87,7 @@ export function ViewsMenu({ currentQuery, onApply }: { currentQuery: string; onA
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+          <Button variant="outline" size="sm" className={triggerClassName || "h-9 gap-1.5 text-xs"}>
             <Bookmark className="h-3.5 w-3.5" aria-hidden /> Views <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
           </Button>
         </DropdownMenuTrigger>

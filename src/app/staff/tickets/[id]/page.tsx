@@ -1,30 +1,28 @@
 "use client";
 
-// Ticket detail: complaint info, conversation (replies + internal notes),
-// status timeline, staff actions (start/hold/resume/resolve/reply/note/
-// escalate) and assignment panel (assign/reassign/transfer) with
-// closed-ticket read-only enforcement.
+// Ticket record — classic service-desk form view.
+// Header bar (back, record menu, title, action buttons), state flow, a
+// two-column field layout (assignment group / assigned to / branch editable
+// and saved with "Update"), Notes (customer-visible comments + work notes),
+// an activity stream and related lists (attachments, assignment history,
+// state history, reopen history). Closed tickets are read-only.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { PriorityBadge, StatusBadge } from "@/components/staff-nav";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { STATUS_LABELS } from "@/lib/types";
 import { StaffPicker, type StaffEntry } from "@/components/staff-picker";
 import { CannedPicker } from "@/components/canned-picker";
-import { Checkbox } from "@/components/ui/checkbox";
+import { pushHistory } from "@/components/sn/modules";
+import { cn } from "@/lib/utils";
 import {
-  AlertTriangle, ArrowLeftRight, ArrowUpRight, FileText, Loader2, MessageSquarePlus,
-  Paperclip, PauseCircle, PlayCircle, Reply, RotateCcw, Send, ShieldAlert, Star, Timer, TriangleAlert, UserRound,
+  Activity, ChevronDown, ChevronLeft, ChevronUp, Copy, FileText, Info, Link2, Loader2, Menu, Paperclip, Printer,
+  RefreshCw, ShieldAlert, Star, TriangleAlert,
 } from "lucide-react";
 
 interface Detail {
@@ -39,7 +37,9 @@ interface Detail {
     priority: string;
     source: string;
     createdAt: string;
+    updatedAt: string;
     assignedAt: string | null;
+    firstResponseAt: string | null;
     resolvedAt: string | null;
     autoCloseAt: string | null;
     closedAt: string | null;
@@ -55,667 +55,567 @@ interface Detail {
     messages: { id: string; authorType: string; visibility: string; authorName: string; body: string; createdAt: string }[];
     statusHistory: { id: string; fromStatus: string | null; toStatus: string; changedByName: string; note: string; createdAt: string }[];
     assignments: { id: string; method: string; note: string; createdAt: string; assignee: { name: string } }[];
-    attachments: { id: string; originalName: string; sizeBytes: number; mimeType: string }[];
+    attachments: { id: string; originalName: string; sizeBytes: number; mimeType: string; createdAt?: string }[];
     reopenHistory: { id: string; reason: string; reopenedAt: string }[];
     slaTracking: { firstResponseMetAt: string | null; firstResponseBreached: boolean; resolutionBreached: boolean } | null;
   };
   viewer: { id: string; role: string; branchId: string | null; canReassign?: boolean; canAssignAcrossBranches?: boolean };
 }
 
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—");
+const PRIORITY_TEXT: Record<string, string> = { CRITICAL: "1 - Critical", HIGH: "2 - High", MEDIUM: "3 - Moderate", LOW: "4 - Low" };
+const SOURCE_TEXT: Record<string, string> = { PORTAL: "Self-service portal", API_LMS: "LMS integration", API_CRM: "CRM integration", EMAIL: "Email", SEED: "Imported" };
+const FLOW = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"];
 
-export default function TicketDetailPage() {
+const dt = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(",", "")
+    : "";
+
+type ActivityKind = "comment" | "worknote" | "field";
+interface ActivityEntry {
+  id: string;
+  at: string;
+  who: string;
+  kind: ActivityKind;
+  title: string;
+  body?: string;
+  changes?: { field: string; to: string; from?: string }[];
+}
+
+type DialogKind = "hold" | "resolve" | "escalate" | null;
+
+export default function TicketFormPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState("");
+  const [me, setMe] = useState<{ id: string; name: string } | null>(null);
 
-  // action dialogs
-  const [holdOpen, setHoldOpen] = useState(false);
-  const [holdReason, setHoldReason] = useState("");
-  const [resolveOpen, setResolveOpen] = useState(false);
-  const [resolution, setResolution] = useState("");
-  const [replyText, setReplyText] = useState("");
-  const [noteText, setNoteText] = useState("");
-  const [journalMode, setJournalMode] = useState<"comments" | "work_notes">("comments");
-  const [activityFilter, setActivityFilter] = useState<"all" | "comments" | "notes" | "history">("all");
+  // Editable form fields (saved with Update)
+  const [group, setGroup] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [branch, setBranch] = useState("");
+  const [comments, setComments] = useState("");
+  const [workNotes, setWorkNotes] = useState("");
 
-  // assignment
+  const [dialog, setDialog] = useState<DialogKind>(null);
+  const [dialogText, setDialogText] = useState("");
+  const [notesOpen, setNotesOpen] = useState(true);
+  const [activityFilter, setActivityFilter] = useState<"all" | ActivityKind>("all");
+  const [tab, setTab] = useState<"attachments" | "assignments" | "states" | "reopens">("assignments");
+
   const [staff, setStaff] = useState<StaffEntry[]>([]);
-  const [assignTo, setAssignTo] = useState("");
-  const [assignNote, setAssignNote] = useState("");
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
-  const [transferTo, setTransferTo] = useState("");
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
-  const [moveDept, setMoveDept] = useState("");
-  const [moveReassign, setMoveReassign] = useState(true);
-
-  const canAssign = !!detail?.viewer.canReassign;
-  const acrossBranches = !!detail?.viewer.canAssignAcrossBranches;
-  const isClosed = detail?.ticket.status === "CLOSED";
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/v1/support/tickets/${id}`);
-    const body = await res.json();
+    const body = await res.json().catch(() => ({}));
     if (!res.ok || !body.success) {
       setNotFound(true);
       return;
     }
-    setDetail(body.data);
-    if (body.data.viewer.canReassign) {
-      fetch("/api/v1/support/departments")
-        .then((r) => r.json())
-        .then((d) => { if (d.success) setDepartments(d.data.departments); })
-        .catch(() => undefined);
-      fetch("/api/v1/support/staff-directory")
-        .then((r) => r.json())
-        .then((d) => { if (d.success) setStaff(d.data.staff); })
-        .catch(() => undefined);
-      if (body.data.viewer.canAssignAcrossBranches) {
-        fetch("/api/v1/public/branches")
-          .then((r) => r.json())
-          .then((d) => { if (d.success) setBranches(d.data.branches); })
-          .catch(() => undefined);
-      }
-    }
+    const d = body.data as Detail;
+    setDetail(d);
+    setGroup(d.ticket.department?.id || "");
+    setAssignee(d.ticket.assignee?.id || "");
+    setBranch(d.ticket.branch.id);
+    pushHistory({ id: d.ticket.id, number: d.ticket.ticketNumber, title: d.ticket.description.slice(0, 80) });
   }, [id]);
 
+   
   useEffect(() => { load(); }, [load]);
 
-  async function act(key: string, fn: () => Promise<Response>, okMsg: string) {
-    setBusy(key);
-    try {
-      const res = await fn();
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        toast({ title: "Action failed", description: body.error?.message || "Please try again.", variant: "destructive" });
-        return false;
-      }
-      toast({ title: okMsg });
-      await load();
-      return true;
-    } catch {
-      toast({ title: "Network error", description: "Please try again.", variant: "destructive" });
-      return false;
-    } finally {
-      setBusy("");
+  useEffect(() => {
+    if (!detail?.viewer.canReassign) return;
+    fetch("/api/v1/support/departments").then((r) => r.json()).then((d) => d.success && setDepartments(d.data.departments)).catch(() => undefined);
+    fetch("/api/v1/support/staff-directory").then((r) => r.json()).then((d) => d.success && setStaff(d.data.staff)).catch(() => undefined);
+    if (detail.viewer.canAssignAcrossBranches) {
+      fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => d.success && setBranches(d.data.branches)).catch(() => undefined);
     }
-  }
+  }, [detail?.viewer.canReassign, detail?.viewer.canAssignAcrossBranches]);
+
+  useEffect(() => {
+    fetch("/api/v1/auth/me").then((r) => r.json()).then((d) => d.data?.user && setMe({ id: d.data.user.id, name: d.data.user.name })).catch(() => undefined);
+  }, []);
+
+  const activity = useMemo<ActivityEntry[]>(() => {
+    if (!detail) return [];
+    const t = detail.ticket;
+    const out: ActivityEntry[] = [];
+    for (const m of t.messages) {
+      const internal = m.visibility === "INTERNAL";
+      out.push({ id: `m-${m.id}`, at: m.createdAt, who: m.authorName, kind: internal ? "worknote" : "comment", title: internal ? "Work notes" : m.authorType === "CUSTOMER" ? "Additional comments (member)" : "Additional comments", body: m.body });
+    }
+    for (const h of t.statusHistory) {
+      out.push({
+        id: `s-${h.id}`, at: h.createdAt, who: h.changedByName, kind: "field", title: "Field changes",
+        changes: [{ field: "State", to: STATUS_LABELS[h.toStatus] || h.toStatus, from: h.fromStatus ? STATUS_LABELS[h.fromStatus] || h.fromStatus : undefined }],
+        body: h.note || undefined,
+      });
+    }
+    for (const a of t.assignments) {
+      out.push({ id: `a-${a.id}`, at: a.createdAt, who: a.method === "MANUAL" || a.method === "HANDOVER" ? "Staff" : "System", kind: "field", title: "Field changes", changes: [{ field: "Assigned to", to: a.assignee.name }], body: [a.method.replace(/_/g, " ").toLowerCase(), a.note].filter(Boolean).join(" — ") });
+    }
+    for (const r of t.reopenHistory) {
+      out.push({ id: `r-${r.id}`, at: r.reopenedAt, who: t.customerName, kind: "comment", title: "Reopened by member", body: r.reason });
+    }
+    if (t.feedback) {
+      out.push({ id: "fb", at: t.feedback.createdAt, who: t.customerName, kind: "comment", title: `Member rating ${t.feedback.rating}/5`, body: t.feedback.comment || undefined });
+    }
+    return out.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  }, [detail]);
 
   if (notFound) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <p className="text-sm font-medium text-slate-600">Ticket not found or you do not have access to it.</p>
-          <Button variant="outline" className="mt-4" onClick={() => router.push("/staff/tickets")}>Back to tickets</Button>
-        </CardContent>
-      </Card>
+      <div className="-m-5 ui16">
+        <div className="u-bar flex items-center gap-2 px-3">
+          <button type="button" className="u-icon-btn" onClick={() => router.push("/staff/tickets")} aria-label="Back"><ChevronLeft className="h-4 w-4" aria-hidden /></button>
+          <h1 className="text-[17px] font-semibold">Ticket</h1>
+        </div>
+        <p className="p-6 text-sm text-[var(--u-text-2)]">Record not found, or you do not have access to it. <Link href="/staff/tickets" className="u-link">Back to the list</Link></p>
+      </div>
     );
   }
-  if (!detail) return <Skeleton className="h-[600px]" />;
+  if (!detail) {
+    return <div className="-m-5 p-6 text-sm text-[var(--u-text-2)]"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" aria-hidden />Loading record…</div>;
+  }
 
   const t = detail.ticket;
-  const overdue = t.slaResolutionDueAt && !["RESOLVED", "CLOSED"].includes(t.status) && new Date(t.slaResolutionDueAt) < new Date();
+  const isClosed = t.status === "CLOSED";
+  const canAssign = !!detail.viewer.canReassign && !isClosed;
+  const acrossBranches = !!detail.viewer.canAssignAcrossBranches;
+  const overdue = !!t.slaResolutionDueAt && !["RESOLVED", "CLOSED"].includes(t.status) && new Date(t.slaResolutionDueAt) < new Date();
+  const shortDescription = t.description.split(/\r?\n/)[0].slice(0, 160);
+  const resolutionNote = [...t.statusHistory].reverse().find((h) => h.toStatus === "RESOLVED")?.note || "";
+
+  const branchChanged = branch !== t.branch.id;
+  const groupChanged = group !== (t.department?.id || "");
+  const assigneeChanged = !!assignee && assignee !== (t.assignee?.id || "");
+  const dirty = branchChanged || groupChanged || assigneeChanged || !!comments.trim() || !!workNotes.trim();
+  const assigneeEntry = staff.find((s) => s.id === assignee);
+
+  const call = async (url: string, method: string, payload: unknown) => {
+    const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.success) throw new Error(body.error?.message || "Request failed.");
+    return body.data;
+  };
+
+  /** Save every changed field / journal entry, in a safe order. */
+  const update = async (thenBack = false) => {
+    if (!dirty) {
+      if (thenBack) router.push("/staff/tickets");
+      return;
+    }
+    setBusy("update");
+    const done: string[] = [];
+    try {
+      if (branchChanged) { await call(`/api/v1/support/tickets/${t.id}/assign`, "POST", { transferBranchId: branch }); done.push("branch transferred"); }
+      if (groupChanged) { await call(`/api/v1/support/tickets/${t.id}/department`, "PATCH", { departmentId: group || null, reassign: false }); done.push("assignment group updated"); }
+      if (assigneeChanged) { await call(`/api/v1/support/tickets/${t.id}/assign`, "POST", { employeeId: assignee }); done.push("assigned"); }
+      if (comments.trim()) { await call(`/api/v1/support/tickets/${t.id}/replies`, "POST", { reply: comments.trim() }); setComments(""); done.push("comment sent to member"); }
+      if (workNotes.trim()) { await call(`/api/v1/support/tickets/${t.id}/notes`, "POST", { note: workNotes.trim() }); setWorkNotes(""); done.push("work note added"); }
+      toast({ title: `Record updated`, description: done.join(" · ") });
+      if (thenBack) router.push("/staff/tickets");
+      else await load();
+    } catch (err) {
+      toast({ title: "Update failed", description: `${(err as Error).message}${done.length ? ` (saved before the error: ${done.join(", ")})` : ""}`, variant: "destructive" });
+      await load();
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const stateAction = async (key: string, url: string, method: string, payload: unknown, okMsg: string) => {
+    setBusy(key);
+    try {
+      await call(url, method, payload);
+      toast({ title: okMsg });
+      setDialog(null);
+      setDialogText("");
+      await load();
+    } catch (err) {
+      toast({ title: "Action failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const startWork = () => stateAction("start", `/api/v1/support/tickets/${t.id}/status`, "PATCH", { toStatus: "IN_PROGRESS", note: t.status === "ON_HOLD" ? "Resumed from hold" : "Work started" }, t.status === "ON_HOLD" ? "Ticket resumed" : "Work started");
+  const assignToMe = () => me && stateAction("me", `/api/v1/support/tickets/${t.id}/assign`, "POST", { employeeId: me.id, note: "Assigned to self" }, "Assigned to you");
+  const canSelfAssign = canAssign && !!me && t.assignee?.id !== me.id && staff.some((s) => s.id === me.id);
+
+  const submitDialog = () => {
+    const text = dialogText.trim();
+    if (dialog === "hold") return stateAction("hold", `/api/v1/support/tickets/${t.id}/status`, "PATCH", { toStatus: "ON_HOLD", reason: text }, "Ticket placed on hold");
+    if (dialog === "resolve") return stateAction("resolve", `/api/v1/support/tickets/${t.id}/resolve`, "POST", { resolution: text }, "Ticket resolved — closure scheduled");
+    if (dialog === "escalate") return stateAction("escalate", `/api/v1/support/tickets/${t.id}/escalate`, "POST", { reason: text || "Manual escalation" }, "Ticket escalated");
+  };
+
+  const actionButtons = (
+    <>
+      {!isClosed ? (
+        <button type="button" className="u-btn u-btn-primary" disabled={!!busy || !dirty} onClick={() => update(false)} title={dirty ? "Save your changes" : "No changes to save"}>
+          {busy === "update" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Update
+        </button>
+      ) : null}
+      {canSelfAssign ? <button type="button" className="u-btn" disabled={!!busy} onClick={assignToMe}>Assign to me</button> : null}
+      {t.status === "NEW_COMPLAINT" ? <button type="button" className="u-btn" disabled={!!busy} onClick={startWork}>{busy === "start" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Start Work</button> : null}
+      {t.status === "ON_HOLD" ? <button type="button" className="u-btn" disabled={!!busy} onClick={startWork}>{busy === "start" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Resume</button> : null}
+      {t.status === "IN_PROGRESS" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("hold"); }}>On Hold</button> : null}
+      {t.status === "IN_PROGRESS" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("resolve"); }}>Resolve Ticket</button> : null}
+      {!isClosed && !t.escalatedAt && t.status !== "RESOLVED" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("escalate"); }}>Escalate</button> : null}
+    </>
+  );
+
+  const ro = (value: string, extra?: React.ReactNode) => (
+    <div className="flex items-center gap-1.5">
+      <input className="u-input" readOnly value={value} />
+      {extra}
+    </div>
+  );
+
+  const field = (label: string, control: React.ReactNode, opts: { req?: boolean; htmlFor?: string } = {}) => (
+    <div className="u-field">
+      <label className={cn("u-label", opts.req && "req")} htmlFor={opts.htmlFor}>{label}</label>
+      <div className="min-w-0">{control}</div>
+    </div>
+  );
+
+  const filtered = activity.filter((a) => activityFilter === "all" || a.kind === activityFilter);
 
   return (
-    <div className="space-y-4">
-      {/* ServiceNow Record Sub-Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-[#d1d7dc] bg-white p-4 shadow-sm">
-        <div>
-          <div className="mb-1 flex items-center gap-1.5 text-xs text-slate-500">
-            <button onClick={() => router.push("/staff/tickets")} className="hover:text-[#1f70c1] hover:underline font-medium">
-              Incidents & Tickets
-            </button>
-            <span>/</span>
-            <span className="font-semibold text-slate-700">{t.ticketNumber}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-mono text-xl font-bold text-[#161f28]">{t.ticketNumber}</h1>
-            <StatusBadge status={t.status} />
-            <PriorityBadge priority={t.priority} />
-            {overdue ? <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-800 ring-1 ring-red-300"><TriangleAlert className="h-3 w-3" />SLA Breached</span> : null}
-            {t.escalatedAt ? <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-semibold text-purple-800 ring-1 ring-purple-300"><ShieldAlert className="h-3 w-3" />Escalated</span> : null}
-            {t.reopenCount > 0 ? <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-300"><RotateCcw className="h-3 w-3" />Reopened ({t.reopenCount})</span> : null}
-          </div>
-        </div>
-
-        {/* Status Actions (ServiceNow Header Actions) */}
-        <div className="flex flex-wrap items-center gap-2">
-          {!isClosed && t.status === "NEW_COMPLAINT" ? (
-            <Button size="sm" className="bg-[#1f70c1] hover:bg-[#155799] text-white" disabled={!!busy}
-              onClick={() => act("start", () => fetch(`/api/v1/support/tickets/${t.id}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ toStatus: "IN_PROGRESS", note: "Started working on the ticket" }) }), "Ticket started")}>
-              {busy === "start" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <PlayCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />}
-              Start Working
-            </Button>
-          ) : null}
-          {!isClosed && (t.status === "IN_PROGRESS" || t.status === "ON_HOLD") ? (
-            <>
-              {t.status === "IN_PROGRESS" ? (
-                <Button size="sm" variant="outline" className="border-slate-300" disabled={!!busy} onClick={() => setHoldOpen(true)}>
-                  <PauseCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Place on Hold
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" className="border-slate-300" disabled={!!busy}
-                  onClick={() => act("resume", () => fetch(`/api/v1/support/tickets/${t.id}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ toStatus: "IN_PROGRESS", note: "Resumed from hold" }) }), "Ticket resumed")}>
-                  {busy === "resume" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <PlayCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />}
-                  Resume Work
-                </Button>
-              )}
-              <Button size="sm" className="bg-[#059669] hover:bg-[#047857] text-white" disabled={!!busy} onClick={() => setResolveOpen(true)}>
-                <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Resolve Incident
-              </Button>
-              {!t.escalatedAt ? (
-                <Button size="sm" variant="outline" className="border-slate-300" disabled={!!busy}
-                  onClick={() => act("escalate", () => fetch(`/api/v1/support/tickets/${t.id}/escalate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: "Manual escalation from dashboard" }) }), "Ticket escalated")}>
-                  <ShieldAlert className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Escalate
-                </Button>
-              ) : null}
-            </>
-          ) : null}
-        </div>
+    <div className="-m-5 flex min-h-[calc(100vh-52px)] flex-col bg-white">
+      {/* Form header */}
+      <div className="u-bar sticky -top-5 z-20 flex flex-wrap items-center gap-2 px-3 py-2">
+        <button type="button" className="u-icon-btn" onClick={() => router.push("/staff/tickets")} aria-label="Back to list" title="Back"><ChevronLeft className="h-4 w-4" aria-hidden /></button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="u-icon-btn" aria-label="Record menu" title="Additional actions"><Menu className="h-4 w-4" aria-hidden /></button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem onSelect={() => { navigator.clipboard?.writeText(window.location.href); toast({ title: "Link copied" }); }}><Link2 className="mr-2 h-4 w-4" aria-hidden />Copy URL</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { navigator.clipboard?.writeText(t.ticketNumber); toast({ title: "Ticket number copied" }); }}><Copy className="mr-2 h-4 w-4" aria-hidden />Copy ticket number</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => load()}><RefreshCw className="mr-2 h-4 w-4" aria-hidden />Reload form</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => window.print()}><Printer className="mr-2 h-4 w-4" aria-hidden />Print</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <h1 className="mr-2 truncate text-[17px] font-semibold">Ticket - {t.ticketNumber}</h1>
+        <a href="#related" className="u-ghost-icon" title={`Attachments (${t.attachments.length})`} aria-label="Attachments">
+          <Paperclip className="h-[18px] w-[18px]" aria-hidden />
+        </a>
+        <a href="#activity" className="u-ghost-icon" title="Activity" aria-label="Activity"><Activity className="h-[18px] w-[18px]" aria-hidden /></a>
+        <div className="ml-auto flex flex-wrap items-center gap-2">{actionButtons}</div>
       </div>
 
-      {/* ServiceNow Progress State Flow Chevron Bar */}
-      <div className="flex overflow-x-auto rounded border border-[#d1d7dc] bg-white p-1 text-xs shadow-sm select-none">
-        {[
-          { key: "NEW_COMPLAINT", step: "1. New", label: "New Complaint" },
-          { key: "IN_PROGRESS", step: "2. Work in Progress", label: "Work in Progress" },
-          { key: "ON_HOLD", step: "3. Pending / Hold", label: "On Hold" },
-          { key: "RESOLVED", step: "4. Resolved", label: "Resolved" },
-          { key: "CLOSED", step: "5. Closed", label: "Closed" },
-        ].map((s) => {
-          const isCurrent = t.status === s.key;
-          const statusOrder = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"];
-          const isPassed = statusOrder.indexOf(t.status) > statusOrder.indexOf(s.key);
-          return (
-            <div
-              key={s.key}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-center border-r last:border-r-0 font-semibold transition whitespace-nowrap ${
-                isCurrent
-                  ? "bg-[#1f70c1] text-white font-bold shadow-xs"
-                  : isPassed
-                  ? "bg-[#ecfdf5] text-[#065f46]"
-                  : "bg-[#f8fafc] text-slate-400"
-              }`}
-            >
-              {isPassed ? <CheckCircle2 className="h-3.5 w-3.5 text-[#059669]" /> : null}
-              <span>{s.step}</span>
-            </div>
-          );
+      {/* State flow */}
+      <div className="u-flow" aria-label="Ticket state">
+        {FLOW.map((s) => {
+          const idx = FLOW.indexOf(t.status);
+          const i = FLOW.indexOf(s);
+          const onHoldSkipped = s === "ON_HOLD" && t.status !== "ON_HOLD" && !t.statusHistory.some((h) => h.toStatus === "ON_HOLD");
+          const cls = s === t.status ? "current" : i < idx && !onHoldSkipped ? "done" : "";
+          return <div key={s} className={cn("u-flow-step", cls)}>{STATUS_LABELS[s] || s}</div>;
         })}
       </div>
 
+      {/* Info messages */}
       {isClosed ? (
-        <div className="flex items-center gap-2 rounded border border-slate-300 bg-slate-100 p-3 text-xs text-slate-600">
-          <Timer className="h-4 w-4 text-slate-400" aria-hidden />
-          This incident is <strong>Closed</strong> and permanently read-only in compliance with ITIL audit rules.
+        <div className="border-b border-[#c7d8ee] bg-[#eef5fd] px-4 py-2 text-sm text-[#1e4f87]">
+          <Info className="mr-2 inline h-4 w-4" aria-hidden />This ticket is closed and read-only. Closed tickets are kept as a historical record.
+        </div>
+      ) : null}
+      {overdue ? (
+        <div className="border-b border-[#f3c4c0] bg-[#fdf0ef] px-4 py-2 text-sm text-[#9b2c22]">
+          <TriangleAlert className="mr-2 inline h-4 w-4" aria-hidden />Resolution deadline passed on {dt(t.slaResolutionDueAt)}.
+        </div>
+      ) : null}
+      {t.escalatedAt ? (
+        <div className="border-b border-[#ddd0f7] bg-[#f6f2fe] px-4 py-2 text-sm text-[#5b3aa8]">
+          <ShieldAlert className="mr-2 inline h-4 w-4" aria-hidden />Escalated on {dt(t.escalatedAt)}.
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Left column: ServiceNow Form sections + Dual-channel Activity Stream */}
-        <div className="space-y-4 lg:col-span-2">
-          <Card className="border border-[#d1d7dc] shadow-sm">
-            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Incident Details & Requester</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 p-4">
-              <p className="rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-800 border border-slate-200/60 font-medium">{t.description}</p>
-              <div className="grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
-                <p className="flex items-center gap-1.5 text-slate-700 font-semibold"><UserRound className="h-3.5 w-3.5 text-slate-400" aria-hidden />{t.customerName}</p>
-                <p className="text-slate-600">Phone: <span className="font-mono text-xs text-slate-800">{t.customerPhone}</span></p>
-                <p className="truncate text-slate-600">Email: <span className="text-slate-800">{t.customerEmail}</span></p>
-                <p className="text-slate-600">Branch: <strong className="text-slate-800">{t.branch.name}</strong> ({t.branch.code})</p>
-                <p className="text-slate-600">Category: <strong className="text-slate-800">{t.category.name}</strong></p>
-                <p className="text-slate-600">Department: {t.department?.name || <span className="text-slate-400">None (general queue)</span>}</p>
-                <p className="text-slate-600">Channel / Source: <span className="font-mono text-[11px] uppercase">{t.source}</span></p>
-                <p className="text-slate-600">Submitted: {fmt(t.createdAt)}</p>
-                <p className="text-slate-600">Assigned: {t.assignee ? `${fmt(t.assignedAt)} → ${t.assignee.name}` : "Not assigned"}</p>
-                {t.autoCloseAt && t.status === "RESOLVED" ? <p className="text-slate-600">Auto-close deadline: {fmt(t.autoCloseAt)}</p> : null}
-                {t.closedAt ? <p className="text-slate-600">Closed: {fmt(t.closedAt)}</p> : null}
-                <p className="text-slate-600">SLA response due: {fmt(t.slaResponseDueAt)} {t.slaTracking?.firstResponseBreached ? <span className="text-red-600 font-bold">(breached)</span> : null}</p>
-                <p className="text-slate-600">SLA resolution due: {fmt(t.slaResolutionDueAt)} {t.slaTracking?.resolutionBreached ? <span className="text-red-600 font-bold">(breached)</span> : null}</p>
-              </div>
-              {t.feedback ? (
-                <div className={`flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs ${t.feedback.rating <= 2 ? "border-red-200 bg-red-50 text-red-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600">CSAT Score:</span>
-                  <span className="flex items-center gap-0.5" aria-label={`${t.feedback.rating} out of 5 stars`}>
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <Star key={n} className={`h-4 w-4 ${n <= t.feedback!.rating ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} aria-hidden />
-                    ))}
-                  </span>
-                  <span className="font-bold">{t.feedback.rating}/5</span>
-                  {t.feedback.comment ? <span className="w-full text-slate-700 italic">“{t.feedback.comment}”</span> : null}
-                </div>
-              ) : null}
-              {t.attachments.length > 0 ? (
-                <div>
-                  <Separator className="my-3" />
-                  <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500"><Paperclip className="h-3.5 w-3.5" aria-hidden />Evidence Attachments</p>
-                  <div className="flex flex-wrap gap-2">
-                    {t.attachments.map((a) => (
-                      <a key={a.id} href={`/api/v1/attachments/${a.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 rounded-md border border-[#d1d7dc] bg-white px-2.5 py-1.5 text-xs text-[#1f70c1] hover:bg-[#eff6ff] font-medium shadow-2xs">
-                        <FileText className="h-3.5 w-3.5" aria-hidden />{a.originalName} <span className="text-slate-400">({Math.round(a.sizeBytes / 1024)} KB)</span>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-
-          {/* Dual-Channel Activity Stream (ServiceNow Polaris Journal) */}
-          <Card className="border border-[#d1d7dc] shadow-sm">
-            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Activity Stream & Journal
-                </CardTitle>
-                <div className="flex items-center gap-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setActivityFilter("all")}
-                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "all" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
-                  >
-                    All ({t.messages.length + t.statusHistory.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivityFilter("comments")}
-                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "comments" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
-                  >
-                    Comments
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivityFilter("notes")}
-                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "notes" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
-                  >
-                    Work Notes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivityFilter("history")}
-                    className={`rounded px-2 py-0.5 font-semibold transition ${activityFilter === "history" ? "bg-[#1f70c1] text-white" : "text-slate-600 hover:bg-slate-200"}`}
-                  >
-                    History
-                  </button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4">
-              {/* Dual-Channel Composer */}
-              {!isClosed ? (
-                <div className="rounded border border-[#d1d7dc] bg-white p-3 shadow-xs">
-                  {/* Mode Tabs */}
-                  <div className="mb-2 flex items-center gap-1 border-b border-slate-200 pb-2">
-                    <button
-                      type="button"
-                      onClick={() => setJournalMode("comments")}
-                      className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold transition ${
-                        journalMode === "comments"
-                          ? "bg-[#eff6ff] text-[#1d4ed8] border border-[#bfdbfe]"
-                          : "text-slate-500 hover:text-slate-800"
-                      }`}
-                    >
-                      <Reply className="h-3.5 w-3.5" />
-                      Additional Comments (Customer Visible)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setJournalMode("work_notes")}
-                      className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold transition ${
-                        journalMode === "work_notes"
-                          ? "bg-[#fffbeb] text-[#b45309] border border-[#fde68a]"
-                          : "text-slate-500 hover:text-slate-800"
-                      }`}
-                    >
-                      <MessageSquarePlus className="h-3.5 w-3.5" />
-                      Work Notes (Staff Internal Only)
-                    </button>
-                  </div>
-
-                  {journalMode === "comments" ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span className="text-[#1d4ed8] font-medium">Customer-facing reply (will be dispatched via email)</span>
-                        <CannedPicker
-                          context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
-                          onInsert={(text) => setReplyText((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
-                          disabled={!!busy}
-                        />
-                      </div>
-                      <Textarea
-                        rows={3}
-                        placeholder="Write a clear response to the customer..."
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        className="rounded border-[#bfdbfe] bg-[#eff6ff]/30 text-xs focus:border-[#3b82f6]"
-                        disabled={!!busy}
-                      />
-                      <Button
-                        size="sm"
-                        className="bg-[#1f70c1] hover:bg-[#155799] text-white text-xs font-semibold"
-                        disabled={!!busy || replyText.trim().length < 2}
-                        onClick={async () => {
-                          const okRes = await act("reply", () => fetch(`/api/v1/support/tickets/${t.id}/replies`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reply: replyText.trim() }) }), "Reply sent to customer");
-                          if (okRes) setReplyText("");
-                        }}
-                      >
-                        {busy === "reply" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
-                        Post Customer Update
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="text-xs text-[#b45309] font-medium">
-                        Private Work Note (Internal to staff — strictly hidden from customer)
-                      </div>
-                      <Textarea
-                        rows={3}
-                        placeholder="Document investigation findings, telephone calls, or vendor follow-ups..."
-                        value={noteText}
-                        onChange={(e) => setNoteText(e.target.value)}
-                        className="rounded border-[#fde68a] bg-[#fffbeb]/40 text-xs focus:border-[#f59e0b]"
-                        disabled={!!busy}
-                      />
-                      <Button
-                        size="sm"
-                        className="bg-[#d97706] hover:bg-[#b45309] text-white text-xs font-semibold"
-                        disabled={!!busy || noteText.trim().length < 2}
-                        onClick={async () => {
-                          const okRes = await act("note", () => fetch(`/api/v1/support/tickets/${t.id}/notes`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note: noteText.trim() }) }), "Internal note added");
-                          if (okRes) setNoteText("");
-                        }}
-                      >
-                        {busy === "note" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <MessageSquarePlus className="mr-1.5 h-3.5 w-3.5" />}
-                        Save Work Note
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {/* Feed Stream */}
-              <div className="space-y-3 pt-2">
-                {t.messages.length === 0 ? (
-                  <p className="rounded border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
-                    No communication posted on this incident yet.
-                  </p>
-                ) : (
-                  t.messages
-                    .filter((m) => {
-                      if (activityFilter === "comments") return m.visibility !== "INTERNAL";
-                      if (activityFilter === "notes") return m.visibility === "INTERNAL";
-                      return true;
-                    })
-                    .map((m) => (
-                      <div
-                        key={m.id}
-                        className={`rounded p-3 text-xs shadow-xs ${
-                          m.visibility === "INTERNAL"
-                            ? "sn-work-notes"
-                            : "sn-customer-comments"
-                        }`}
-                      >
-                        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-black/5 pb-1">
-                          <div className="flex items-center gap-1.5 font-bold">
-                            <span className="text-slate-800">{m.authorName}</span>
-                            <span
-                              className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${
-                                m.visibility === "INTERNAL"
-                                  ? "bg-amber-200 text-amber-900"
-                                  : "bg-blue-200 text-blue-900"
-                              }`}
-                            >
-                              {m.visibility === "INTERNAL" ? "Work Note (Internal)" : "Customer Comment"}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-mono">{fmt(m.createdAt)}</span>
-                        </div>
-                        <p className="text-xs leading-relaxed text-slate-800 whitespace-pre-wrap">{m.body}</p>
-                      </div>
-                    ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border border-[#d1d7dc] shadow-sm">
-            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Audit & State Transition History</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <ol className="relative space-y-3 border-l-2 border-slate-200 pl-5">
-                {t.statusHistory.map((h) => (
-                  <li key={h.id} className="relative">
-                    <span className="absolute -left-[26.5px] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#1f70c1] ring-2 ring-white" aria-hidden />
-                    <p className="text-sm text-slate-800">
-                      {h.fromStatus ? `${STATUS_LABELS[h.fromStatus] || h.fromStatus} → ` : ""}
-                      <strong>{STATUS_LABELS[h.toStatus] || h.toStatus}</strong>
-                      <span className="ml-2 text-xs text-slate-400">by {h.changedByName} · {fmt(h.createdAt)}</span>
-                    </p>
-                    {h.note ? <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{h.note}</p> : null}
-                  </li>
-                ))}
-              </ol>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column: ServiceNow Contextual Side Panel */}
-        <div className="space-y-4">
-          {/* ServiceNow SLA Countdown Widget */}
-          <Card className="border border-[#d1d7dc] shadow-sm">
-            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
-              <CardTitle className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-700">
-                <span className="flex items-center gap-1.5">
-                  <Timer className="h-4 w-4 text-[#1f70c1]" />
-                  Service Level Agreement (SLA)
-                </span>
-                <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${overdue ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
-                  {overdue ? "SLA Breached" : "Within Target"}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 p-4 text-xs">
-              <div>
-                <div className="flex items-center justify-between text-slate-500 mb-1">
-                  <span>Resolution Target:</span>
-                  <span className="font-semibold text-slate-800">{fmt(t.slaResolutionDueAt)}</span>
-                </div>
-                {/* Visual Risk Gauge */}
-                <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                  <div
-                    className={`h-full transition-all ${overdue ? "w-full bg-red-600" : t.status === "RESOLVED" || t.status === "CLOSED" ? "w-full bg-emerald-500" : "w-3/4 bg-[#1f70c1]"}`}
+      <div className="mx-auto w-full max-w-[1400px] space-y-8 px-6 py-6">
+        {/* Fields */}
+        <section className="space-y-3">
+          <div className="u-form-grid">
+            <div className="space-y-2.5">
+              {field("Number", ro(t.ticketNumber))}
+              {field("Member", ro(t.customerName, (
+                <a className="u-icon-btn shrink-0" href={`/staff/tickets?customerSearch=${encodeURIComponent(t.customerPhone)}&scope=all`} title="Other tickets from this member" aria-label="Other tickets from this member">
+                  <Info className="h-4 w-4 text-[var(--u-accent)]" aria-hidden />
+                </a>
+              )), { req: true })}
+              {field("Mobile", ro(t.customerPhone))}
+              {field("Email", ro(t.customerEmail))}
+              {field("Branch", canAssign && acrossBranches && branches.length ? (
+                <select className={cn("u-select", branchChanged && "u-changed")} value={branch} onChange={(e) => setBranch(e.target.value)} aria-label="Branch">
+                  {!branches.some((b) => b.id === t.branch.id) ? <option value={t.branch.id}>{t.branch.name}</option> : null}
+                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              ) : ro(`${t.branch.name} (${t.branch.code})`), { req: true })}
+              {field("Category", ro(t.category.name), { req: true })}
+              {field("Priority", ro(PRIORITY_TEXT[t.priority] || t.priority))}
+            </div>
+            <div className="space-y-2.5">
+              {field("Opened", ro(dt(t.createdAt)))}
+              {field("Contact type", ro(SOURCE_TEXT[t.source] || t.source))}
+              {field("State", ro(STATUS_LABELS[t.status] || t.status))}
+              {field("Assignment group", canAssign ? (
+                <select className={cn("u-select", groupChanged && "u-changed")} value={group} onChange={(e) => setGroup(e.target.value)} aria-label="Assignment group">
+                  <option value="">-- None --</option>
+                  {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              ) : ro(t.department?.name || ""))}
+              {field("Assigned to", canAssign ? (
+                <div className={cn("rounded-[3px]", assigneeChanged && "u-changed")}>
+                  <StaffPicker
+                    staff={acrossBranches ? staff : staff.filter((p) => p.branchId === t.branch.id)}
+                    value={assignee}
+                    onChange={setAssignee}
+                    placeholder="(empty) — select employee"
+                    preferBranchId={branch}
+                    className="!h-8 w-full !rounded-[3px] !border-[var(--u-input-line)] !text-sm"
+                    ariaLabel="Assigned to"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 border-t border-slate-100 pt-2">
-                <div>
-                  <span className="text-slate-400 block">First Response:</span>
-                  <span className="font-medium text-slate-700">{t.slaTracking?.firstResponseMetAt ? "Met ✓" : t.slaTracking?.firstResponseBreached ? "Breached ✕" : "Pending"}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Reopen Window:</span>
-                  <span className="font-medium text-slate-700">{t.autoCloseAt ? fmt(t.autoCloseAt) : "72 Hours"}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              ) : ro(t.assignee?.name || ""))}
+              {assigneeChanged && assigneeEntry ? (
+                <p className="pl-[calc(34%+12px)] text-xs text-[#8a5a00]">
+                  {assigneeEntry.branchId !== branch ? `Ticket will move to ${assigneeEntry.branch?.name}. ` : ""}
+                  {!assigneeEntry.availabilityEnabled ? `${assigneeEntry.name} is marked away. ` : ""}
+                  {assigneeEntry.openTickets} open ticket{assigneeEntry.openTickets === 1 ? "" : "s"}.
+                </p>
+              ) : null}
+              {field("Escalated", ro(t.escalatedAt ? `Yes — ${dt(t.escalatedAt)}` : "No"))}
+              {field("Resolution due", ro(dt(t.slaResolutionDueAt) + (t.slaTracking?.resolutionBreached || overdue ? "  (breached)" : "")))}
+            </div>
+          </div>
 
-          <Card className="border border-[#d1d7dc] shadow-sm">
-            <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Assignment & Routing</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-md bg-slate-50 p-3 text-sm">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Current assignee</p>
-                {t.assignee ? (
-                  <p className="mt-1 text-slate-700">{t.assignee.name} <span className="text-xs text-slate-400">· {t.assignee.designation}</span></p>
-                ) : (
-                  <p className="mt-1 flex items-center gap-1.5 text-amber-800">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-hidden /> Unassigned — awaiting round-robin
-                  </p>
-                )}
-              </div>
+          <div className="u-field-wide pt-1">
+            <label className="u-label req pt-1.5">Short description</label>
+            <input className="u-input" readOnly value={shortDescription} />
+          </div>
+          <div className="u-field-wide">
+            <label className="u-label pt-1.5">Description</label>
+            <textarea className="u-textarea" readOnly rows={Math.min(8, Math.max(3, Math.ceil(t.description.length / 140)))} value={t.description} />
+          </div>
+        </section>
 
-              {canAssign && !isClosed ? (
+        {/* Notes */}
+        <section id="activity" className="space-y-3">
+          <div className="flex items-center justify-between border-b border-[var(--u-line)] pb-1.5">
+            <h2 className="u-section-title">Notes</h2>
+            <button type="button" className="u-ghost-icon" onClick={() => setNotesOpen((v) => !v)} aria-label={notesOpen ? "Collapse notes" : "Expand notes"} aria-expanded={notesOpen}>
+              {notesOpen ? <ChevronUp className="h-5 w-5" aria-hidden /> : <ChevronDown className="h-5 w-5" aria-hidden />}
+            </button>
+          </div>
+
+          {notesOpen ? (
+            <>
+              {!isClosed ? (
                 <>
-                  <div className="space-y-1.5">
-                    <Label>{t.assignee ? "Reassign to" : "Assign to"}</Label>
-                    <StaffPicker
-                      staff={acrossBranches ? staff : staff.filter((p) => p.branchId === t.branch.id)}
-                      value={assignTo}
-                      onChange={setAssignTo}
-                      placeholder="Search employee…"
-                      preferBranchId={t.branch.id}
-                      excludeIds={t.assignee ? [t.assignee.id] : []}
-                      className="h-9 w-full"
-                      ariaLabel="Select employee"
-                    />
-                    {(() => {
-                      const target = staff.find((p) => p.id === assignTo);
-                      if (!target) return null;
-                      return (
-                        <p className="text-[11px] text-slate-500">
-                          {target.branchId !== t.branch.id ? (
-                            <span className="font-medium text-amber-700">The ticket will move from {t.branch.name} to {target.branch?.name}. </span>
-                          ) : null}
-                          {!target.availabilityEnabled ? <span className="text-amber-700">{target.name} is marked away. </span> : null}
-                          {target.openTickets} open ticket{target.openTickets === 1 ? "" : "s"}.
-                        </p>
-                      );
-                    })()}
-                    <Input
-                      value={assignNote}
-                      onChange={(e) => setAssignNote(e.target.value)}
-                      placeholder="Reason (optional)"
-                      className="h-9 text-xs"
-                      maxLength={500}
-                      aria-label="Reassignment reason"
-                    />
-                    <Button size="sm" className="w-full bg-[#1f70c1] hover:bg-[#185999] text-white text-xs font-semibold shadow-xs" disabled={!!busy || !assignTo}
-                      onClick={async () => {
-                        const okRes = await act("assign", () => fetch(`/api/v1/support/tickets/${t.id}/assign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ employeeId: assignTo, note: assignNote.trim() }) }), t.assignee ? "Ticket reassigned" : "Ticket assigned");
-                        if (okRes) { setAssignTo(""); setAssignNote(""); }
-                      }}>
-                      {busy === "assign" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" aria-hidden />} {t.assignee ? "Reassign ticket" : "Assign ticket"}
-                    </Button>
+                  <div className="u-field-wide">
+                    <div className="u-label pt-1.5">
+                      Additional comments
+                      <span className="block text-xs text-[var(--u-text-2)]">(Member visible — emailed)</span>
+                    </div>
+                    <div className="space-y-1">
+                      <textarea className="u-textarea" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Reply to the member…" aria-label="Additional comments (member visible)" />
+                      <div className="flex justify-end">
+                        <CannedPicker
+                          context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                          onInsert={(text) => setComments((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  {departments.length > 0 ? (
-                    <div className="space-y-1.5 border-t border-slate-100 pt-3">
-                      <Label>Move to department</Label>
-                      <Select value={moveDept} onValueChange={setMoveDept}>
-                        <SelectTrigger className="w-full" aria-label="Select department"><SelectValue placeholder={t.department ? `Now: ${t.department.name}` : "Select department"} /></SelectTrigger>
-                        <SelectContent>
-                          {departments.filter((d) => d.id !== t.department?.id).map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                          {t.department ? <SelectItem value="none">No department (general queue)</SelectItem> : null}
-                        </SelectContent>
-                      </Select>
-                      <label className="flex items-center gap-2 text-xs text-slate-600">
-                        <Checkbox checked={moveReassign} onCheckedChange={(v) => setMoveReassign(v === true)} />
-                        Re-assign to someone in that department
-                      </label>
-                      <Button size="sm" variant="outline" className="w-full" disabled={!!busy || !moveDept}
-                        onClick={async () => {
-                          const okRes = await act("dept", () => fetch(`/api/v1/support/tickets/${t.id}/department`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ departmentId: moveDept === "none" ? null : moveDept, reassign: moveReassign }) }), "Department updated");
-                          if (okRes) setMoveDept("");
-                        }}>
-                        {busy === "dept" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null} Move ticket
-                      </Button>
+                  <div className="u-field-wide">
+                    <label className="u-label pt-1.5" htmlFor="work-notes">
+                      Work notes
+                      <span className="block text-xs text-[var(--u-text-2)]">(Staff only)</span>
+                    </label>
+                    <textarea id="work-notes" className="u-textarea u-worknotes" rows={3} value={workNotes} onChange={(e) => setWorkNotes(e.target.value)} placeholder="Internal note for the team…" />
+                  </div>
+                  <div className="u-field-wide">
+                    <span />
+                    <div className="flex justify-end">
+                      <button type="button" className="u-btn u-btn-primary" disabled={!!busy || (!comments.trim() && !workNotes.trim())} onClick={() => update(false)}>Post</button>
                     </div>
-                  ) : null}
-                  {branches.length > 0 ? (
-                    <div className="space-y-1.5 border-t border-slate-100 pt-3">
-                      <Label>Transfer to another branch</Label>
-                      <Select value={transferTo} onValueChange={setTransferTo}>
-                        <SelectTrigger className="w-full" aria-label="Select branch"><SelectValue placeholder="Select branch" /></SelectTrigger>
-                        <SelectContent>
-                          {branches.filter((b) => b.id !== t.branch.id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" variant="outline" className="w-full" disabled={!!busy || !transferTo}
-                        onClick={async () => {
-                          const okRes = await act("transfer", () => fetch(`/api/v1/support/tickets/${t.id}/assign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transferBranchId: transferTo }) }), "Branch transferred — re-queued to new branch");
-                          if (okRes) setTransferTo("");
-                        }}>
-                        {busy === "transfer" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null} Transfer branch
-                      </Button>
-                    </div>
-                  ) : null}
+                  </div>
                 </>
               ) : null}
 
-              <div>
-                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">Assignment history</p>
-                <ul className="space-y-1 text-xs text-slate-500">
-                  {t.assignments.map((a) => (
-                    <li key={a.id} className="rounded border border-slate-100 px-2 py-1.5">
-                      <span className="font-medium text-slate-700">{a.assignee.name}</span> · {a.method} · {fmt(a.createdAt)}
-                      {a.note ? <span className="block text-[11px] text-slate-400">{a.note}</span> : null}
-                    </li>
+              {/* Activity stream */}
+              <div className="u-field-wide">
+                <div className="u-label pt-1">Activity</div>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-1 text-sm">
+                    {(["all", "comment", "worknote", "field"] as const).map((k) => (
+                      <button key={k} type="button" onClick={() => setActivityFilter(k)}
+                        className={cn("rounded px-2 py-1", activityFilter === k ? "bg-[#e3effc] font-semibold text-[var(--u-link)]" : "text-[var(--u-text-2)] hover:bg-[#f1f2f3]")}>
+                        {k === "all" ? `All (${activity.length})` : k === "comment" ? "Comments" : k === "worknote" ? "Work notes" : "Field changes"}
+                      </button>
+                    ))}
+                  </div>
+                  {filtered.length === 0 ? <p className="text-sm text-[var(--u-text-2)]">No activity yet.</p> : null}
+                  {filtered.map((a) => (
+                    <div key={a.id} className={cn("u-activity px-3 py-2", a.kind === "comment" && "is-comment", a.kind === "worknote" && "is-worknote", a.kind === "field" && "is-field")}>
+                      <div className="flex flex-wrap items-baseline justify-between gap-2 text-[13px]">
+                        <span>
+                          <span className="mr-2 tabular-nums text-[var(--u-text-2)]">{dt(a.at)}</span>
+                          <span className="font-semibold text-[#1d5fb0]">{a.who}</span>
+                        </span>
+                        <span className="text-xs font-medium text-[var(--u-text-2)]">{a.title}</span>
+                      </div>
+                      {a.changes?.map((c, i) => (
+                        <p key={i} className="mt-1 text-[13px]">
+                          <span className="font-semibold">{c.field}:</span> {c.to}
+                          {c.from ? <span className="text-[var(--u-text-2)]"> was {c.from}</span> : null}
+                        </p>
+                      ))}
+                      {a.body ? <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{a.body}</p> : null}
+                    </div>
                   ))}
-                  {t.assignments.length === 0 ? <li>No assignment records.</li> : null}
-                </ul>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {t.reopenHistory.length > 0 ? (
-            <Card className="border border-[#d1d7dc] shadow-sm">
-              <CardHeader className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2.5">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">Reopen Audit History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-xs text-slate-600">
-                  {t.reopenHistory.map((r) => (
-                    <li key={r.id} className="rounded border border-slate-100 p-2">
-                      <p className="font-medium text-slate-700">{fmt(r.reopenedAt)}</p>
-                      <p className="mt-0.5 leading-relaxed text-slate-500">{r.reason}</p>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            </>
           ) : null}
-        </div>
+        </section>
+
+        {/* Resolution & SLA */}
+        <section className="space-y-3">
+          <div className="border-b border-[var(--u-line)] pb-1.5"><h2 className="u-section-title">Resolution information &amp; SLA</h2></div>
+          <div className="u-form-grid">
+            <div className="space-y-2.5">
+              {field("Resolved", ro(dt(t.resolvedAt)))}
+              {field("Auto-close on", ro(t.status === "RESOLVED" ? dt(t.autoCloseAt) : ""))}
+              {field("Closed", ro(dt(t.closedAt)))}
+              {field("Reopen count", ro(String(t.reopenCount)))}
+            </div>
+            <div className="space-y-2.5">
+              {field("Response due", ro(dt(t.slaResponseDueAt) + (t.slaTracking?.firstResponseBreached ? "  (breached)" : "")))}
+              {field("First response", ro(dt(t.firstResponseAt || t.slaTracking?.firstResponseMetAt || null)))}
+              {field("Member rating", t.feedback ? (
+                <div className="flex h-8 items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((n) => <Star key={n} className={cn("h-4 w-4", n <= t.feedback!.rating ? "fill-[#f4b400] text-[#f4b400]" : "text-[#c4c9cf]")} aria-hidden />)}
+                  <span className="ml-1 text-sm font-semibold">{t.feedback.rating}/5</span>
+                </div>
+              ) : ro(t.status === "RESOLVED" || isClosed ? "Not rated yet" : ""))}
+              {field("Updated", ro(dt(t.updatedAt)))}
+            </div>
+          </div>
+          <div className="u-field-wide">
+            <label className="u-label pt-1.5">Resolution notes</label>
+            <textarea className="u-textarea" readOnly rows={2} value={resolutionNote} />
+          </div>
+          {t.feedback?.comment ? (
+            <div className="u-field-wide">
+              <label className="u-label pt-1.5">Member feedback</label>
+              <textarea className="u-textarea" readOnly rows={2} value={t.feedback.comment} />
+            </div>
+          ) : null}
+        </section>
+
+        {/* Bottom buttons (as in the header) */}
+        {!isClosed ? <div className="flex flex-wrap gap-2 border-t border-[var(--u-line)] pt-4">{actionButtons}</div> : null}
       </div>
 
-      {/* Hold dialog */}
-      <Dialog open={holdOpen} onOpenChange={(o) => { setHoldOpen(o); if (!o) setHoldReason(""); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Put {t.ticketNumber} on hold</DialogTitle><DialogDescription>A reason is mandatory. The customer is notified by email.</DialogDescription></DialogHeader>
-          <Textarea rows={3} placeholder="Why is this ticket on hold?" value={holdReason} onChange={(e) => setHoldReason(e.target.value)} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setHoldOpen(false)}>Cancel</Button>
-            <Button disabled={holdReason.trim().length < 2 || busy === "hold"}
-              onClick={async () => {
-                const okRes = await act("hold", () => fetch(`/api/v1/support/tickets/${t.id}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ toStatus: "ON_HOLD", reason: holdReason.trim() }) }), "Ticket on hold");
-                if (okRes) { setHoldOpen(false); setHoldReason(""); }
-              }}>
-              {busy === "hold" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <PauseCircle className="mr-2 h-4 w-4" aria-hidden />} Put on hold
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Related lists */}
+      <section id="related" className="mt-auto border-t border-[var(--u-bar-line)] bg-white">
+        <div className="flex overflow-x-auto border-b border-[var(--u-line)] bg-[var(--u-bar)] px-3" role="tablist">
+          {([
+            ["assignments", `Assignment history (${t.assignments.length})`],
+            ["states", `State history (${t.statusHistory.length})`],
+            ["attachments", `Attachments (${t.attachments.length})`],
+            ["reopens", `Reopen history (${t.reopenHistory.length})`],
+          ] as const).map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} className={cn("u-tab", tab === k && "is-active")} onClick={() => setTab(k)}>{label}</button>
+          ))}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="u-table min-w-[720px]">
+            {tab === "assignments" ? (
+              <>
+                <thead><tr><th>Assigned to</th><th>Method</th><th>Note</th><th>Created</th></tr></thead>
+                <tbody>
+                  {t.assignments.length ? [...t.assignments].reverse().map((a) => (
+                    <tr key={a.id}><td>{a.assignee.name}</td><td>{a.method.replace(/_/g, " ").toLowerCase()}</td><td className="max-w-[520px]">{a.note}</td><td className="whitespace-nowrap tabular-nums">{dt(a.createdAt)}</td></tr>
+                  )) : <tr><td colSpan={4} className="text-center text-[var(--u-text-2)]">No records to display</td></tr>}
+                </tbody>
+              </>
+            ) : null}
+            {tab === "states" ? (
+              <>
+                <thead><tr><th>From</th><th>To</th><th>Changed by</th><th>Note</th><th>Created</th></tr></thead>
+                <tbody>
+                  {[...t.statusHistory].reverse().map((h) => (
+                    <tr key={h.id}><td>{h.fromStatus ? STATUS_LABELS[h.fromStatus] || h.fromStatus : "—"}</td><td>{STATUS_LABELS[h.toStatus] || h.toStatus}</td><td>{h.changedByName}</td><td className="max-w-[520px]">{h.note}</td><td className="whitespace-nowrap tabular-nums">{dt(h.createdAt)}</td></tr>
+                  ))}
+                </tbody>
+              </>
+            ) : null}
+            {tab === "attachments" ? (
+              <>
+                <thead><tr><th>File name</th><th>Type</th><th>Size</th></tr></thead>
+                <tbody>
+                  {t.attachments.length ? t.attachments.map((a) => (
+                    <tr key={a.id}>
+                      <td><a href={`/api/v1/attachments/${a.id}`} target="_blank" rel="noreferrer" className="u-link inline-flex items-center gap-1.5"><FileText className="h-4 w-4" aria-hidden />{a.originalName}</a></td>
+                      <td>{a.mimeType}</td><td className="tabular-nums">{Math.max(1, Math.round(a.sizeBytes / 1024))} KB</td>
+                    </tr>
+                  )) : <tr><td colSpan={3} className="text-center text-[var(--u-text-2)]">No records to display</td></tr>}
+                </tbody>
+              </>
+            ) : null}
+            {tab === "reopens" ? (
+              <>
+                <thead><tr><th>Reason</th><th>Reopened</th></tr></thead>
+                <tbody>
+                  {t.reopenHistory.length ? t.reopenHistory.map((r) => (
+                    <tr key={r.id}><td>{r.reason}</td><td className="whitespace-nowrap tabular-nums">{dt(r.reopenedAt)}</td></tr>
+                  )) : <tr><td colSpan={2} className="text-center text-[var(--u-text-2)]">No records to display</td></tr>}
+                </tbody>
+              </>
+            ) : null}
+          </table>
+        </div>
+      </section>
 
-      {/* Resolve dialog */}
-      <Dialog open={resolveOpen} onOpenChange={(o) => { setResolveOpen(o); if (!o) setResolution(""); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Resolve {t.ticketNumber}</DialogTitle><DialogDescription>The resolution message is mandatory and is emailed to the customer. Auto-closure is scheduled after the reopening window.</DialogDescription></DialogHeader>
-          <Textarea rows={4} placeholder="Describe the solution provided to the customer (minimum 10 characters)..." value={resolution} onChange={(e) => setResolution(e.target.value)} />
+      {/* Action dialogs */}
+      <Dialog open={!!dialog} onOpenChange={(o) => { if (!o) { setDialog(null); setDialogText(""); } }}>
+        <DialogContent className="ui16 sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{dialog === "hold" ? "Put ticket on hold" : dialog === "resolve" ? "Resolve ticket" : "Escalate ticket"}</DialogTitle>
+            <DialogDescription>
+              {dialog === "hold" ? "The reason is shared with the member." : dialog === "resolve" ? "Resolution notes are emailed to the member, who can reopen within the reopen window." : "Central support and the branch are notified."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className={cn("text-sm font-medium", dialog !== "escalate" && "after:ml-0.5 after:text-[#d93025] after:content-['*']")} htmlFor="dialog-text">
+                {dialog === "hold" ? "On hold reason" : dialog === "resolve" ? "Resolution notes" : "Reason (optional)"}
+              </label>
+              {dialog === "resolve" ? (
+                <CannedPicker
+                  context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                  onInsert={(text) => setDialogText((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
+                />
+              ) : null}
+            </div>
+            <textarea id="dialog-text" className="u-textarea" rows={4} value={dialogText} onChange={(e) => setDialogText(e.target.value)} maxLength={2000} />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveOpen(false)}>Cancel</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={resolution.trim().length < 10 || busy === "resolve"}
-              onClick={async () => {
-                const okRes = await act("resolve", () => fetch(`/api/v1/support/tickets/${t.id}/resolve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ resolution: resolution.trim() }) }), "Ticket resolved — closure scheduled");
-                if (okRes) { setResolveOpen(false); setResolution(""); }
-              }}>
-              {busy === "resolve" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <ArrowUpRight className="mr-2 h-4 w-4" aria-hidden />} Mark resolved
-            </Button>
+            <button type="button" className="u-btn" onClick={() => setDialog(null)}>Cancel</button>
+            <button type="button" className="u-btn u-btn-primary" disabled={!!busy || (dialog !== "escalate" && dialogText.trim().length < 3)} onClick={submitDialog}>
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+              {dialog === "hold" ? "Put on hold" : dialog === "resolve" ? "Resolve" : "Escalate"}
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -252,3 +252,140 @@
 .thin-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ==========================================================================
+   Classic service-desk UI (UI16-style) — staff workspace
+   Dark header + navigator, dense gray list/form chrome, blue links/actions.
+   Everything is namespaced under .ui16 so the member portal is unaffected.
+   ========================================================================== */
+.ui16 {
+  --u-header: #2b3540;
+  --u-nav: #303a46;
+  --u-nav-dark: #262e37;
+  --u-nav-hover: #3c4652;
+  --u-nav-line: #3d4752;
+  --u-nav-text: #e7eaed;
+  --u-nav-muted: #a3acb6;
+  --u-accent: #278efc;
+  --u-accent-hover: #1f7ae0;
+  --u-green: #81b5a1;
+  --u-bar: #f2f3f4;
+  --u-bar-line: #d5d8dc;
+  --u-line: #dfe2e5;
+  --u-text: #2e3740;
+  --u-text-2: #5b6570;
+  --u-link: #1f6fd0;
+  --u-stripe: #f7f8f9;
+  --u-hover: #eef4fb;
+  --u-input-line: #c4c9cf;
+  --u-readonly: #f1f2f3;
+  --u-worknote: #fdf9e3;
+  --u-worknote-line: #e7d98e;
+  font-size: 14px;
+  color: var(--u-text);
+}
+.ui16 a.u-link, .ui16 .u-link { color: var(--u-text); text-decoration: underline; text-underline-offset: 2px; }
+.ui16 a.u-link:hover, .ui16 .u-link:hover { color: var(--u-link); }
+
+/* Gray title bars (list + form headers) */
+.ui16 .u-bar { background: var(--u-bar); border-bottom: 1px solid var(--u-bar-line); min-height: 52px; }
+.ui16 .u-subbar { background: #fff; border-bottom: 1px solid var(--u-line); }
+
+/* Buttons */
+.ui16 .u-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: 3px; border: 1px solid var(--u-input-line);
+  background: #fff; color: var(--u-text); font-size: 13px; font-weight: 500; white-space: nowrap;
+  transition: background .12s, border-color .12s;
+}
+.ui16 .u-btn:hover:not(:disabled) { background: #f4f5f6; border-color: #aab0b7; }
+.ui16 .u-btn:disabled { opacity: .55; cursor: not-allowed; }
+.ui16 .u-btn-primary { background: var(--u-accent); border-color: var(--u-accent); color: #fff; }
+.ui16 .u-btn-primary:hover:not(:disabled) { background: var(--u-accent-hover); border-color: var(--u-accent-hover); }
+.ui16 .u-btn-danger { color: #b42318; }
+.ui16 .u-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; height: 32px; width: 32px;
+  border-radius: 3px; border: 1px solid var(--u-input-line); background: #fff; color: var(--u-text-2);
+}
+.ui16 .u-icon-btn:hover:not(:disabled) { background: #f4f5f6; color: var(--u-text); }
+.ui16 .u-ghost-icon { display: inline-flex; align-items: center; justify-content: center; height: 30px; width: 30px; border-radius: 3px; color: var(--u-text-2); }
+.ui16 .u-ghost-icon:hover { background: #e6e8eb; color: var(--u-text); }
+
+/* Inputs */
+.ui16 .u-input, .ui16 .u-select, .ui16 .u-textarea {
+  width: 100%; border: 1px solid var(--u-input-line); border-radius: 3px; background: #fff;
+  color: var(--u-text); font-size: 14px; padding: 0 9px; outline: none;
+}
+.ui16 .u-input, .ui16 .u-select { height: 32px; }
+.ui16 .u-textarea { padding: 7px 9px; min-height: 64px; resize: vertical; line-height: 1.45; }
+.ui16 .u-input:focus, .ui16 .u-select:focus, .ui16 .u-textarea:focus { border-color: var(--u-accent); box-shadow: 0 0 0 2px rgba(39,142,252,.18); }
+.ui16 .u-input[readonly], .ui16 .u-textarea[readonly], .ui16 .u-readonly { background: var(--u-readonly); color: #3f4852; }
+.ui16 .u-worknotes { background: var(--u-worknote) !important; border-color: var(--u-worknote-line) !important; }
+.ui16 .u-changed { border-color: #f0b429 !important; box-shadow: 0 0 0 2px rgba(240,180,41,.2); }
+
+/* List */
+.ui16 .u-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.ui16 .u-table thead th {
+  position: sticky; top: 0; z-index: 2; background: #fff; text-align: left; font-weight: 500; color: var(--u-text);
+  border-bottom: 1px solid var(--u-bar-line); padding: 10px 10px; white-space: nowrap;
+}
+.ui16 .u-table tbody td { padding: 8px 10px; border-bottom: 1px solid var(--u-line); vertical-align: middle; line-height: 1.35; }
+.ui16 .u-table tbody tr:nth-child(even) td { background: var(--u-stripe); }
+.ui16 .u-table tbody tr:hover td { background: var(--u-hover); }
+.ui16 .u-table tbody tr.u-selected td { background: #e3effc; }
+.ui16 .u-table .u-searchrow td { background: #fafbfb !important; padding: 6px 10px; border-bottom: 1px solid var(--u-bar-line); }
+.ui16 .u-col-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--u-text); }
+.ui16 .u-col-btn:hover { color: var(--u-link); }
+.ui16 .u-col-btn.is-sorted { color: var(--u-link); font-weight: 600; }
+
+/* Breadcrumb condition trail */
+.ui16 .u-crumb { color: var(--u-link); }
+.ui16 .u-crumb:hover { text-decoration: underline; }
+
+/* Form */
+.ui16 .u-form-grid { display: grid; grid-template-columns: 1fr; gap: 10px 32px; }
+@media (min-width: 1024px) { .ui16 .u-form-grid { grid-template-columns: 1fr 1fr; } }
+.ui16 .u-field { display: grid; grid-template-columns: 34% 1fr; align-items: center; gap: 12px; min-height: 32px; }
+.ui16 .u-field-wide { display: grid; grid-template-columns: 17% 1fr; align-items: start; gap: 12px; }
+@media (max-width: 1023px) { .ui16 .u-field-wide { grid-template-columns: 34% 1fr; } }
+.ui16 .u-label { text-align: right; color: var(--u-text); font-size: 14px; line-height: 1.25; }
+.ui16 .u-label.req::before { content: "*"; color: #d93025; margin-right: 4px; }
+.ui16 .u-section-title { font-size: 20px; font-weight: 400; color: var(--u-text); }
+
+/* Process flow (state chevrons) */
+.ui16 .u-flow { display: flex; background: #fff; border-bottom: 1px solid var(--u-line); overflow-x: auto; }
+.ui16 .u-flow-step {
+  position: relative; flex: 1; min-width: 120px; padding: 8px 18px 8px 26px; font-size: 13px; color: var(--u-text-2);
+  background: #f4f5f6; clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
+  margin-right: -8px; text-align: center; white-space: nowrap;
+}
+.ui16 .u-flow-step:first-child { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%); padding-left: 16px; }
+.ui16 .u-flow-step.done { background: #e2efe9; color: #2f6b52; }
+.ui16 .u-flow-step.current { background: var(--u-green); color: #fff; font-weight: 600; }
+
+/* Activity stream */
+.ui16 .u-activity { border-left: 3px solid #c9ced4; background: #fff; }
+.ui16 .u-activity.is-comment { border-left-color: #8ab4e8; }
+.ui16 .u-activity.is-worknote { border-left-color: #e2c84c; background: #fffdf2; }
+.ui16 .u-activity.is-field { border-left-color: #c9ced4; background: #fafbfb; }
+
+/* Related-list tabs */
+.ui16 .u-tab { padding: 10px 16px; font-size: 14px; color: var(--u-text-2); border-bottom: 3px solid transparent; white-space: nowrap; }
+.ui16 .u-tab:hover { color: var(--u-text); }
+.ui16 .u-tab.is-active { color: var(--u-text); border-bottom-color: var(--u-accent); font-weight: 600; }
+
+/* Navigator */
+.ui16 .u-nav-module { display: flex; align-items: center; gap: 10px; padding: 9px 14px 9px 16px; color: var(--u-nav-text); font-size: 14px; border-bottom: 1px solid var(--u-nav-line); }
+.ui16 .u-nav-module:hover { background: var(--u-nav-hover); }
+.ui16 .u-nav-module.is-active { background: var(--u-nav-hover); box-shadow: inset 3px 0 0 var(--u-green); }
+.ui16 .u-nav-app { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; font-size: 13px; font-weight: 600; letter-spacing: .02em; color: #fff; background: var(--u-nav-dark); border-bottom: 1px solid var(--u-nav-line); }
+
+/* Classic workspace: flatten cards / page titles used by the other staff pages */
+.ui16 main [data-slot="card"] { border-radius: 3px; box-shadow: none; border-color: var(--u-line); gap: 0; padding-block: 0; overflow: hidden; }
+.ui16 main [data-slot="card-header"] { background: var(--u-bar); border-bottom: 1px solid var(--u-line); padding: 10px 16px !important; gap: 2px; }
+.ui16 main [data-slot="card-title"] { font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--u-text); }
+.ui16 main [data-slot="card-content"] { padding: 14px 16px; }
+.ui16 main [data-slot="card-footer"] { padding: 10px 16px; border-top: 1px solid var(--u-line); }
+.ui16 main h1 { font-weight: 600; color: var(--u-text); letter-spacing: -0.01em; }
+.ui16 main [data-slot="button"] { border-radius: 3px; }
+.ui16 main [data-slot="input"], .ui16 main [data-slot="select-trigger"], .ui16 main [data-slot="textarea"] { border-radius: 3px; }

@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import type { AccessPolicy } from "@/lib/tickets";
 import { normalizePhone, type SessionUser } from "@/lib/types";
 
-export const SORT_FIELDS = ["ticketNumber", "customer", "branch", "category", "assignee", "status", "priority", "createdAt"] as const;
+export const SORT_FIELDS = ["ticketNumber", "customer", "branch", "category", "department", "assignee", "status", "priority", "createdAt", "updatedAt"] as const;
 export type SortField = (typeof SORT_FIELDS)[number];
 
 export interface TicketFilters {
@@ -197,6 +197,10 @@ function orderByFor(sort: SortField | undefined, dir: "asc" | "desc") {
       return [{ category: { name: dir } }, { createdAt: "desc" as const }];
     case "assignee":
       return [{ assignee: { name: dir } }, { createdAt: "desc" as const }];
+    case "department":
+      return [{ department: { name: dir } }, { createdAt: "desc" as const }];
+    case "updatedAt":
+      return [{ updatedAt: dir }];
     case "createdAt":
       return [{ createdAt: dir }];
     default:
