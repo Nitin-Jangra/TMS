@@ -1,17 +1,17 @@
 "use client";
 
 // Dedicated Staff & Administrative Login Portal for FitClass.
-// Redesigned with ServiceNow Next Experience (Polaris) enterprise authentication style.
-// Strictly internal: zero customer-portal links.
+// Styled to match the clean, simple ServiceNow Polaris enterprise aesthetic
+// used across all other panels (light canvas #F4F6F8, white card, #161F28 header, #1F70C1 corporate blue).
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, KeyRound, Loader2, LogIn, ShieldAlert, Users, Lock, ChevronDown, CheckCircle2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, ChevronDown, KeyRound, Loader2, LogIn, Users } from "lucide-react";
 
 const TEST_ACCOUNTS = [
   { label: "Root Admin (System Master)", email: "admin@fitclass.dev", password: "Admin@123", role: "ROOT_ADMIN" },
@@ -67,169 +67,145 @@ export default function StaffLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0f161e] text-[#f4f6f8]">
+    <div className="flex min-h-screen flex-col bg-[#f4f6f8] text-[#161f28]">
       {/* ServiceNow Polaris Header */}
-      <header className="border-b border-[#2a374a] bg-[#161f28] px-6 py-3.5 shadow-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
+      <header className="border-b border-[#2a374a] bg-[#161f28] text-white">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <Image
               src="/fitclass-logo.webp"
-              alt="Fitclass Logo"
-              width={130}
-              height={34}
-              className="h-8 w-auto object-contain"
+              alt="Fitclass"
+              width={120}
+              height={32}
+              className="h-7 w-auto object-contain"
               priority
             />
-            <span className="hidden border-l border-slate-700 pl-3 text-[11px] font-bold tracking-wider text-slate-400 sm:block">
-              SERVICENOW NEXT EXPERIENCE • WORKSPACE AUTH
+            <span className="hidden border-l border-slate-700 pl-3 text-[11px] font-bold tracking-wider text-slate-400 sm:block uppercase">
+              Service Management • Workspace Auth
             </span>
           </div>
-          <div className="flex items-center gap-2 rounded bg-[#101721] px-2.5 py-1 text-xs font-semibold text-slate-300 border border-slate-700">
-            <Lock className="h-3 w-3 text-[#30c497]" />
-            Restricted Operator Access
-          </div>
+
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded bg-[#101721] px-3 py-1.5 text-xs font-semibold text-slate-300 border border-slate-700 transition hover:border-[#1f70c1] hover:text-white"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Member Portal</span>
+          </Link>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="mx-auto flex w-full max-w-5xl flex-1 items-center justify-center px-4 py-12 sm:py-16">
-        <div className="grid w-full max-w-4xl gap-8 lg:grid-cols-12">
-          {/* Staff Login Card */}
-          <div className="lg:col-span-7">
-            <div className="rounded border border-[#2a374a] bg-[#182230] p-7 shadow-xl sm:p-9">
-              <div className="mb-6">
-                <span className="inline-flex items-center gap-1.5 rounded bg-[#1f70c1]/20 px-2.5 py-0.5 text-xs font-semibold text-[#60a5fa] border border-[#1f70c1]/40">
-                  <KeyRound className="h-3.5 w-3.5 text-[#38bdf8]" />
-                  ITIL Service Operations
-                </span>
-                <h1 className="mt-3 text-xl font-bold tracking-tight text-white sm:text-2xl">
-                  Agent Workspace Sign In
-                </h1>
-                <p className="mt-1.5 text-xs text-slate-400">
-                  Enter your assigned credentials to access ticket queues, branch round-robin assignments, and incident lifecycle management.
-                </p>
+      {/* Main Login Canvas */}
+      <main className="flex flex-1 items-center justify-center p-4 py-12 sm:py-16">
+        <div className="w-full max-w-md">
+          {/* Card */}
+          <div className="rounded-lg border border-[#d1d7dc] bg-white p-7 shadow-xs sm:p-9 animate-fade-in">
+            {/* Header */}
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#eef6fc] text-[#1f70c1] ring-1 ring-[#1f70c1]/20">
+                <KeyRound className="h-5 w-5" />
               </div>
-
-              {error ? (
-                <Alert variant="destructive" className="mb-5 border-red-500/30 bg-red-950/40 text-red-200">
-                  <AlertCircle className="h-4 w-4" aria-hidden />
-                  <AlertDescription className="text-xs">{error}</AlertDescription>
-                </Alert>
-              ) : null}
-
-              <form className="space-y-4" onSubmit={submit}>
-                <div className="space-y-1.5">
-                  <Label htmlFor="staff-email" className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Corporate Email / User ID
-                  </Label>
-                  <Input
-                    id="staff-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@fitclass.dev"
-                    autoComplete="username"
-                    className="h-10 rounded border-[#2a374a] bg-[#101721] text-xs text-slate-100 placeholder-slate-500 transition focus:border-[#1f70c1] focus:ring-1 focus:ring-[#1f70c1]"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="staff-password" className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                      Password
-                    </Label>
-                  </div>
-                  <Input
-                    id="staff-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    autoComplete="current-password"
-                    className="h-10 rounded border-[#2a374a] bg-[#101721] text-xs text-slate-100 placeholder-slate-500 transition focus:border-[#1f70c1] focus:ring-1 focus:ring-[#1f70c1]"
-                    required
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={busy}
-                  className="mt-3 h-10 w-full rounded bg-[#1f70c1] text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#155799] active:scale-[0.99] border-none shadow-sm"
-                >
-                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <LogIn className="mr-2 h-4 w-4" aria-hidden />}
-                  Authenticate & Launch Workspace
-                </Button>
-              </form>
-
-              {/* Quick Fill Demo Drawer */}
-              <div className="mt-6 border-t border-[#2a374a] pt-4 text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowAccounts(!showAccounts)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 transition hover:text-[#60a5fa]"
-                >
-                  <Users className="h-3.5 w-3.5 text-[#38bdf8]" />
-                  {showAccounts ? "Hide Test Credentials" : "Quick Fill Demo Accounts (ServiceNow Roles)"}
-                  <ChevronDown className={`h-3 w-3 transition-transform ${showAccounts ? "rotate-180" : ""}`} />
-                </button>
-
-                {showAccounts ? (
-                  <div className="mt-4 grid gap-2 text-left">
-                    {TEST_ACCOUNTS.map((acc) => (
-                      <button
-                        key={acc.email}
-                        type="button"
-                        onClick={() => fill(acc)}
-                        className="flex items-center justify-between rounded border border-[#2a374a] bg-[#101721] p-2.5 text-xs transition hover:border-[#1f70c1] hover:bg-[#162130]"
-                      >
-                        <div>
-                          <p className="font-semibold text-slate-200">{acc.label}</p>
-                          <p className="text-[11px] text-slate-400">{acc.email}</p>
-                        </div>
-                        <span className="rounded bg-[#1f70c1]/20 px-2 py-0.5 text-[10px] font-bold text-[#60a5fa] border border-[#1f70c1]/40">
-                          {acc.role}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Security & System Notice */}
-          <div className="flex flex-col justify-between space-y-6 lg:col-span-5">
-            <div className="rounded border border-[#2a374a] bg-[#182230] p-6 shadow-xl">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-white">
-                <ShieldAlert className="h-4 w-4 text-[#38bdf8]" />
-                Security & Role Compliance
-              </h2>
-              <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                All logins and status changes are audited with client IP, timestamp, and actor identity. Closed tickets are strictly immutable in compliance with ITIL standards.
+              <h1 className="text-xl font-bold tracking-tight text-[#161f28]">
+                Staff Workspace Sign In
+              </h1>
+              <p className="mt-1 text-xs text-slate-500">
+                Enter your credentials to access tickets, queues, and branch operations.
               </p>
-
-              <div className="mt-4 space-y-2 border-t border-[#2a374a] pt-3 text-xs text-slate-400">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#30c497]" />
-                  <span>Interactive SLA Countdown Enforcement</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#30c497]" />
-                  <span>34 Branch Scoped Queue Routing</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-[#30c497]" />
-                  <span>Dual-Channel Work Notes & Audit Logs</span>
-                </div>
-              </div>
             </div>
 
-            <div className="rounded border border-[#2a374a] bg-[#101721] p-4 text-[11px] text-slate-500">
-              <p className="font-semibold text-slate-400">Looking for Client Self-Service?</p>
-              <p className="mt-0.5">End-users register and track complaints without logging in via the public Service Portal.</p>
+            {/* Error message */}
+            {error ? (
+              <div className="mt-5 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                <span>{error}</span>
+              </div>
+            ) : null}
+
+            {/* Form */}
+            <form className="mt-6 space-y-4" onSubmit={submit}>
+              <div className="space-y-1.5">
+                <Label htmlFor="staff-email" className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Corporate Email
+                </Label>
+                <Input
+                  id="staff-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@fitclass.dev"
+                  autoComplete="username"
+                  className="h-9 rounded border-[#d1d7dc] bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#1f70c1] focus:ring-1 focus:ring-[#1f70c1]"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="staff-password" className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Password
+                  </Label>
+                </div>
+                <Input
+                  id="staff-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  autoComplete="current-password"
+                  className="h-9 rounded border-[#d1d7dc] bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#1f70c1] focus:ring-1 focus:ring-[#1f70c1]"
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={busy}
+                className="mt-2 h-10 w-full rounded bg-[#1f70c1] text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#185999] active:scale-[0.99] border-none shadow-xs"
+              >
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+                Sign In
+              </Button>
+            </form>
+
+            {/* Quick Fill Demo Drawer */}
+            <div className="mt-6 border-t border-[#e2e8f0] pt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setShowAccounts(!showAccounts)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-[#1f70c1]"
+              >
+                <Users className="h-3.5 w-3.5 text-[#1f70c1]" />
+                {showAccounts ? "Hide Demo Accounts" : "Quick Fill Demo Accounts"}
+                <ChevronDown className={`h-3 w-3 transition-transform ${showAccounts ? "rotate-180" : ""}`} />
+              </button>
+
+              {showAccounts ? (
+                <div className="mt-3 max-h-56 overflow-y-auto space-y-1.5 rounded-md border border-[#d1d7dc] bg-[#f8fafc] p-2 text-left">
+                  {TEST_ACCOUNTS.map((acc) => (
+                    <button
+                      key={acc.email}
+                      type="button"
+                      onClick={() => fill(acc)}
+                      className="flex w-full items-center justify-between rounded border border-transparent p-2 text-xs transition hover:border-[#d1d7dc] hover:bg-white"
+                    >
+                      <div className="truncate mr-2">
+                        <p className="font-semibold text-slate-800 truncate">{acc.label}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{acc.email}</p>
+                      </div>
+                      <span className="shrink-0 rounded bg-[#eef6fc] px-1.5 py-0.5 text-[10px] font-bold text-[#1f70c1] border border-[#1f70c1]/20">
+                        {acc.role}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
+
+          {/* Simple footer note */}
+          <p className="mt-6 text-center text-xs text-slate-400">
+            FitClass Service Management · Authorized Staff Only
+          </p>
         </div>
       </main>
     </div>
