@@ -31,16 +31,27 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   public_base_url: "", // e.g. https://support.fitclass.in — used for links in emails
 };
 
-export async function getSetting(key: string): Promise<string> {
-  const row = await db.systemSetting.findUnique({ where: { key } });
-  return row ? row.value : (SETTING_DEFAULTS[key] ?? "");
+let settingsCache: { data: Record<string, string>; expires: number } | null = null;
+
+export function invalidateSettingsCache() {
+  settingsCache = null;
 }
 
 export async function getSettings(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (settingsCache && now < settingsCache.expires) {
+    return settingsCache.data;
+  }
   const rows = await db.systemSetting.findMany();
   const out: Record<string, string> = { ...SETTING_DEFAULTS };
   for (const row of rows) out[row.key] = row.value;
+  settingsCache = { data: out, expires: now + 60000 };
   return out;
+}
+
+export async function getSetting(key: string): Promise<string> {
+  const all = await getSettings();
+  return all[key] ?? (SETTING_DEFAULTS[key] ?? "");
 }
 
 export interface SettingChange {
@@ -73,6 +84,7 @@ export async function updateSettings(
       });
     }
   }
+  invalidateSettingsCache();
 }
 
 /** Reopening window in hours (Root Admin configurable; never hardcoded). */

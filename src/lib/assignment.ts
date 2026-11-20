@@ -15,6 +15,7 @@ import { logAudit } from "@/lib/audit";
 import { queueNotification } from "@/lib/notifications";
 import { emitWebhook } from "@/lib/webhooks";
 import { getSetting } from "@/lib/settings";
+import { invalidateStatsCache } from "@/lib/branch-stats";
 
 export class AssignmentError extends Error {}
 
@@ -221,6 +222,7 @@ export async function assignTicketRoundRobin(
     variables: notificationVariables({ ticket: { ...ticket, assignee: { name: result.employee.name, email: employeeRecord?.email || "" } } }),
   });
   await emitWebhook("ticket.assigned", ticketId, { method, assignedBy: actor?.name || "System" });
+  invalidateStatsCache();
   return result.employee;
 }
 
@@ -313,6 +315,7 @@ export async function manuallyAssignTicket(
     variables: notificationVariables({ ticket: moving ? { ...ticket, branch: employee.branch, branchId: employee.branch.id } : ticket, assignee: { name: employee.name, email: employee.email } }),
   });
   await emitWebhook("ticket.assigned", ticketId, { method: "MANUAL", assignedBy: actor.name, note });
+  invalidateStatsCache();
   return { movedToBranch: moving ? employee.branch.name : null };
 }
 
@@ -346,6 +349,7 @@ export async function transferTicketBranch(
 
   const assigned = await assignTicketRoundRobin(ticketId, actor, "ROUND_ROBIN");
   if (!assigned) await notifyAssignmentFailed(ticketId);
+  invalidateStatsCache();
 }
 
 /** Called when an employee becomes available: retry the unassigned queue. */
@@ -436,5 +440,6 @@ export async function handoverOpenTickets(
     });
     await emitWebhook("ticket.assigned", t.id, { method: "HANDOVER", assignedBy: actor.name, from: from?.name || "", note: reason });
   }
+  if (moved.length > 0) invalidateStatsCache();
   return { moved, kept };
 }

@@ -30,7 +30,17 @@ export interface MasterOverview {
 
 const EMPTY_COUNTS = (): StatusCounts => Object.fromEntries(TICKET_STATUSES.map((s) => [s, 0]));
 
-export async function getMasterOverview(): Promise<MasterOverview> {
+let masterOverviewCache: { data: MasterOverview; expires: number } | null = null;
+
+export function invalidateStatsCache() {
+  masterOverviewCache = null;
+}
+
+export async function getMasterOverview(forceRefresh = false): Promise<MasterOverview> {
+  const now = Date.now();
+  if (!forceRefresh && masterOverviewCache && masterOverviewCache.expires > now) {
+    return masterOverviewCache.data;
+  }
   const branches = await db.branch.findMany({ orderBy: { code: "asc" } });
   const tickets = await db.ticket.findMany({
     select: { id: true, branchId: true, status: true, assignedToId: true, slaResolutionDueAt: true, createdAt: true, resolvedAt: true },
@@ -115,13 +125,16 @@ export async function getMasterOverview(): Promise<MasterOverview> {
   const avgMs = avg(firstResponseDurations);
   const avgResMs = avg(resolutionDurations);
 
-  return {
+  const result: MasterOverview = {
     totals,
     branches: branchStats,
     avgFirstResponseMinutes: avgMs ? Math.round(avgMs / 60000) : null,
     avgResolutionHours: avgResMs ? Math.round((avgResMs / 3600000) * 10) / 10 : null,
     generatedAt: new Date().toISOString(),
   };
+
+  masterOverviewCache = { data: result, expires: now + 30000 };
+  return result;
 }
 
 export interface UserAccountTicket {
@@ -248,19 +261,26 @@ export async function getEmployeeSummary(
   myRecentTickets: UserAccountTicket[];
   canViewAllBranch: boolean;
 }> {
-  const overview = await getMasterOverview();
-  const branch = overview.branches.find((b) => b.branchId === user.branchId);
-
-  const branchCounts = EMPTY_COUNTS() as StatusCounts & { total: number; unassigned: number; overdue: number };
-  if (branch) {
-    for (const s of TICKET_STATUSES) branchCounts[s] = branch.counts[s] || 0;
-    branchCounts.total = branch.total;
-    branchCounts.unassigned = branch.unassigned;
-    branchCounts.overdue = branch.overdue;
-  }
-
-  const { myCounts, myRecentTickets } = await getUserAccountStats(user.id);
   const canViewAllBranch = perms ? !!perms.viewAllBranchTickets : false;
+  const { myCounts, myRecentTickets } = await getUserAccountStats(user.id);
+
+  let branchName: string | null = null;
+  const branchCounts = EMPTY_COUNTS() as StatusCounts & { total: number; unassigned: number; overdue: number };
+
+  if (canViewAllBranch) {
+    const overview = await getMasterOverview();
+    const branch = overview.branches.find((b) => b.branchId === user.branchId);
+    if (branch) {
+      for (const s of TICKET_STATUSES) branchCounts[s] = branch.counts[s] || 0;
+      branchCounts.total = branch.total;
+      branchCounts.unassigned = branch.unassigned;
+      branchCounts.overdue = branch.overdue;
+      branchName = branch.branchName;
+    }
+  } else if (user.branchId) {
+    const b = await db.branch.findUnique({ where: { id: user.branchId }, select: { name: true } });
+    branchName = b?.name ?? null;
+  }
 
   // The primary counts reflect the user account
   const counts = myCounts;
@@ -273,7 +293,7 @@ export async function getEmployeeSummary(
 
   return {
     branchId: user.branchId,
-    branchName: branch?.branchName ?? null,
+    branchName,
     counts,
     myCounts,
     branchCounts,

@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { cachedFetch } from "@/lib/client-cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,15 +93,13 @@ export default function StaffDashboardPage() {
   const [viewMode, setViewMode] = useState<"account" | "branch">("account");
 
   useEffect(() => {
-    fetch("/api/v1/support/dashboard/summary")
-      .then((r) => r.json())
+    cachedFetch<any>("/api/v1/support/dashboard/summary", { ttlMs: 15000 })
       .then((d) => {
-        if (d.success) {
+        if (d && d.success) {
           setData(d.data);
-          // Default to account view for all agents
           setViewMode("account");
         } else {
-          setError(d.error?.message || "Failed to load dashboard.");
+          setError(d?.error?.message || "Failed to load dashboard.");
         }
       })
       .catch(() => setError("Failed to load dashboard."));
@@ -139,7 +138,7 @@ export default function StaffDashboardPage() {
   const branchName = data.branchName || data.user.branchName || "Main Branch";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Top Banner & Scope Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#D1D7DC] pb-4">
         <div>
@@ -195,7 +194,7 @@ export default function StaffDashboardPage() {
           )}
 
           <Link
-            href={isAccountView ? "/staff/tickets?mine=true&status=OPEN" : "/staff/tickets"}
+            href={isAccountView ? "/staff/tickets?mine=true&status=OPEN" : "/staff/tickets?all=true"}
             className="flex items-center gap-1 rounded border border-[#D1D7DC] bg-white px-3 py-1.5 text-xs font-semibold text-[#1F70C1] hover:bg-slate-50"
           >
             {isAccountView ? "View My Worklist →" : "View All Branch Incidents →"}
@@ -525,7 +524,7 @@ export default function StaffDashboardPage() {
               </p>
               <div className="mt-4 flex justify-center gap-2">
                 <Link
-                  href="/staff/tickets"
+                  href="/staff/tickets?all=true"
                   className="rounded border border-[#D1D7DC] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   Browse Branch Incidents

@@ -22,6 +22,7 @@ import {
 import { StaffPicker, type StaffEntry } from "@/components/staff-picker";
 import { BulkBar, type BulkMode } from "@/components/tickets/bulk-bar";
 import { ViewsMenu, BUILT_IN_VIEWS } from "@/components/tickets/views-menu";
+import { cachedFetch } from "@/lib/client-cache";
 import { PRIORITIES, STATUS_LABELS, TICKET_STATUSES } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -78,7 +79,7 @@ interface View {
 const PAGE_SIZES = [10, 20, 50, 100];
 const emptyView = (pageSize = 20): View => ({
   q: "", cols: emptyCols(), status: "", priority: "", department: "", from: "", to: "", overdue: false, escalated: false,
-  assigned: "", scope: "", sort: "", order: "", page: 1, pageSize,
+  assigned: "me", scope: "", sort: "", order: "", page: 1, pageSize,
 });
 
 function viewFromUrl(sp: URLSearchParams): View {
@@ -92,7 +93,17 @@ function viewFromUrl(sp: URLSearchParams): View {
   v.to = sp.get("to") || "";
   v.overdue = sp.get("overdue") === "true";
   v.escalated = sp.get("escalated") === "true";
-  v.assigned = sp.get("mine") === "true" ? "me" : sp.get("unassigned") === "true" ? "unassigned" : sp.get("assignedToId") || "";
+  if (sp.get("all") === "true" || sp.get("mine") === "false") {
+    v.assigned = "";
+  } else if (sp.get("mine") === "true") {
+    v.assigned = "me";
+  } else if (sp.get("unassigned") === "true") {
+    v.assigned = "unassigned";
+  } else if (sp.has("assignedToId")) {
+    v.assigned = sp.get("assignedToId") || "";
+  } else {
+    v.assigned = "me";
+  }
   v.scope = sp.get("scope") === "all" ? "all" : "";
   v.sort = (sp.get("sort") as SortField) || "";
   v.order = sp.get("order") === "desc" ? "desc" : sp.get("order") === "asc" ? "asc" : "";
@@ -116,6 +127,7 @@ function viewToQuery(v: View, withPaging = true): string {
   if (v.assigned === "me") p.set("mine", "true");
   else if (v.assigned === "unassigned") p.set("unassigned", "true");
   else if (v.assigned) p.set("assignedToId", v.assigned);
+  else p.set("all", "true");
   if (v.scope === "all") p.set("scope", "all");
   if (v.sort && v.order) { p.set("sort", v.sort); p.set("order", v.order); }
   if (withPaging) {
@@ -264,18 +276,18 @@ function ListInner() {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate column choice
       if (saved) setHidden(JSON.parse(saved));
     } catch { /* ignore */ }
-    fetch("/api/v1/auth/me").then((r) => r.json()).then((d) => {
-      const u = d.data?.user;
+    cachedFetch("/api/v1/auth/me", { ttlMs: 60000 }).then((d) => {
+      const u = d?.data?.user;
       if (u) setMe({ id: u.id, role: u.role, branchId: u.branchId ?? null, branchName: u.branchName ?? null });
-    }).catch(() => undefined);
-    fetch("/api/v1/support/staff-directory").then((r) => r.json()).then((d) => {
-      setStaff(d.data?.staff ?? []);
-      const role = d.data?.me?.role as string | undefined;
-      setCanReassign(!!role && (role !== "SUPPORT_AGENT" || !!d.data?.policy?.agentsReassign));
-    }).catch(() => undefined);
-    fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => setBranches(d.data?.branches ?? [])).catch(() => undefined);
-    fetch("/api/v1/public/categories").then((r) => r.json()).then((d) => setCategories(d.data?.categories ?? [])).catch(() => undefined);
-    fetch("/api/v1/support/departments").then((r) => r.json()).then((d) => setDepartments(d.data?.departments ?? [])).catch(() => undefined);
+    });
+    cachedFetch("/api/v1/support/staff-directory", { ttlMs: 60000 }).then((d) => {
+      setStaff(d?.data?.staff ?? []);
+      const role = d?.data?.me?.role as string | undefined;
+      setCanReassign(!!role && (role !== "SUPPORT_AGENT" || !!d?.data?.policy?.agentsReassign));
+    });
+    cachedFetch("/api/v1/public/branches", { ttlMs: 300000 }).then((d) => setBranches(d?.data?.branches ?? []));
+    cachedFetch("/api/v1/public/categories", { ttlMs: 300000 }).then((d) => setCategories(d?.data?.categories ?? []));
+    cachedFetch("/api/v1/support/departments", { ttlMs: 300000 }).then((d) => setDepartments(d?.data?.departments ?? []));
   }, []);
 
   const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
@@ -359,7 +371,7 @@ function ListInner() {
   const clearAll = () => {
     setColDraft(emptyCols());
     setQDraft("");
-    setView((v) => ({ ...emptyView(v.pageSize), scope: v.scope, sort: v.sort, order: v.order }));
+    setView((v) => ({ ...emptyView(v.pageSize), assigned: "", scope: v.scope, sort: v.sort, order: v.order }));
   };
 
   const pageIds = rows?.map((r) => r.id) ?? [];

@@ -20,6 +20,7 @@ import { StaffPicker, type StaffEntry } from "@/components/staff-picker";
 import { CannedPicker } from "@/components/canned-picker";
 import { pushHistory } from "@/components/sn/modules";
 import { cn } from "@/lib/utils";
+import { cachedFetch } from "@/lib/client-cache";
 import {
   Activity, ChevronDown, ChevronLeft, ChevronUp, Copy, FileText, Info, Link2, Loader2, Menu, Paperclip, Printer,
   RefreshCw, ShieldAlert, Star, TriangleAlert,
@@ -152,15 +153,15 @@ export default function TicketFormPage() {
 
   useEffect(() => {
     if (!detail?.viewer.canReassign) return;
-    fetch("/api/v1/support/departments").then((r) => r.json()).then((d) => d.success && setDepartments(d.data.departments)).catch(() => undefined);
-    fetch("/api/v1/support/staff-directory").then((r) => r.json()).then((d) => d.success && setStaff(d.data.staff)).catch(() => undefined);
+    cachedFetch<any>("/api/v1/support/departments", { ttlMs: 300000 }).then((d) => d?.success && setDepartments(d.data.departments));
+    cachedFetch<any>("/api/v1/support/staff-directory", { ttlMs: 60000 }).then((d) => d?.success && setStaff(d.data.staff));
     if (detail.viewer.canAssignAcrossBranches) {
-      fetch("/api/v1/public/branches").then((r) => r.json()).then((d) => d.success && setBranches(d.data.branches)).catch(() => undefined);
+      cachedFetch<any>("/api/v1/public/branches", { ttlMs: 300000 }).then((d) => d?.success && setBranches(d.data.branches));
     }
   }, [detail?.viewer.canReassign, detail?.viewer.canAssignAcrossBranches]);
 
   useEffect(() => {
-    fetch("/api/v1/auth/me").then((r) => r.json()).then((d) => d.data?.user && setMe({ id: d.data.user.id, name: d.data.user.name })).catch(() => undefined);
+    cachedFetch<any>("/api/v1/auth/me", { ttlMs: 60000 }).then((d) => d?.data?.user && setMe({ id: d.data.user.id, name: d.data.user.name }));
   }, []);
 
   const activity = useMemo<ActivityEntry[]>(() => {

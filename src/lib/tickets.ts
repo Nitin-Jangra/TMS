@@ -13,6 +13,7 @@ import { canTransition, normalizePhone, type SessionUser, type TicketStatus } fr
 import type { RolePermissions } from "@/lib/permissions";
 import { emitWebhook } from "@/lib/webhooks";
 import { feedbackUrl } from "@/lib/feedback";
+import { invalidateStatsCache } from "@/lib/branch-stats";
 
 export class TicketError extends Error {
   code: string;
@@ -174,6 +175,7 @@ export async function createComplaint(
   const assigned = await assignTicketRoundRobin(ticket.id, null, "ROUND_ROBIN");
   if (!assigned) await notifyAssignmentFailed(ticket.id);
 
+  invalidateStatsCache();
   const fresh = await db.ticket.findUnique({ where: { id: ticket.id }, select: { id: true, ticketNumber: true, status: true, assignedToId: true } });
   return { ticket: fresh!, duplicate: false };
 }
@@ -286,6 +288,7 @@ export async function applyStatusChange(
     changedBy: actor.name,
   });
 
+  invalidateStatsCache();
   return { ticketNumber: ticket.ticketNumber, status: input.toStatus };
 }
 
@@ -521,6 +524,7 @@ export async function reopenTicket(
   await queueNotification({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, event: "REOPENED", recipientKind: "CENTRAL_SUPPORT", variables: v });
 
   await emitWebhook("ticket.reopened", ticket.id, { reason: reason.trim() });
+  invalidateStatsCache();
 
   return { ticketNumber: ticket.ticketNumber, status: "IN_PROGRESS" };
 }
@@ -543,6 +547,7 @@ export async function escalateTicket(ticketId: string, reasonInput: string, acto
   await queueNotification({ ticketId, ticketNumber: ticket.ticketNumber, event: "ESCALATED", recipientKind: "CENTRAL_SUPPORT", variables: v });
   await queueNotification({ ticketId, ticketNumber: ticket.ticketNumber, event: "ESCALATED", recipientKind: "BRANCH", variables: v });
   await emitWebhook("ticket.escalated", ticketId, { reason, escalatedBy: actor.name });
+  invalidateStatsCache();
 }
 
 // ---------------------------------------------------------------------------
