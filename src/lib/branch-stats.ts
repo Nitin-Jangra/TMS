@@ -124,16 +124,101 @@ export async function getMasterOverview(): Promise<MasterOverview> {
   };
 }
 
+export interface UserAccountTicket {
+  id: string;
+  ticketNumber: string;
+  customerName: string;
+  customerPhone: string;
+  description: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+  slaResolutionDueAt: string | null;
+  category: { name: string } | null;
+  department: { name: string } | null;
+}
+
+export async function getUserAccountStats(userId: string): Promise<{
+  myCounts: StatusCounts & { total: number; unassigned: number; overdue: number; open: number };
+  myRecentTickets: UserAccountTicket[];
+}> {
+  const userTickets = await db.ticket.findMany({
+    where: { assignedToId: userId },
+    select: {
+      id: true,
+      ticketNumber: true,
+      customerName: true,
+      customerPhone: true,
+      description: true,
+      status: true,
+      priority: true,
+      createdAt: true,
+      slaResolutionDueAt: true,
+      category: { select: { name: true } },
+      department: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const now = new Date();
+  const myCounts: StatusCounts & { total: number; unassigned: number; overdue: number; open: number } = {
+    NEW_COMPLAINT: 0,
+    IN_PROGRESS: 0,
+    ON_HOLD: 0,
+    RESOLVED: 0,
+    CLOSED: 0,
+    total: userTickets.length,
+    unassigned: 0,
+    overdue: 0,
+    open: 0,
+  };
+
+  for (const t of userTickets) {
+    if (myCounts[t.status] !== undefined) {
+      myCounts[t.status]++;
+    }
+    const isOpen = t.status === "NEW_COMPLAINT" || t.status === "IN_PROGRESS" || t.status === "ON_HOLD";
+    if (isOpen) {
+      myCounts.open++;
+      if (t.slaResolutionDueAt && new Date(t.slaResolutionDueAt) < now) {
+        myCounts.overdue++;
+      }
+    }
+  }
+
+  const myRecentTickets: UserAccountTicket[] = userTickets.slice(0, 15).map((t) => ({
+    id: t.id,
+    ticketNumber: t.ticketNumber,
+    customerName: t.customerName,
+    customerPhone: t.customerPhone,
+    description: t.description,
+    status: t.status,
+    priority: t.priority,
+    createdAt: t.createdAt.toISOString(),
+    slaResolutionDueAt: t.slaResolutionDueAt ? t.slaResolutionDueAt.toISOString() : null,
+    category: t.category,
+    department: t.department,
+  }));
+
+  return { myCounts, myRecentTickets };
+}
+
 /** Central support dashboard summary. */
-export async function getCentralSummary(): Promise<{
+export async function getCentralSummary(user?: SessionUser): Promise<{
   counts: StatusCounts & { total: number; unassigned: number; overdue: number };
+  myCounts?: StatusCounts & { total: number; unassigned: number; overdue: number; open: number };
+  myRecentTickets?: UserAccountTicket[];
   avgFirstResponseMinutes: number | null;
   avgResolutionHours: number | null;
   branchBreakdown: { branchName: string; open: number; total: number }[];
+  canViewAllBranch: boolean;
 }> {
   const overview = await getMasterOverview();
+  const userStats = user ? await getUserAccountStats(user.id) : null;
   return {
     counts: overview.totals,
+    myCounts: userStats?.myCounts,
+    myRecentTickets: userStats?.myRecentTickets,
     avgFirstResponseMinutes: overview.avgFirstResponseMinutes,
     avgResolutionHours: overview.avgResolutionHours,
     branchBreakdown: overview.branches.map((b) => ({
@@ -141,67 +226,101 @@ export async function getCentralSummary(): Promise<{
       open: (b.counts.NEW_COMPLAINT || 0) + (b.counts.IN_PROGRESS || 0) + (b.counts.ON_HOLD || 0),
       total: b.total,
     })),
+    canViewAllBranch: true,
   };
 }
 
 /**
- * Support employee workspace summary. Visibility is branch-wide: every
- * complaint raised in the agent's own branch, plus a personal "assigned to me"
- * breakdown for their own work queue.
+ * Support employee workspace summary.
+ * Prioritizes the individual logged-in user account details:
+ * counts reflect tickets assigned to this user account.
  */
-export async function getEmployeeSummary(user: SessionUser): Promise<{
+export async function getEmployeeSummary(
+  user: SessionUser,
+  perms?: { viewAllBranchTickets?: boolean }
+): Promise<{
   branchId: string | null;
   branchName: string | null;
-  counts: StatusCounts & { total: number; unassigned: number; overdue: number };
+  counts: StatusCounts & { total: number; unassigned: number; overdue: number; open: number };
+  myCounts: StatusCounts & { total: number; unassigned: number; overdue: number; open: number };
+  branchCounts: StatusCounts & { total: number; unassigned: number; overdue: number };
   mine: { total: number; open: number; resolved: number };
+  myRecentTickets: UserAccountTicket[];
+  canViewAllBranch: boolean;
 }> {
   const overview = await getMasterOverview();
   const branch = overview.branches.find((b) => b.branchId === user.branchId);
 
-  const counts = EMPTY_COUNTS() as StatusCounts & { total: number; unassigned: number; overdue: number };
+  const branchCounts = EMPTY_COUNTS() as StatusCounts & { total: number; unassigned: number; overdue: number };
   if (branch) {
-    for (const s of TICKET_STATUSES) counts[s] = branch.counts[s] || 0;
-    counts.total = branch.total;
-    counts.unassigned = branch.unassigned;
-    counts.overdue = branch.overdue;
+    for (const s of TICKET_STATUSES) branchCounts[s] = branch.counts[s] || 0;
+    branchCounts.total = branch.total;
+    branchCounts.unassigned = branch.unassigned;
+    branchCounts.overdue = branch.overdue;
   }
 
-  const mineTickets = await db.ticket.findMany({
-    where: { assignedToId: user.id },
-    select: { status: true },
-  });
+  const { myCounts, myRecentTickets } = await getUserAccountStats(user.id);
+  const canViewAllBranch = perms ? !!perms.viewAllBranchTickets : false;
+
+  // The primary counts reflect the user account
+  const counts = myCounts;
+
   const mine = {
-    total: mineTickets.length,
-    open: mineTickets.filter((t) => t.status === "NEW_COMPLAINT" || t.status === "IN_PROGRESS" || t.status === "ON_HOLD").length,
-    resolved: mineTickets.filter((t) => t.status === "RESOLVED" || t.status === "CLOSED").length,
+    total: myCounts.total,
+    open: myCounts.open,
+    resolved: (myCounts.RESOLVED || 0) + (myCounts.CLOSED || 0),
   };
 
-  return { branchId: user.branchId, branchName: branch?.branchName ?? null, counts, mine };
+  return {
+    branchId: user.branchId,
+    branchName: branch?.branchName ?? null,
+    counts,
+    myCounts,
+    branchCounts,
+    mine,
+    myRecentTickets,
+    canViewAllBranch,
+  };
 }
 
 /** Branch manager dashboard summary. */
-export async function getBranchSummary(user: SessionUser): Promise<{
+export async function getBranchSummary(
+  user: SessionUser,
+  perms?: { viewAllBranchTickets?: boolean }
+): Promise<{
   branchId: string;
   branchName: string;
   counts: StatusCounts & { total: number; unassigned: number; overdue: number };
+  myCounts: StatusCounts & { total: number; unassigned: number; overdue: number; open: number };
+  branchCounts: StatusCounts & { total: number; unassigned: number; overdue: number };
+  myRecentTickets: UserAccountTicket[];
+  canViewAllBranch: boolean;
   employees: { id: string; name: string; role: string; availabilityEnabled: boolean; isActive: boolean; openCount: number; totalAssigned: number; resolvedCount: number }[];
 }> {
   const overview = await getMasterOverview();
   const branch = overview.branches.find((b) => b.branchId === user.branchId);
   if (!branch) throw new Error("Branch not found for manager.");
+
+  const { myCounts, myRecentTickets } = await getUserAccountStats(user.id);
+  const branchCounts = {
+    NEW_COMPLAINT: branch.counts.NEW_COMPLAINT || 0,
+    IN_PROGRESS: branch.counts.IN_PROGRESS || 0,
+    ON_HOLD: branch.counts.ON_HOLD || 0,
+    RESOLVED: branch.counts.RESOLVED || 0,
+    CLOSED: branch.counts.CLOSED || 0,
+    total: branch.total,
+    unassigned: branch.unassigned,
+    overdue: branch.overdue,
+  };
+
   return {
     branchId: branch.branchId,
     branchName: branch.branchName,
-    counts: {
-      NEW_COMPLAINT: branch.counts.NEW_COMPLAINT || 0,
-      IN_PROGRESS: branch.counts.IN_PROGRESS || 0,
-      ON_HOLD: branch.counts.ON_HOLD || 0,
-      RESOLVED: branch.counts.RESOLVED || 0,
-      CLOSED: branch.counts.CLOSED || 0,
-      total: branch.total,
-      unassigned: branch.unassigned,
-      overdue: branch.overdue,
-    },
+    counts: branchCounts,
+    branchCounts,
+    myCounts,
+    myRecentTickets,
+    canViewAllBranch: true,
     employees: branch.employees,
   };
 }
