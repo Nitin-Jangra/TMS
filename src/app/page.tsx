@@ -6,8 +6,8 @@ import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { ComplaintChooser } from "@/components/complaint-chooser";
 import {
+  Dumbbell, CreditCard, Users, MessageSquareQuote, CheckCircle2,
   ClipboardPlus, Search, Clock3, ShieldCheck, BellRing, RefreshCcw,
-  Dumbbell, CreditCard, Users, MessageSquareQuote, ArrowRight, CheckCircle2,
 } from "lucide-react";
 
 const CATALOG_ITEMS = [
@@ -34,7 +34,7 @@ const CATALOG_ITEMS = [
   },
   {
     icon: MessageSquareQuote,
-    title: "General Inquiries & Feedback",
+    title: "General Inquiries",
     description: "Submit suggestions or direct requests to branch management to improve club amenities.",
     tag: "Operations",
     href: "/complaint",
@@ -57,11 +57,6 @@ export default function HomePage() {
         {/* ServiceNow Service Portal Hero Banner */}
         <section className="border-b border-[#2a374a] bg-gradient-to-b from-[#161f28] to-[#1c2836] py-14 sm:py-20 text-white shadow-sm">
           <div className="mx-auto max-w-4xl px-4 text-center sm:px-6">
-            <span className="inline-flex items-center gap-1.5 rounded bg-[#1f70c1]/20 px-3 py-1 text-xs font-semibold text-[#60a5fa] border border-[#1f70c1]/40 mb-3">
-              <span className="h-2 w-2 rounded-full bg-[#30c497] animate-pulse" />
-              ServiceNow Service Portal • FitClass Resolution Center
-            </span>
-
             <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
               How can we help you today?
             </h1>
@@ -104,14 +99,11 @@ export default function HomePage() {
 
         {/* Service Catalog Cards Section */}
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-2 border-b border-[#d1d7dc] pb-3">
+          <div className="mb-6 border-b border-[#d1d7dc] pb-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#1f70c1]">Service Catalog</p>
               <h2 className="text-xl font-bold text-[#161f28]">Request & Issue Categories</h2>
             </div>
-            <Link href="/complaint" className="text-xs font-semibold text-[#1f70c1] hover:underline flex items-center gap-1">
-              View all 34 branches <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

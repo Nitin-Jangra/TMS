@@ -2,9 +2,8 @@
 // Customers never log in: they self-service via catalog items or ticket tracking.
 
 import Link from "next/link";
-import { ShieldCheck, Search, HelpCircle, Layers, ExternalLink } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import Image from "next/image";
-import { ComplaintChooser } from "@/components/complaint-chooser";
 
 export function SiteHeader() {
   return (
@@ -19,29 +18,7 @@ export function SiteHeader() {
             className="h-8 w-auto object-contain"
             priority
           />
-          <span className="hidden border-l border-slate-700 pl-3 text-[11px] font-bold tracking-wider text-slate-400 sm:block">
-            EMPLOYEE CENTER • SERVICE PORTAL
-          </span>
         </Link>
-
-        <nav className="flex items-center gap-2 sm:gap-4 text-xs font-semibold" aria-label="Service Portal Navigation">
-          <Link
-            href="/complaint"
-            className="hidden text-slate-300 transition hover:text-white sm:inline-block"
-          >
-            Service Catalog
-          </Link>
-
-          <Link
-            href="/track"
-            className="inline-flex items-center gap-1.5 rounded bg-[#101721] px-3 py-1.5 text-slate-200 border border-slate-700 transition hover:border-[#1f70c1] hover:text-white"
-          >
-            <Search className="h-3.5 w-3.5 text-[#38bdf8]" />
-            <span>Track Requests</span>
-          </Link>
-
-          <ComplaintChooser variant="header" />
-        </nav>
       </div>
     </header>
   );
@@ -62,15 +39,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-slate-400">
-          <Link href="/staff-login" className="transition hover:text-white">
-            Staff Login
-          </Link>
-          <span>•</span>
-          <Link href="/docs/api" className="transition hover:text-white">
-            API Docs
-          </Link>
-          <span>•</span>
+        <div className="flex items-center text-xs text-slate-400">
           <span>© {new Date().getFullYear()} FitClass</span>
         </div>
       </div>
