@@ -19,19 +19,19 @@ const ADMINS = ["CENTRAL_ADMIN", "ROOT_ADMIN"];
 const ROOT = ["ROOT_ADMIN"];
 
 export const NAV_MODULES: NavModule[] = [
+  // Service Desk: kept lean & focused (Dashboard already contains quick filter views)
   { id: "home", app: "Service Desk", label: "Dashboard", href: "/staff", icon: "home", roles: ALL },
-  { id: "t-open", app: "Service Desk", label: "Tickets - Open", href: "/staff/tickets?status=OPEN", icon: "list", roles: ALL },
-  { id: "t-mine", app: "Service Desk", label: "Tickets - Assigned to me", href: "/staff/tickets?mine=true&status=OPEN", icon: "list", roles: ALL },
-  { id: "t-unassigned", app: "Service Desk", label: "Tickets - Unassigned", href: "/staff/tickets?unassigned=true&status=OPEN", icon: "list", roles: ALL },
-  { id: "t-overdue", app: "Service Desk", label: "Tickets - Overdue", href: "/staff/tickets?overdue=true", icon: "list", roles: ALL },
-  { id: "t-escalated", app: "Service Desk", label: "Tickets - Escalated", href: "/staff/tickets?escalated=true&status=OPEN", icon: "list", roles: ALL },
-  { id: "t-resolved", app: "Service Desk", label: "Tickets - Resolved", href: "/staff/tickets?status=RESOLVED", icon: "list", roles: ALL },
-  { id: "t-all", app: "Service Desk", label: "Tickets - All", href: "/staff/tickets", icon: "list", roles: ALL },
-  { id: "queue", app: "Service Desk", label: "Assignment Queue", href: "/staff/assignment", icon: "queue", roles: MANAGERS },
+  { id: "t-mine", app: "Service Desk", label: "Assigned to me", href: "/staff/tickets?mine=true&status=OPEN", icon: "list", roles: ALL },
   { id: "new", app: "Service Desk", label: "Create New Ticket", href: "/complaint", icon: "new", roles: ALL, newTab: true },
+
+  // Team & Templates
   { id: "employees", app: "Team", label: "Employees", href: "/staff/employees", icon: "people", roles: ["BRANCH_MANAGER", "CENTRAL_ADMIN", "ROOT_ADMIN"] },
   { id: "templates", app: "Team", label: "Reply Templates", href: "/staff/templates", icon: "template", roles: ALL },
+
+  // Reports
   { id: "reports", app: "Reports", label: "Ticket Reports", href: "/staff/reports", icon: "chart", roles: MANAGERS },
+
+  // System Administration
   { id: "admin", app: "System Administration", label: "Master Complaint Panel", href: "/admin", icon: "admin", roles: ADMINS },
   { id: "settings", app: "System Administration", label: "System Settings", href: "/admin/settings", icon: "settings", roles: ROOT },
   { id: "audit", app: "System Administration", label: "Audit Logs", href: "/admin/audit", icon: "audit", roles: ADMINS },
@@ -39,7 +39,7 @@ export const NAV_MODULES: NavModule[] = [
   { id: "apikeys", app: "System Administration", label: "Integration API Keys", href: "/admin/api-keys", icon: "key", roles: ROOT },
 ];
 
-export const DEFAULT_FAVORITES = ["home", "t-mine", "t-open", "t-overdue", "t-all"];
+export const DEFAULT_FAVORITES = ["home", "t-mine"];
 
 export interface HistoryEntry {
   id: string;

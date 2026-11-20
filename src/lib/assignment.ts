@@ -268,10 +268,17 @@ export async function manuallyAssignTicket(
   }
   if (moving && !employee.branch.isActive) throw new AssignmentError("The employee's branch is inactive.");
 
+  const prevAssigneeName = ticket.assignee?.name || (ticket.assignedToId ? "Previous Staff" : "Unassigned");
+  const isReassignment = Boolean(ticket.assignedToId);
+  const assignmentNote = note || (isReassignment ? `Reassigned by ${actor.name} from ${prevAssigneeName}` : `Assigned by ${actor.name}`);
+  const auditDetails = isReassignment
+    ? `Reassigned by ${actor.name} from ${prevAssigneeName} to ${employee.name}${note ? `: ${note}` : ""}`
+    : `Assigned by ${actor.name} to ${employee.name}${note ? `: ${note}` : ""}`;
+
   await runInTransaction(async (tx) => {
     await tx.ticketAssignment.updateMany({ where: { ticketId, isCurrent: true }, data: { isCurrent: false } });
     await tx.ticketAssignment.create({
-      data: { ticketId, assignedToId: toEmployeeId, assignedById: actor.id || null, method: "MANUAL", isCurrent: true, note },
+      data: { ticketId, assignedToId: toEmployeeId, assignedById: actor.id || null, method: "MANUAL", isCurrent: true, note: assignmentNote },
     });
     await tx.ticket.update({
       where: { id: ticketId },
@@ -286,17 +293,17 @@ export async function manuallyAssignTicket(
       action: "BRANCH_TRANSFER",
       previousValue: ticket.branchId,
       newValue: employee.branch.name,
-      details: `Moved with reassignment to ${employee.name}.`,
+      details: `Moved with reassignment to ${employee.name} by ${actor.name}.`,
     });
     await emitWebhook("ticket.transferred", ticketId, { fromBranchId: ticket.branchId, toBranch: employee.branch.name, transferredBy: actor.name });
   }
   await logAudit({
     ticketId,
     actor,
-    action: ticket.assignedToId ? "TICKET_REASSIGNED" : "TICKET_ASSIGNED",
-    previousValue: ticket.assignedToId || "",
+    action: isReassignment ? "TICKET_REASSIGNED" : "TICKET_ASSIGNED",
+    previousValue: prevAssigneeName,
     newValue: employee.name,
-    details: note || "Manual assignment",
+    details: auditDetails,
   });
   await queueNotification({
     ticketId,

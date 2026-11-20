@@ -1,16 +1,18 @@
 // Ticket detail: complaint, customer info, messages (internal + public),
-// status history, assignment history, attachments, SLA state.
+// status history, assignment history, audit logs, attachments, SLA state.
 
 import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canAccessTicket, canReassignTicket, getAccessPolicy } from "@/lib/tickets";
+import { getUserPermissions } from "@/lib/permissions";
 import { isCentralRole } from "@/lib/types";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ ticketId: string }> }) {
   return handleErrors(async () => {
     const { ticketId } = await params;
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
 
     const ticket = await db.ticket.findUnique({
       where: { id: ticketId },
@@ -27,24 +29,28 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tic
           include: { assignee: { select: { id: true, name: true } } },
         },
         attachments: { orderBy: { createdAt: "asc" } },
+        auditLogs: { orderBy: { createdAt: "asc" } },
         reopenHistory: { orderBy: { reopenedAt: "asc" } },
         slaTracking: true,
       },
     });
     if (!ticket) return fail("NOT_FOUND", "Ticket not found.", 404);
     const policy = await getAccessPolicy();
-    if (!canAccessTicket(user, ticket, policy)) return fail("FORBIDDEN", "You do not have permission to view this ticket.", 403);
+    if (!canAccessTicket(user, ticket, policy, permissions)) {
+      return fail("FORBIDDEN", "You do not have permission to view this ticket.", 403);
+    }
 
-    const canReassign = canReassignTicket(user, ticket, policy);
+    const canReassign = canReassignTicket(user, ticket, policy, permissions);
     return ok({
       ticket,
       viewer: {
         id: user.id,
         role: user.role,
+        designation: user.designation,
         branchId: user.branchId,
+        permissions,
         canReassign,
-        // Assigning to someone in another branch moves the ticket there.
-        canAssignAcrossBranches: canReassign && (isCentralRole(user.role) || policy.crossBranch),
+        canAssignAcrossBranches: canReassign && (isCentralRole(user.role) || policy.crossBranch || permissions.transferBranch),
       },
     });
   });

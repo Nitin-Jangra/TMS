@@ -58,8 +58,30 @@ interface Detail {
     attachments: { id: string; originalName: string; sizeBytes: number; mimeType: string; createdAt?: string }[];
     reopenHistory: { id: string; reason: string; reopenedAt: string }[];
     slaTracking: { firstResponseMetAt: string | null; firstResponseBreached: boolean; resolutionBreached: boolean } | null;
+    auditLogs?: { id: string; actorName: string; actorRole: string; action: string; previousValue: string; newValue: string; details: string; createdAt: string }[];
   };
-  viewer: { id: string; role: string; branchId: string | null; canReassign?: boolean; canAssignAcrossBranches?: boolean };
+  viewer: {
+    id: string;
+    role: string;
+    designation?: string;
+    branchId: string | null;
+    canReassign?: boolean;
+    canAssignAcrossBranches?: boolean;
+    permissions?: {
+      viewAllBranchTickets: boolean;
+      searchGlobally: boolean;
+      reassignTickets: boolean;
+      transferBranch: boolean;
+      updateStatus: boolean;
+      changePriority: boolean;
+      changeDepartment: boolean;
+      addWorkNotes: boolean;
+      addCustomerComments: boolean;
+      viewReports: boolean;
+      viewEmployees: boolean;
+      exportTickets: boolean;
+    };
+  };
 }
 
 const PRIORITY_TEXT: Record<string, string> = { CRITICAL: "1 - Critical", HIGH: "2 - High", MEDIUM: "3 - Moderate", LOW: "4 - Low" };
@@ -104,7 +126,7 @@ export default function TicketFormPage() {
   const [dialogText, setDialogText] = useState("");
   const [notesOpen, setNotesOpen] = useState(true);
   const [activityFilter, setActivityFilter] = useState<"all" | ActivityKind>("all");
-  const [tab, setTab] = useState<"attachments" | "assignments" | "states" | "reopens">("assignments");
+  const [tab, setTab] = useState<"attachments" | "assignments" | "states" | "reopens" | "audit">("assignments");
 
   const [staff, setStaff] = useState<StaffEntry[]>([]);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
@@ -145,20 +167,105 @@ export default function TicketFormPage() {
     if (!detail) return [];
     const t = detail.ticket;
     const out: ActivityEntry[] = [];
+
+    // Messages: Work notes & Customer comments
     for (const m of t.messages) {
       const internal = m.visibility === "INTERNAL";
-      out.push({ id: `m-${m.id}`, at: m.createdAt, who: m.authorName, kind: internal ? "worknote" : "comment", title: internal ? "Work notes" : m.authorType === "CUSTOMER" ? "Additional comments (member)" : "Additional comments", body: m.body });
-    }
-    for (const h of t.statusHistory) {
       out.push({
-        id: `s-${h.id}`, at: h.createdAt, who: h.changedByName, kind: "field", title: "Field changes",
-        changes: [{ field: "State", to: STATUS_LABELS[h.toStatus] || h.toStatus, from: h.fromStatus ? STATUS_LABELS[h.fromStatus] || h.fromStatus : undefined }],
+        id: `m-${m.id}`,
+        at: m.createdAt,
+        who: m.authorName,
+        kind: internal ? "worknote" : "comment",
+        title: internal ? "Work notes (Staff Only)" : m.authorType === "CUSTOMER" ? "Additional comments (Member)" : "Additional comments (Customer Visible)",
+        body: m.body,
+      });
+    }
+
+    // Status transitions with actor who changed status & work status
+    for (const h of t.statusHistory) {
+      const toLabel = STATUS_LABELS[h.toStatus] || h.toStatus;
+      const fromLabel = h.fromStatus ? STATUS_LABELS[h.fromStatus] || h.fromStatus : undefined;
+      const who = h.changedByName || "Staff";
+      let actionLabel = `Status changed to ${toLabel}`;
+      if (h.toStatus === "IN_PROGRESS") {
+        actionLabel = `${who} started working on this ticket`;
+      } else if (h.toStatus === "RESOLVED") {
+        actionLabel = `${who} resolved this ticket`;
+      } else if (h.toStatus === "ON_HOLD") {
+        actionLabel = `${who} placed ticket on hold`;
+      }
+
+      out.push({
+        id: `s-${h.id}`,
+        at: h.createdAt,
+        who,
+        kind: "field",
+        title: actionLabel,
+        changes: [{ field: "State", to: toLabel, from: fromLabel }],
         body: h.note || undefined,
       });
     }
+
+    // Assignments: explicit who assigned whom
     for (const a of t.assignments) {
-      out.push({ id: `a-${a.id}`, at: a.createdAt, who: a.method === "MANUAL" || a.method === "HANDOVER" ? "Staff" : "System", kind: "field", title: "Field changes", changes: [{ field: "Assigned to", to: a.assignee.name }], body: [a.method.replace(/_/g, " ").toLowerCase(), a.note].filter(Boolean).join(" — ") });
+      const matchingAudit = t.auditLogs?.find(
+        (al) => (al.action === "TICKET_ASSIGNED" || al.action === "TICKET_REASSIGNED") &&
+          Math.abs(new Date(al.createdAt).getTime() - new Date(a.createdAt).getTime()) < 10000
+      );
+      const who = matchingAudit?.actorName || (a.note.includes("by ") ? a.note.split("by ")[1]?.split(" ")[0] || "Staff" : a.method === "MANUAL" ? "Staff" : "System Round-Robin");
+      const title = a.note ? `Assigned to ${a.assignee.name} (${a.note})` : `Assigned to ${a.assignee.name}`;
+
+      out.push({
+        id: `a-${a.id}`,
+        at: a.createdAt,
+        who,
+        kind: "field",
+        title,
+        changes: [{ field: "Assigned to", to: a.assignee.name }],
+        body: matchingAudit?.details || a.note || `Assignment via ${a.method.replace(/_/g, " ").toLowerCase()}`,
+      });
     }
+
+    // Audit logs for group changes, branch transfer, escalation
+    if (t.auditLogs) {
+      for (const al of t.auditLogs) {
+        if (["STATUS_CHANGED", "RESOLUTION", "INTERNAL_NOTE", "CUSTOMER_REPLY", "TICKET_ASSIGNED", "TICKET_REASSIGNED"].includes(al.action)) {
+          continue;
+        }
+        if (al.action === "DEPARTMENT_CHANGED") {
+          out.push({
+            id: `al-${al.id}`,
+            at: al.createdAt,
+            who: al.actorName,
+            kind: "field",
+            title: `Assignment Group updated by ${al.actorName}`,
+            changes: [{ field: "Assignment group", to: al.newValue, from: al.previousValue || undefined }],
+            body: al.details,
+          });
+        } else if (al.action === "BRANCH_TRANSFER") {
+          out.push({
+            id: `al-${al.id}`,
+            at: al.createdAt,
+            who: al.actorName,
+            kind: "field",
+            title: `Branch transfer by ${al.actorName}`,
+            changes: [{ field: "Branch", to: al.newValue, from: al.previousValue || undefined }],
+            body: al.details,
+          });
+        } else if (al.action === "ESCALATED") {
+          out.push({
+            id: `al-${al.id}`,
+            at: al.createdAt,
+            who: al.actorName,
+            kind: "field",
+            title: `Escalated by ${al.actorName}`,
+            body: al.details,
+          });
+        }
+      }
+    }
+
+    // Reopen history
     for (const r of t.reopenHistory) {
       out.push({ id: `r-${r.id}`, at: r.reopenedAt, who: t.customerName, kind: "comment", title: "Reopened by member", body: r.reason });
     }
@@ -185,8 +292,13 @@ export default function TicketFormPage() {
 
   const t = detail.ticket;
   const isClosed = t.status === "CLOSED";
-  const canAssign = !!detail.viewer.canReassign && !isClosed;
-  const acrossBranches = !!detail.viewer.canAssignAcrossBranches;
+  const perms = detail.viewer.permissions;
+  const canAssign = (perms ? perms.reassignTickets : !!detail.viewer.canReassign) && !isClosed;
+  const canUpdateStatus = (perms ? perms.updateStatus : true) && !isClosed;
+  const canChangeDept = (perms ? perms.changeDepartment : canAssign) && !isClosed;
+  const canWorkNote = (perms ? perms.addWorkNotes : true) && !isClosed;
+  const canComment = (perms ? perms.addCustomerComments : true) && !isClosed;
+  const acrossBranches = (perms ? perms.transferBranch : !!detail.viewer.canAssignAcrossBranches) && !isClosed;
   const overdue = !!t.slaResolutionDueAt && !["RESOLVED", "CLOSED"].includes(t.status) && new Date(t.slaResolutionDueAt) < new Date();
   const shortDescription = t.description.split(/\r?\n/)[0].slice(0, 160);
   const resolutionNote = [...t.statusHistory].reverse().find((h) => h.toStatus === "RESOLVED")?.note || "";
@@ -263,10 +375,10 @@ export default function TicketFormPage() {
         </button>
       ) : null}
       {canSelfAssign ? <button type="button" className="u-btn" disabled={!!busy} onClick={assignToMe}>Assign to me</button> : null}
-      {t.status === "NEW_COMPLAINT" ? <button type="button" className="u-btn" disabled={!!busy} onClick={startWork}>{busy === "start" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Start Work</button> : null}
-      {t.status === "ON_HOLD" ? <button type="button" className="u-btn" disabled={!!busy} onClick={startWork}>{busy === "start" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Resume</button> : null}
-      {t.status === "IN_PROGRESS" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("hold"); }}>On Hold</button> : null}
-      {t.status === "IN_PROGRESS" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("resolve"); }}>Resolve Ticket</button> : null}
+      {canUpdateStatus && t.status === "NEW_COMPLAINT" ? <button type="button" className="u-btn" disabled={!!busy} onClick={startWork}>{busy === "start" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Start Work</button> : null}
+      {canUpdateStatus && t.status === "ON_HOLD" ? <button type="button" className="u-btn" disabled={!!busy} onClick={startWork}>{busy === "start" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Resume</button> : null}
+      {canUpdateStatus && t.status === "IN_PROGRESS" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("hold"); }}>On Hold</button> : null}
+      {canUpdateStatus && t.status === "IN_PROGRESS" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("resolve"); }}>Resolve Ticket</button> : null}
       {!isClosed && !t.escalatedAt && t.status !== "RESOLVED" ? <button type="button" className="u-btn" disabled={!!busy} onClick={() => { setDialogText(""); setDialog("escalate"); }}>Escalate</button> : null}
     </>
   );
@@ -366,7 +478,7 @@ export default function TicketFormPage() {
               {field("Opened", ro(dt(t.createdAt)))}
               {field("Contact type", ro(SOURCE_TEXT[t.source] || t.source))}
               {field("State", ro(STATUS_LABELS[t.status] || t.status))}
-              {field("Assignment group", canAssign ? (
+              {field("Assignment group", canChangeDept ? (
                 <select className={cn("u-select", groupChanged && "u-changed")} value={group} onChange={(e) => setGroup(e.target.value)} aria-label="Assignment group">
                   <option value="">-- None --</option>
                   {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -418,30 +530,34 @@ export default function TicketFormPage() {
 
           {notesOpen ? (
             <>
-              {!isClosed ? (
+              {!isClosed && (canComment || canWorkNote) ? (
                 <>
-                  <div className="u-field-wide">
-                    <div className="u-label pt-1.5">
-                      Additional comments
-                      <span className="block text-xs text-[var(--u-text-2)]">(Member visible — emailed)</span>
-                    </div>
-                    <div className="space-y-1">
-                      <textarea className="u-textarea" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Reply to the member…" aria-label="Additional comments (member visible)" />
-                      <div className="flex justify-end">
-                        <CannedPicker
-                          context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
-                          onInsert={(text) => setComments((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
-                        />
+                  {canComment ? (
+                    <div className="u-field-wide">
+                      <div className="u-label pt-1.5">
+                        Additional comments
+                        <span className="block text-xs text-[var(--u-text-2)]">(Member visible — emailed)</span>
+                      </div>
+                      <div className="space-y-1">
+                        <textarea className="u-textarea" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Reply to the member…" aria-label="Additional comments (member visible)" />
+                        <div className="flex justify-end">
+                          <CannedPicker
+                            context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                            onInsert={(text) => setComments((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="u-field-wide">
-                    <label className="u-label pt-1.5" htmlFor="work-notes">
-                      Work notes
-                      <span className="block text-xs text-[var(--u-text-2)]">(Staff only)</span>
-                    </label>
-                    <textarea id="work-notes" className="u-textarea u-worknotes" rows={3} value={workNotes} onChange={(e) => setWorkNotes(e.target.value)} placeholder="Internal note for the team…" />
-                  </div>
+                  ) : null}
+                  {canWorkNote ? (
+                    <div className="u-field-wide">
+                      <label className="u-label pt-1.5" htmlFor="work-notes">
+                        Work notes
+                        <span className="block text-xs text-[var(--u-text-2)]">(Staff only)</span>
+                      </label>
+                      <textarea id="work-notes" className="u-textarea u-worknotes" rows={3} value={workNotes} onChange={(e) => setWorkNotes(e.target.value)} placeholder="Internal note for the team…" />
+                    </div>
+                  ) : null}
                   <div className="u-field-wide">
                     <span />
                     <div className="flex justify-end">
@@ -534,6 +650,7 @@ export default function TicketFormPage() {
             ["states", `State history (${t.statusHistory.length})`],
             ["attachments", `Attachments (${t.attachments.length})`],
             ["reopens", `Reopen history (${t.reopenHistory.length})`],
+            ["audit", `Audit trail (${t.auditLogs?.length || 0})`],
           ] as const).map(([k, label]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={cn("u-tab", tab === k && "is-active")} onClick={() => setTab(k)}>{label}</button>
           ))}
@@ -580,6 +697,24 @@ export default function TicketFormPage() {
                   {t.reopenHistory.length ? t.reopenHistory.map((r) => (
                     <tr key={r.id}><td>{r.reason}</td><td className="whitespace-nowrap tabular-nums">{dt(r.reopenedAt)}</td></tr>
                   )) : <tr><td colSpan={2} className="text-center text-[var(--u-text-2)]">No records to display</td></tr>}
+                </tbody>
+              </>
+            ) : null}
+            {tab === "audit" ? (
+              <>
+                <thead><tr><th>Action</th><th>Actor</th><th>Role</th><th>Previous</th><th>New</th><th>Details</th><th>Time</th></tr></thead>
+                <tbody>
+                  {t.auditLogs?.length ? [...t.auditLogs].reverse().map((al) => (
+                    <tr key={al.id}>
+                      <td className="font-semibold text-slate-900">{al.action.replace(/_/g, " ")}</td>
+                      <td className="font-medium text-[#1F70C1]">{al.actorName}</td>
+                      <td><span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{al.actorRole}</span></td>
+                      <td className="max-w-[140px] truncate text-slate-500">{al.previousValue || "—"}</td>
+                      <td className="max-w-[140px] truncate font-medium text-slate-800">{al.newValue || "—"}</td>
+                      <td className="max-w-[340px]">{al.details || "—"}</td>
+                      <td className="whitespace-nowrap tabular-nums text-slate-500">{dt(al.createdAt)}</td>
+                    </tr>
+                  )) : <tr><td colSpan={7} className="text-center text-[var(--u-text-2)]">No audit logs recorded</td></tr>}
                 </tbody>
               </>
             ) : null}

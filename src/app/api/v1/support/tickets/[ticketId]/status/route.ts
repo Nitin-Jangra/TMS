@@ -1,4 +1,4 @@
-// Status transitions with role checks, mandatory notes and closed-ticket
+// Status transitions with role & designation checks, mandatory notes and closed-ticket
 // protection. Every transition is validated against the allowed map and the
 // ticket row is re-read inside the service; closed tickets are untouchable.
 
@@ -6,15 +6,17 @@ import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { applyStatusChange, canAccessTicket, getAccessPolicy, TicketError } from "@/lib/tickets";
+import { getUserPermissions } from "@/lib/permissions";
 import { canUpdateTicketStatus, TICKET_STATUSES, type TicketStatus } from "@/lib/types";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ ticketId: string }> }) {
   return handleErrors(async () => {
     const { ticketId } = await params;
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
 
-    if (!canUpdateTicketStatus(user.role)) {
-      return fail("FORBIDDEN", "Your role cannot update ticket status.", 403);
+    if (!canUpdateTicketStatus(user.role) || !permissions.updateStatus) {
+      return fail("FORBIDDEN", "Your role or designation does not have permission to update ticket status.", 403);
     }
 
     const body = await request.json().catch(() => null);
@@ -29,7 +31,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ti
 
     const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { branchId: true, assignedToId: true } });
     if (!ticket) return fail("NOT_FOUND", "Ticket not found.", 404);
-    if (!canAccessTicket(user, ticket, await getAccessPolicy())) return fail("FORBIDDEN", "You do not have permission to update this ticket.", 403);
+    const policy = await getAccessPolicy();
+    if (!canAccessTicket(user, ticket, policy, permissions)) {
+      return fail("FORBIDDEN", "You do not have permission to update this ticket.", 403);
+    }
 
     try {
       const result = await applyStatusChange(

@@ -10,6 +10,7 @@ import { getReopenWindowHours, getSettings, isAutoClosureEnabled } from "@/lib/s
 import { initSlaTracking, markFirstResponse, markResolution } from "@/lib/sla";
 import { assignTicketRoundRobin, notifyAssignmentFailed } from "@/lib/assignment";
 import { canTransition, normalizePhone, type SessionUser, type TicketStatus } from "@/lib/types";
+import type { RolePermissions } from "@/lib/permissions";
 import { emitWebhook } from "@/lib/webhooks";
 import { feedbackUrl } from "@/lib/feedback";
 
@@ -575,16 +576,24 @@ export function canAccessTicket(
   user: SessionUser,
   ticket: { branchId: string; assignedToId: string | null },
   policy: AccessPolicy = STRICT_POLICY,
+  permissions?: RolePermissions,
 ): boolean {
+  if (user.role === "ROOT_ADMIN" || user.role === "CENTRAL_ADMIN" || user.role === "CENTRAL_AGENT") {
+    return true;
+  }
+
+  if (permissions) {
+    if (ticket.assignedToId && ticket.assignedToId === user.id) return true;
+    if (permissions.searchGlobally) return true;
+    if (permissions.viewAllBranchTickets) {
+      return policy.crossBranch || (!!user.branchId && user.branchId === ticket.branchId);
+    }
+    return false;
+  }
+
   switch (user.role) {
-    case "ROOT_ADMIN":
-    case "CENTRAL_ADMIN":
-    case "CENTRAL_AGENT":
-      // Tenant-wide visibility — all tickets, all branches.
-      return true;
     case "BRANCH_MANAGER":
     case "SUPPORT_AGENT":
-      // Own branch always; any branch when cross-branch access is enabled.
       return policy.crossBranch || (!!user.branchId && user.branchId === ticket.branchId);
     default:
       return false;
@@ -596,12 +605,18 @@ export function canReassignTicket(
   user: SessionUser,
   ticket: { branchId: string; assignedToId: string | null },
   policy: AccessPolicy = STRICT_POLICY,
+  permissions?: RolePermissions,
 ): boolean {
-  if (!canAccessTicket(user, ticket, policy)) return false;
+  if (!canAccessTicket(user, ticket, policy, permissions)) return false;
+  if (user.role === "ROOT_ADMIN" || user.role === "CENTRAL_ADMIN" || user.role === "CENTRAL_AGENT") {
+    return true;
+  }
+
+  if (permissions !== undefined) {
+    return permissions.reassignTickets;
+  }
+
   switch (user.role) {
-    case "ROOT_ADMIN":
-    case "CENTRAL_ADMIN":
-    case "CENTRAL_AGENT":
     case "BRANCH_MANAGER":
       return true;
     case "SUPPORT_AGENT":

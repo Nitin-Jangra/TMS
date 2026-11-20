@@ -7,6 +7,7 @@
 
 import { db } from "@/lib/db";
 import type { AccessPolicy } from "@/lib/tickets";
+import type { RolePermissions } from "@/lib/permissions";
 import { normalizePhone, type SessionUser } from "@/lib/types";
 
 export const SORT_FIELDS = ["ticketNumber", "customer", "branch", "category", "department", "assignee", "status", "priority", "createdAt", "updatedAt"] as const;
@@ -73,19 +74,50 @@ export function parseFilters(searchParams: URLSearchParams): TicketFilters {
 }
 
 /**
- * Deny-by-default role scoping:
- * - SUPPORT_AGENT / BRANCH_MANAGER → their own branch, or every branch when
- *   they ask for it (`allBranches`) and cross-branch access is enabled.
- * - Central roles → the whole tenant (all branches).
+ * Dynamic role and permission-based scoping:
+ * - ROOT_ADMIN: whole tenant.
+ * - If global query is present and `permissions.searchGlobally === true`:
+ *   user can search tickets globally across the system.
+ * - If `permissions.viewAllBranchTickets === false` (e.g. Junior Support Agent):
+ *   user is strictly scoped to tickets assigned to them (`assignedToId = user.id`).
+ * - SUPPORT_AGENT / BRANCH_MANAGER: their own branch (or all branches when cross-branch is allowed).
+ * - Central roles: whole tenant.
  */
 export function roleScope(
   user: SessionUser,
-  opts: { policy?: AccessPolicy; allBranches?: boolean } = {},
+  opts: {
+    policy?: AccessPolicy;
+    allBranches?: boolean;
+    permissions?: RolePermissions;
+    hasGlobalQuery?: boolean;
+  } = {},
 ): { branchId?: string; assignedToId?: string } {
+  if (user.role === "ROOT_ADMIN") return {};
+
+  const perms = opts.permissions;
+
+  // Global search capability: if query provided and user has permission, do not restrict to assigned
+  if (opts.hasGlobalQuery && perms?.searchGlobally) {
+    if (opts.allBranches || opts.policy?.crossBranch || user.role === "CENTRAL_ADMIN" || user.role === "CENTRAL_AGENT") {
+      return {};
+    }
+    // If restricted to branch without crossBranch
+    return user.branchId ? { branchId: user.branchId } : {};
+  }
+
+  // If user is restricted from viewing all branch tickets (e.g. Junior agent)
+  if (perms && !perms.viewAllBranchTickets) {
+    return {
+      ...(user.branchId ? { branchId: user.branchId } : {}),
+      assignedToId: user.id,
+    };
+  }
+
   if (user.role === "SUPPORT_AGENT" || user.role === "BRANCH_MANAGER") {
     if (opts.allBranches && opts.policy?.crossBranch) return {};
     return { branchId: user.branchId || "__no_branch__" };
   }
+
   return {};
 }
 

@@ -14,9 +14,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { PRIORITIES, PRIORITY_LABELS } from "@/lib/types";
-import { Building2, Loader2, Mail, Network, Save, Settings2, Tags, TimerReset, Webhook, Workflow } from "lucide-react";
+import { Building2, Loader2, Mail, Network, Save, Settings2, ShieldCheck, Tags, TimerReset, Webhook, Workflow } from "lucide-react";
 import { DepartmentsPanel } from "@/components/admin/departments-panel";
 import { AutomationPanel } from "@/components/admin/automation-panel";
+import { PermissionsPanel } from "@/components/admin/permissions-panel";
 
 interface Settings { [key: string]: string }
 interface Branch { id: string; code: string; name: string; notificationEmail: string; isActive: boolean }
@@ -170,6 +171,7 @@ export default function AdminSettingsPage() {
       <Tabs defaultValue="general">
         <TabsList className="flex-wrap">
           <TabsTrigger value="general" className="gap-1.5"><Settings2 className="h-3.5 w-3.5" aria-hidden />General</TabsTrigger>
+          <TabsTrigger value="permissions" className="gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-[#1F70C1]" aria-hidden />Roles &amp; Permissions</TabsTrigger>
           <TabsTrigger value="branches" className="gap-1.5"><Building2 className="h-3.5 w-3.5" aria-hidden />Branch emails</TabsTrigger>
           <TabsTrigger value="closure" className="gap-1.5"><TimerReset className="h-3.5 w-3.5" aria-hidden />Closure policy</TabsTrigger>
           <TabsTrigger value="categories" className="gap-1.5"><Tags className="h-3.5 w-3.5" aria-hidden />Categories</TabsTrigger>
@@ -178,6 +180,7 @@ export default function AdminSettingsPage() {
           <TabsTrigger value="automation" className="gap-1.5"><Workflow className="h-3.5 w-3.5" aria-hidden />Automation</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="permissions"><PermissionsPanel /></TabsContent>
         <TabsContent value="departments"><DepartmentsPanel /></TabsContent>
         <TabsContent value="automation"><AutomationPanel /></TabsContent>
 

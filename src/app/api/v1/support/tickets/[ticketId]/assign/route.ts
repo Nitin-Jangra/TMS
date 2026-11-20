@@ -1,25 +1,19 @@
 // Manual assignment / reassignment / branch transfer.
-//
-// Who may do it (see canReassignTicket in src/lib/tickets.ts):
-// - central roles: any ticket
-// - branch managers: tickets they can access
-// - support agents: tickets they can access, when "agents can reassign" is on
-//
-// Assigning to an employee of another branch moves the ticket to that branch
-// in the same step (fixes a ticket that landed with the wrong team). That
-// needs cross-branch access (always on for central roles).
+// Supports dynamic permissions per role and designation.
 
 import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AssignmentError, manuallyAssignTicket, transferTicketBranch } from "@/lib/assignment";
 import { canReassignTicket, getAccessPolicy } from "@/lib/tickets";
+import { getUserPermissions } from "@/lib/permissions";
 import { isCentralRole } from "@/lib/types";
 
 export async function POST(request: Request, { params }: { params: Promise<{ ticketId: string }> }) {
   return handleErrors(async () => {
     const { ticketId } = await params;
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
 
     const body = (await request.json().catch(() => null)) as { employeeId?: string; note?: string; transferBranchId?: string } | null;
     const employeeId = String(body?.employeeId || "");
@@ -30,14 +24,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ tic
     if (!ticket) return fail("NOT_FOUND", "Ticket not found.", 404);
 
     const policy = await getAccessPolicy();
-    if (!canReassignTicket(user, ticket, policy)) {
+    if (!canReassignTicket(user, ticket, policy, permissions)) {
       return fail("FORBIDDEN", "You are not allowed to assign or transfer this ticket.", 403);
     }
-    const acrossBranches = isCentralRole(user.role) || policy.crossBranch;
+    const acrossBranches = isCentralRole(user.role) || policy.crossBranch || permissions.transferBranch;
 
     try {
       if (transferBranchId) {
-        if (!acrossBranches) return fail("FORBIDDEN", "Branch transfer is switched off for branch staff.", 403);
+        if (!permissions.transferBranch && !acrossBranches) {
+          return fail("FORBIDDEN", "Branch transfer is not allowed for your role or designation.", 403);
+        }
         await transferTicketBranch(ticketId, transferBranchId, user);
         return ok({ transferred: true });
       }
