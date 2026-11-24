@@ -29,9 +29,9 @@ import { pushHistory } from "@/components/sn/modules";
 import { cn } from "@/lib/utils";
 import { cachedFetch } from "@/lib/client-cache";
 import {
-  ArrowLeft, CheckCircle2, ChevronDown, ChevronLeft, ChevronUp, Copy, ExternalLink,
-  FileText, Info, Link2, Loader2, Mail, Menu, MessageSquare, MoreHorizontal, Paperclip,
-  Printer, RefreshCw, Send, ShieldAlert, Star, Timer, Trash2, TriangleAlert, Upload, User, Users, X,
+  ArrowLeft, ChevronLeft, Copy,
+  FileText, Info, Link2, Loader2, Mail, Menu, MessageSquare, Paperclip,
+  Printer, RefreshCw, Send, ShieldAlert, Star, Timer, Trash2, Upload, User, X,
 } from "lucide-react";
 
 interface Detail {
@@ -95,7 +95,6 @@ interface Detail {
 
 const PRIORITY_TEXT: Record<string, string> = { CRITICAL: "1 - Critical", HIGH: "2 - High", MEDIUM: "3 - Moderate", LOW: "4 - Low" };
 const SOURCE_TEXT: Record<string, string> = { PORTAL: "Self-service portal", API_LMS: "LMS integration", API_CRM: "CRM integration", EMAIL: "Email", SEED: "Imported" };
-const FLOW = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"];
 
 const dt = (iso: string | null) =>
   iso
@@ -535,7 +534,6 @@ export default function TicketDetailPage() {
     }
   };
 
-  const startWork = () => stateAction("start", `/api/v1/support/tickets/${t.id}/status`, "PATCH", { toStatus: "IN_PROGRESS", note: t.status === "ON_HOLD" ? "Resumed from hold" : "Work started" }, t.status === "ON_HOLD" ? "Ticket resumed" : "Work started");
   const assignToMe = () => me && stateAction("me", `/api/v1/support/tickets/${t.id}/assign`, "POST", { employeeId: me.id, note: "Assigned to self" }, "Assigned to you");
   const canSelfAssign = canAssign && !!me && t.assignee?.id !== me.id && staff.some((s) => s.id === me.id);
 
