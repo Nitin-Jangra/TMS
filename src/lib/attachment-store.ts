@@ -9,8 +9,7 @@
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { db } from "@/lib/db";
-import { mkdir, writeFile } from "fs/promises";
-import { readFile } from "fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import path from "path";
 
 const UPLOAD_DIR = path.join(process.cwd(), "db", "uploads");
@@ -48,6 +47,16 @@ export async function getAttachmentBytes(id: string): Promise<Buffer | null> {
   } catch {
     return null;
   }
+}
+
+export async function deleteAttachmentBytes(id: string): Promise<void> {
+  if (onCloudflareWorkers) {
+    await db.attachmentData.delete({ where: { id } }).catch(() => {});
+    return;
+  }
+  try {
+    await unlink(path.join(UPLOAD_DIR, id));
+  } catch {}
 }
 
 /** Guard so the D1 backend never receives a row it cannot physically store. */

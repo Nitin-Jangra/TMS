@@ -30,8 +30,8 @@ import { cn } from "@/lib/utils";
 import { cachedFetch } from "@/lib/client-cache";
 import {
   ArrowLeft, CheckCircle2, ChevronDown, ChevronLeft, ChevronUp, Copy, ExternalLink,
-  FileText, Info, Link2, Loader2, Menu, MessageSquare, MoreHorizontal, Paperclip,
-  Printer, RefreshCw, ShieldAlert, Star, Timer, TriangleAlert, User, Users,
+  FileText, Info, Link2, Loader2, Mail, Menu, MessageSquare, MoreHorizontal, Paperclip,
+  Printer, RefreshCw, Send, ShieldAlert, Star, Timer, Trash2, TriangleAlert, Upload, User, Users, X,
 } from "lucide-react";
 
 interface Detail {
@@ -174,6 +174,20 @@ export default function TicketDetailPage() {
   const [comments, setComments] = useState("");
   const [workNotes, setWorkNotes] = useState("");
   const [noteType, setNoteType] = useState<"internal" | "comment">("internal");
+  const [selectedState, setSelectedState] = useState("");
+  const [statusReason, setStatusReason] = useState("");
+  const [statusResolution, setStatusResolution] = useState("");
+
+  // Modals state
+  const [attachmentsModalOpen, setAttachmentsModalOpen] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+
+  const [mailModalOpen, setMailModalOpen] = useState(false);
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
+  const [mailFiles, setMailFiles] = useState<File[]>([]);
+  const [sendingMail, setSendingMail] = useState(false);
 
   // Supporting entities
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
@@ -183,10 +197,6 @@ export default function TicketDetailPage() {
 
   // Filter for activity stream
   const [activityFilter, setActivityFilter] = useState<"all" | ActivityKind>("all");
-
-  // Dialogs
-  const [dialog, setDialog] = useState<"hold" | "resolve" | "escalate" | null>(null);
-  const [dialogText, setDialogText] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -203,6 +213,7 @@ export default function TicketDetailPage() {
       setGroup(d.ticket.department?.id || "");
       setAssignee(d.ticket.assignee?.id || "");
       setBranch(d.ticket.branch.id);
+      setSelectedState(d.ticket.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : d.ticket.status);
       pushHistory({ id: d.ticket.id, number: d.ticket.ticketNumber, title: d.ticket.description.slice(0, 80) });
     } catch {
       toast({ title: "Network error", description: "Failed to fetch ticket record.", variant: "destructive" });
@@ -367,7 +378,8 @@ export default function TicketDetailPage() {
   const branchChanged = branch !== t.branch.id;
   const groupChanged = group !== (t.department?.id || "");
   const assigneeChanged = !!assignee && assignee !== (t.assignee?.id || "");
-  const dirty = branchChanged || groupChanged || assigneeChanged || !!comments.trim() || !!workNotes.trim();
+  const stateChanged = !!selectedState && selectedState !== t.status;
+  const dirty = stateChanged || branchChanged || groupChanged || assigneeChanged || !!comments.trim() || !!workNotes.trim();
   const assigneeEntry = staff.find((s) => s.id === assignee);
 
   // Compute Task SLAs
@@ -396,9 +408,39 @@ export default function TicketDetailPage() {
       if (thenBack) router.push("/staff/tickets");
       return;
     }
+
+    if (stateChanged) {
+      if (selectedState === "ON_HOLD" && !statusReason.trim()) {
+        toast({ title: "Reason required", description: "Please enter an On Hold Reason in Ticket Details before saving.", variant: "destructive" });
+        setActiveTab("details");
+        return;
+      }
+      if (selectedState === "RESOLVED" && !statusResolution.trim()) {
+        toast({ title: "Resolution required", description: "Please enter Resolution Notes in Ticket Details before saving.", variant: "destructive" });
+        setActiveTab("details");
+        return;
+      }
+    }
+
     setBusy("update");
     const done: string[] = [];
     try {
+      if (stateChanged) {
+        if (selectedState === "RESOLVED") {
+          await call(`/api/v1/support/tickets/${t.id}/resolve`, "POST", { resolution: statusResolution.trim() });
+          done.push("ticket resolved");
+        } else {
+          const defaultNote = selectedState === "IN_PROGRESS"
+            ? (t.status === "ON_HOLD" ? "Resumed from hold" : "Work started")
+            : `Status changed to ${STATUS_LABELS[selectedState] || selectedState}`;
+          await call(`/api/v1/support/tickets/${t.id}/status`, "PATCH", {
+            toStatus: selectedState,
+            reason: statusReason.trim() || undefined,
+            note: statusReason.trim() || defaultNote,
+          });
+          done.push(`status changed to ${STATUS_LABELS[selectedState] || selectedState}`);
+        }
+      }
       if (branchChanged) { await call(`/api/v1/support/tickets/${t.id}/assign`, "POST", { transferBranchId: branch }); done.push("branch transferred"); }
       if (groupChanged) { await call(`/api/v1/support/tickets/${t.id}/department`, "PATCH", { departmentId: group || null, reassign: false }); done.push("assignment group updated"); }
       if (assigneeChanged) { await call(`/api/v1/support/tickets/${t.id}/assign`, "POST", { employeeId: assignee }); done.push("assigned"); }
@@ -412,6 +454,69 @@ export default function TicketDetailPage() {
       await load();
     } finally {
       setBusy("");
+    }
+  };
+
+  const handleUploadAttachments = async (files: File[]) => {
+    if (files.length === 0) return;
+    setUploadingFiles(true);
+    try {
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      const res = await fetch(`/api/v1/support/tickets/${t.id}/attachments`, { method: "POST", body: fd });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error?.message || "Upload failed");
+      toast({ title: "Upload complete", description: `${files.length} file(s) attached.` });
+      await load();
+    } catch (err) {
+      toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string, name: string) => {
+    setDeletingAttachmentId(attachmentId);
+    try {
+      const res = await fetch(`/api/v1/attachments/${attachmentId}`, { method: "DELETE" });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error?.message || "Failed to remove attachment");
+      toast({ title: "Attachment removed", description: `"${name}" was deleted.` });
+      await load();
+    } catch (err) {
+      toast({ title: "Delete failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setDeletingAttachmentId(null);
+    }
+  };
+
+  const handleSendMail = async () => {
+    if (!mailBody.trim()) return;
+    setSendingMail(true);
+    try {
+      if (mailFiles.length > 0) {
+        const fd = new FormData();
+        mailFiles.forEach((f) => fd.append("files", f));
+        const upRes = await fetch(`/api/v1/support/tickets/${t.id}/attachments`, { method: "POST", body: fd });
+        const upBody = await upRes.json();
+        if (!upRes.ok || !upBody.success) throw new Error(upBody.error?.message || "Failed to upload email attachment");
+      }
+      const res = await fetch(`/api/v1/support/tickets/${t.id}/replies`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reply: mailBody.trim() }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error?.message || "Failed to send email");
+      toast({ title: "Email reply sent", description: "Your message has been emailed to the customer and logged in activity." });
+      setMailModalOpen(false);
+      setMailBody("");
+      setMailFiles([]);
+      await load();
+    } catch (err) {
+      toast({ title: "Failed to send email", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSendingMail(false);
     }
   };
 
@@ -433,13 +538,6 @@ export default function TicketDetailPage() {
   const startWork = () => stateAction("start", `/api/v1/support/tickets/${t.id}/status`, "PATCH", { toStatus: "IN_PROGRESS", note: t.status === "ON_HOLD" ? "Resumed from hold" : "Work started" }, t.status === "ON_HOLD" ? "Ticket resumed" : "Work started");
   const assignToMe = () => me && stateAction("me", `/api/v1/support/tickets/${t.id}/assign`, "POST", { employeeId: me.id, note: "Assigned to self" }, "Assigned to you");
   const canSelfAssign = canAssign && !!me && t.assignee?.id !== me.id && staff.some((s) => s.id === me.id);
-
-  const submitDialog = () => {
-    const text = dialogText.trim();
-    if (dialog === "hold") return stateAction("hold", `/api/v1/support/tickets/${t.id}/status`, "PATCH", { toStatus: "ON_HOLD", reason: text }, "Ticket placed on hold");
-    if (dialog === "resolve") return stateAction("resolve", `/api/v1/support/tickets/${t.id}/resolve`, "POST", { resolution: text }, "Ticket resolved — closure scheduled");
-    if (dialog === "escalate") return stateAction("escalate", `/api/v1/support/tickets/${t.id}/escalate`, "POST", { reason: text || "Manual escalation" }, "Ticket escalated");
-  };
 
   const postQuickNote = async () => {
     if (noteType === "internal" && workNotes.trim()) {
@@ -532,14 +630,17 @@ export default function TicketDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveRelatedTab("attachments")}
-              className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground relative"
+              onClick={() => setAttachmentsModalOpen(true)}
+              className="inline-flex h-8 items-center gap-1.5 rounded border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted relative"
               aria-label="Attachments"
-              title={`View attachments (${t.attachments.length})`}
+              title={`View & manage attachments (${t.attachments.length})`}
             >
-              <Paperclip className="h-4 w-4" aria-hidden />
-              {t.attachments.length ? (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{t.attachments.length}</span>
+              <Paperclip className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <span className="hidden sm:inline">Attachments</span>
+              {t.attachments.length > 0 ? (
+                <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {t.attachments.length}
+                </span>
               ) : null}
             </button>
 
@@ -553,6 +654,21 @@ export default function TicketDetailPage() {
               <span className="hidden sm:inline">Discuss</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                setMailSubject(`[${t.ticketNumber}] Regarding your ticket: ${t.category.name}`);
+                setMailBody("");
+                setMailFiles([]);
+                setMailModalOpen(true);
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+              title="Reply to customer via Email"
+            >
+              <Mail className="h-3.5 w-3.5 text-blue-600" aria-hidden />
+              <span className="hidden sm:inline">Mail</span>
+            </button>
+
             {canSelfAssign ? (
               <button
                 type="button"
@@ -561,61 +677,6 @@ export default function TicketDetailPage() {
                 className="inline-flex h-8 items-center rounded border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
               >
                 Assign to me
-              </button>
-            ) : null}
-
-            {canUpdateStatus && t.status === "NEW_COMPLAINT" ? (
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={startWork}
-                className="inline-flex h-8 items-center rounded bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {busy === "start" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Start Work
-              </button>
-            ) : null}
-
-            {canUpdateStatus && t.status === "ON_HOLD" ? (
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={startWork}
-                className="inline-flex h-8 items-center rounded bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {busy === "start" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}Resume Work
-              </button>
-            ) : null}
-
-            {canUpdateStatus && t.status === "IN_PROGRESS" ? (
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={() => { setDialogText(""); setDialog("hold"); }}
-                className="inline-flex h-8 items-center rounded border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-              >
-                Put on Hold
-              </button>
-            ) : null}
-
-            {canUpdateStatus && t.status === "IN_PROGRESS" ? (
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={() => { setDialogText(""); setDialog("resolve"); }}
-                className="inline-flex h-8 items-center rounded bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
-              >
-                Resolve Ticket
-              </button>
-            ) : null}
-
-            {!isClosed && !t.escalatedAt && t.status !== "RESOLVED" ? (
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={() => { setDialogText(""); setDialog("escalate"); }}
-                className="inline-flex h-8 items-center rounded border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-              >
-                Escalate
               </button>
             ) : null}
 
@@ -636,40 +697,11 @@ export default function TicketDetailPage() {
 
       {/* Main Workspace Container */}
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-4">
-
-        {/* State Flow Banner */}
-        <div className="flex overflow-x-auto rounded-lg border border-border bg-card shadow-sm text-xs font-medium">
-          {FLOW.map((s, idx) => {
-            const currentIdx = FLOW.indexOf(t.status);
-            const isCurrent = s === t.status;
-            const isCompleted = idx < currentIdx;
-            return (
-              <div
-                key={s}
-                className={cn(
-                  "flex-1 min-w-[120px] px-3 py-2 text-center border-r border-border last:border-r-0 transition-colors",
-                  isCurrent && "bg-primary text-primary-foreground font-semibold",
-                  isCompleted && "bg-muted/40 text-muted-foreground",
-                  !isCurrent && !isCompleted && "text-muted-foreground/60"
-                )}
-              >
-                {STATUS_LABELS[s] || s}
-              </div>
-            );
-          })}
-        </div>
-
         {/* Informational Status Banners */}
         {isClosed ? (
           <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/70 px-4 py-2.5 text-xs text-blue-900 shadow-sm">
             <Info className="h-4 w-4 shrink-0 text-blue-600" aria-hidden />
             <span>This ticket is closed and read-only. Closed tickets are preserved as permanent historical records.</span>
-          </div>
-        ) : null}
-        {overdue ? (
-          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50/70 px-4 py-2.5 text-xs text-red-900 shadow-sm">
-            <TriangleAlert className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
-            <span>Resolution SLA deadline passed on <strong className="font-semibold">{dt(t.slaResolutionDueAt)}</strong>.</span>
           </div>
         ) : null}
         {t.escalatedAt ? (
@@ -700,10 +732,10 @@ export default function TicketDetailPage() {
           </div>
           <button
             type="button"
-            onClick={() => setActiveRelatedTab("attachments")}
+            onClick={() => setAttachmentsModalOpen(true)}
             className="text-primary hover:underline font-medium ml-auto"
           >
-            View attachment details &rarr;
+            Manage attachments &rarr;
           </button>
         </section>
 
@@ -835,10 +867,73 @@ export default function TicketDetailPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2">
-                    <span className="font-medium text-muted-foreground sm:text-right">State</span>
-                    <div className="sm:col-span-2 flex items-center h-8">
-                      {getStatusBadge(t.status)}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 items-start gap-2">
+                    <span className="font-medium text-muted-foreground sm:text-right pt-2">State</span>
+                    <div className="sm:col-span-2 flex flex-col gap-2">
+                      {isClosed ? (
+                        <input
+                          type="text"
+                          value="Closed (Read-only)"
+                          disabled
+                          className="h-8 w-full rounded border border-border bg-muted/40 px-2.5 text-xs text-foreground cursor-not-allowed"
+                        />
+                      ) : canUpdateStatus ? (
+                        <select
+                          value={selectedState}
+                          onChange={(e) => setSelectedState(e.target.value)}
+                          className={cn(
+                            "h-8 w-full rounded border border-border bg-background px-2 text-xs font-medium text-foreground focus:border-primary",
+                            stateChanged && "border-amber-400 bg-amber-50/50"
+                          )}
+                          aria-label="Ticket state"
+                        >
+                          <option value="NEW_COMPLAINT">New Complaint</option>
+                          <option value="IN_PROGRESS">In Progress</option>
+                          <option value="ON_HOLD">On Hold</option>
+                          <option value="RESOLVED">Resolved</option>
+                          <option value="CLOSED">Closed</option>
+                        </select>
+                      ) : (
+                        <div className="flex items-center h-8">
+                          {getStatusBadge(t.status)}
+                        </div>
+                      )}
+
+                      {selectedState === "ON_HOLD" && selectedState !== t.status && (
+                        <div className="rounded border border-amber-300 bg-amber-50/70 p-2.5 text-xs">
+                          <label className="font-semibold text-amber-900 block mb-1">
+                            On Hold Reason <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={statusReason}
+                            onChange={(e) => setStatusReason(e.target.value)}
+                            placeholder="Specify why ticket is being placed on hold…"
+                            className="w-full h-8 rounded border border-amber-300 bg-background px-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      )}
+
+                      {selectedState === "RESOLVED" && selectedState !== t.status && (
+                        <div className="rounded border border-emerald-300 bg-emerald-50/70 p-2.5 text-xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="font-semibold text-emerald-900 block">
+                              Resolution Notes <span className="text-red-500">*</span>
+                            </label>
+                            <CannedPicker
+                              context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                              onInsert={(text) => setStatusResolution((cur) => cur ? `${cur}\n${text}` : text)}
+                            />
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={statusResolution}
+                            onChange={(e) => setStatusResolution(e.target.value)}
+                            placeholder="Document solution applied to resolve ticket…"
+                            className="w-full rounded border border-emerald-300 bg-background p-2 text-xs text-foreground focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -887,17 +982,6 @@ export default function TicketDetailPage() {
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Related Knowledge Search Footer Link */}
-              <div className="mt-6 pt-4 border-t border-border flex justify-center">
-                <Link
-                  href={`/staff/tickets?categorySearch=${encodeURIComponent(t.category.name)}`}
-                  className="inline-flex items-center gap-1.5 rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-                >
-                  <span>View other tickets in Category: {t.category.name}</span>
-                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                </Link>
               </div>
             </div>
           )}
@@ -1325,48 +1409,232 @@ export default function TicketDetailPage() {
         </section>
       </main>
 
-      {/* Action Dialogs (Hold, Resolve, Escalate) */}
-      <Dialog open={!!dialog} onOpenChange={(o) => { if (!o) { setDialog(null); setDialogText(""); } }}>
-        <DialogContent className="sm:max-w-lg">
+      {/* Attachments Management Dialog */}
+      <Dialog open={attachmentsModalOpen} onOpenChange={setAttachmentsModalOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>
-              {dialog === "hold" ? "Put ticket on hold" : dialog === "resolve" ? "Resolve ticket" : "Escalate ticket"}
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Paperclip className="h-5 w-5 text-primary" aria-hidden />
+              <span>Ticket Attachments ({t.attachments.length})</span>
             </DialogTitle>
-            <DialogDescription>
-              {dialog === "hold" ? "The reason will be communicated to the requester." : dialog === "resolve" ? "Resolution notes will be emailed to the member." : "Central support and branch management will be notified."}
+            <DialogDescription className="text-xs">
+              View, download, upload, or remove diagnostic documents associated with ticket #{t.ticketNumber}.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <div className="flex items-center justify-between">
-              <label className={cn("text-xs font-semibold text-foreground", dialog !== "escalate" && "after:ml-0.5 after:text-red-500 after:content-['*']")}>
-                {dialog === "hold" ? "On hold reason" : dialog === "resolve" ? "Resolution notes" : "Reason for escalation"}
+
+          {/* Upload Drop Zone */}
+          {!isClosed && (
+            <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 p-4 text-center">
+              <input
+                type="file"
+                multiple
+                id="modal-attachment-upload-input"
+                className="hidden"
+                disabled={uploadingFiles}
+                onChange={async (e) => {
+                  const files = e.target.files;
+                  if (!files || files.length === 0) return;
+                  await handleUploadAttachments(Array.from(files));
+                  e.target.value = "";
+                }}
+              />
+              <label
+                htmlFor="modal-attachment-upload-input"
+                className="inline-flex items-center gap-2 cursor-pointer rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                {uploadingFiles ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                <span>{uploadingFiles ? "Uploading Files..." : "Upload New Attachments"}</span>
               </label>
-              {dialog === "resolve" ? (
-                <CannedPicker
-                  context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
-                  onInsert={(text) => setDialogText((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
-                />
-              ) : null}
+              <p className="mt-1.5 text-[11px] text-muted-foreground">Select one or multiple files (images, PDF, documents up to 10 MB each)</p>
             </div>
-            <textarea
-              rows={4}
-              value={dialogText}
-              onChange={(e) => setDialogText(e.target.value)}
-              placeholder={dialog === "hold" ? "State why this ticket is being placed on hold…" : dialog === "resolve" ? "Explain root cause and solution applied…" : "Provide context for escalation…"}
-              maxLength={2000}
-              className="w-full rounded border border-border bg-background p-2 text-xs text-foreground focus:border-primary focus:outline-none"
-            />
+          )}
+
+          {/* Files List */}
+          <div className="flex-1 overflow-y-auto space-y-2 py-2 pr-1 text-xs">
+            {t.attachments.length === 0 ? (
+              <p className="py-8 text-center text-xs text-muted-foreground">No attachments linked with this ticket.</p>
+            ) : (
+              t.attachments.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-xs shadow-sm">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText className="h-5 w-5 text-emerald-600 shrink-0" aria-hidden />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground truncate max-w-xs sm:max-w-sm" title={a.originalName}>{a.originalName}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {Math.max(1, Math.round(a.sizeBytes / 1024))} KB · {a.mimeType}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={`/api/v1/attachments/${a.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center rounded border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
+                    >
+                      View
+                    </a>
+                    <a
+                      href={`/api/v1/attachments/${a.id}`}
+                      download={a.originalName}
+                      className="inline-flex items-center rounded border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
+                    >
+                      Download
+                    </a>
+                    {!isClosed && (
+                      <button
+                        type="button"
+                        disabled={deletingAttachmentId === a.id}
+                        onClick={() => handleDeleteAttachment(a.id, a.originalName)}
+                        className="inline-flex items-center rounded border border-red-200 text-red-600 hover:bg-red-50 p-1.5 disabled:opacity-50 transition-colors"
+                        title="Remove attachment from ticket"
+                        aria-label="Remove attachment"
+                      >
+                        {deletingAttachmentId === a.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+
           <DialogFooter>
-            <button type="button" className="rounded border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted" onClick={() => setDialog(null)}>Cancel</button>
             <button
               type="button"
-              disabled={!!busy || (dialog !== "escalate" && dialogText.trim().length < 3)}
-              onClick={submitDialog}
-              className="rounded bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="rounded border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+              onClick={() => setAttachmentsModalOpen(false)}
             >
-              {busy ? <Loader2 className="mr-1.5 inline h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-              {dialog === "hold" ? "Put on hold" : dialog === "resolve" ? "Resolve Ticket" : "Confirm Escalation"}
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Email Reply Dialog */}
+      <Dialog open={mailModalOpen} onOpenChange={setMailModalOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Mail className="h-5 w-5 text-blue-600" aria-hidden />
+              <span>Reply to Customer via Email</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Compose an official response to {t.customerName}. The email will be delivered to {t.customerEmail || t.customerPhone} and logged in the ticket history.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 flex-1 overflow-y-auto pr-1 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2">
+              <span className="font-semibold text-muted-foreground sm:text-right">To:</span>
+              <input
+                type="text"
+                readOnly
+                value={`${t.customerName} <${t.customerEmail || t.customerPhone}>`}
+                className="sm:col-span-3 h-8 rounded border border-border bg-muted/40 px-2.5 text-xs text-foreground font-mono"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2">
+              <span className="font-semibold text-muted-foreground sm:text-right">Subject:</span>
+              <input
+                type="text"
+                value={mailSubject}
+                onChange={(e) => setMailSubject(e.target.value)}
+                className="sm:col-span-3 h-8 rounded border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 pt-1">
+              <div className="flex items-center justify-between">
+                <label className="font-semibold text-foreground">
+                  Email Message Body <span className="text-red-500">*</span>
+                </label>
+                <CannedPicker
+                  context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                  onInsert={(text) => setMailBody((cur) => cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text)}
+                />
+              </div>
+              <textarea
+                rows={5}
+                value={mailBody}
+                onChange={(e) => setMailBody(e.target.value)}
+                placeholder="Write your email reply to the customer…"
+                className="w-full rounded border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none focus:border-primary leading-relaxed"
+              />
+            </div>
+
+            {/* Email Attachments Area */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                  Email Attachments ({mailFiles.length})
+                </span>
+                <label
+                  htmlFor="mail-attachment-upload-input"
+                  className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                >
+                  + Add attachments
+                </label>
+                <input
+                  id="mail-attachment-upload-input"
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      setMailFiles((cur) => [...cur, ...Array.from(e.target.files!)]);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </div>
+
+              {mailFiles.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {mailFiles.map((f, idx) => (
+                    <div key={idx} className="inline-flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1 text-xs">
+                      <FileText className="h-3 w-3 text-muted-foreground" />
+                      <span className="max-w-[150px] truncate" title={f.name}>{f.name}</span>
+                      <span className="text-muted-foreground text-[10px]">({Math.max(1, Math.round(f.size / 1024))} KB)</span>
+                      <button
+                        type="button"
+                        onClick={() => setMailFiles((cur) => cur.filter((_, i) => i !== idx))}
+                        className="text-muted-foreground hover:text-red-600 ml-1"
+                        aria-label="Remove attached file"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground italic">No files attached to this email.</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              type="button"
+              className="rounded border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+              onClick={() => setMailModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={sendingMail || !mailBody.trim()}
+              onClick={handleSendMail}
+              className="rounded bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1.5"
+            >
+              {sendingMail ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              <span>Send Email</span>
             </button>
           </DialogFooter>
         </DialogContent>
