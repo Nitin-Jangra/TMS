@@ -17,6 +17,7 @@ import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canViewReports, isCentralRole } from "@/lib/types";
+import { getUserPermissions } from "@/lib/permissions";
 
 const IST = "+05:30";
 const OPEN = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"];
@@ -66,7 +67,10 @@ function summarize(a: Acc) {
 export async function GET(request: Request) {
   return handleErrors(async () => {
     const user = await requireUser();
-    if (!canViewReports(user.role)) return fail("FORBIDDEN", "Reports are available to branch managers and central staff.", 403);
+    const permissions = await getUserPermissions(user);
+    if (!permissions.viewReports && !canViewReports(user.role)) {
+      return fail("FORBIDDEN", "Reports are not enabled for your role or designation.", 403);
+    }
     const url = new URL(request.url);
 
     const todayIst = dayKey(new Date());

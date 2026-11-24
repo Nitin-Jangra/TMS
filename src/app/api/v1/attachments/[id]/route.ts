@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canAccessTicket, getAccessPolicy } from "@/lib/tickets";
 import { deleteAttachmentBytes, getAttachmentBytes } from "@/lib/attachment-store";
+import { getUserPermissions } from "@/lib/permissions";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   return handleErrors(async () => {
@@ -35,6 +36,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   return handleErrors(async () => {
     const { id } = await params;
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
+    if (!permissions.manageAttachments) {
+      return fail("FORBIDDEN", "Your role or designation does not have permission to delete attachments.", 403);
+    }
 
     const attachment = await db.ticketAttachment.findUnique({
       where: { id },

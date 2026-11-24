@@ -2,11 +2,12 @@
 // GET /api/v1/support/tickets (opens directly in Excel). Max 5000 rows.
 
 import { NextResponse } from "next/server";
-import { handleErrors } from "@/lib/api-response";
+import { fail, handleErrors } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { getAccessPolicy } from "@/lib/tickets";
 import { exportTickets, parseFilters, roleScope } from "@/lib/ticket-query";
 import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/types";
+import { getUserPermissions } from "@/lib/permissions";
 
 const ist = (d: Date | null) =>
   d ? d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : "";
@@ -21,6 +22,10 @@ function csvCell(value: unknown): string {
 export async function GET(request: Request) {
   return handleErrors(async () => {
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
+    if (!permissions.exportTickets) {
+      return fail("FORBIDDEN", "Your role or designation does not have permission to export tickets.", 403);
+    }
     const url = new URL(request.url);
     const filters = parseFilters(url.searchParams);
     if (filters.mine) filters.assignedToId = user.id;

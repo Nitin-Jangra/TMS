@@ -7,12 +7,17 @@ import { db } from "@/lib/db";
 import { canAccessTicket, getAccessPolicy } from "@/lib/tickets";
 import { getSettings } from "@/lib/settings";
 import { exceedsStorageLimit, putAttachmentBytes, D1_BLOB_LIMIT_BYTES } from "@/lib/attachment-store";
+import { getUserPermissions } from "@/lib/permissions";
 import { randomUUID } from "crypto";
 
 export async function POST(request: Request, { params }: { params: Promise<{ ticketId: string }> }) {
   return handleErrors(async () => {
     const { ticketId } = await params;
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
+    if (!permissions.manageAttachments) {
+      return fail("FORBIDDEN", "Your role or designation does not have permission to manage attachments.", 403);
+    }
 
     const ticket = await db.ticket.findUnique({
       where: { id: ticketId },

@@ -11,10 +11,15 @@ import { fail, handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canManageSharedTemplates } from "@/lib/types";
+import { getUserPermissions } from "@/lib/permissions";
 
 export async function GET(request: Request) {
   return handleErrors(async () => {
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
+    if (!permissions.useCannedResponses) {
+      return ok({ templates: [], canManageShared: false, disabled: true });
+    }
     const categoryId = new URL(request.url).searchParams.get("categoryId") || "";
     const rows = await db.cannedResponse.findMany({
       where: { OR: [{ isShared: true }, ...(user.id ? [{ ownerId: user.id }] : [])] },
@@ -40,6 +45,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return handleErrors(async () => {
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
+    if (!permissions.useCannedResponses) {
+      return fail("FORBIDDEN", "Your role or designation does not have permission to manage canned responses.", 403);
+    }
     const body = ((await request.json().catch(() => null)) || {}) as Record<string, unknown>;
     const title = String(body.title || "").trim();
     const text = String(body.body || "").trim();

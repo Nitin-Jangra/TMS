@@ -11,12 +11,16 @@ import { handoverOpenTickets, retryUnassignedTickets } from "@/lib/assignment";
 import { getSetting } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
 import { canManageAvailability } from "@/lib/types";
+import { getUserPermissions } from "@/lib/permissions";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ employeeId: string }> }) {
   return handleErrors(async () => {
     const { employeeId } = await params;
     const user = await requireUser();
-    if (!canManageAvailability(user.role)) return fail("FORBIDDEN", "Your role cannot change availability.", 403);
+    const permissions = await getUserPermissions(user);
+    if (!permissions.manageStaffAvailability && !canManageAvailability(user.role)) {
+      return fail("FORBIDDEN", "Your role or designation cannot change availability.", 403);
+    }
 
     const body = await request.json().catch(() => null);
     const availabilityEnabled = (body as { availabilityEnabled?: boolean })?.availabilityEnabled;

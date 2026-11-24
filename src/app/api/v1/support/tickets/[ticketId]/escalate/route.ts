@@ -5,12 +5,16 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canAccessTicket, getAccessPolicy, escalateTicket, TicketError } from "@/lib/tickets";
 import { canUpdateTicketStatus } from "@/lib/types";
+import { getUserPermissions } from "@/lib/permissions";
 
 export async function POST(request: Request, { params }: { params: Promise<{ ticketId: string }> }) {
   return handleErrors(async () => {
     const { ticketId } = await params;
     const user = await requireUser();
-    if (!canUpdateTicketStatus(user.role)) return fail("FORBIDDEN", "Your role cannot escalate tickets.", 403);
+    const permissions = await getUserPermissions(user);
+    if (!permissions.escalateTickets || !canUpdateTicketStatus(user.role)) {
+      return fail("FORBIDDEN", "Your role or designation does not have permission to escalate tickets.", 403);
+    }
 
     const body = await request.json().catch(() => null);
     const reason = String((body as { reason?: string })?.reason || "").trim();

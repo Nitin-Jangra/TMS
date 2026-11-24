@@ -5,11 +5,13 @@ import { handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canManageAvailability } from "@/lib/types";
+import { getUserPermissions } from "@/lib/permissions";
 
 export async function GET(request: Request) {
   return handleErrors(async () => {
     const user = await requireUser();
-    if (!canManageAvailability(user.role)) {
+    const permissions = await getUserPermissions(user);
+    if (!permissions.viewEmployees && !permissions.manageStaffAvailability && !canManageAvailability(user.role)) {
       return ok({ employees: [], branches: [], restricted: true });
     }
     const url = new URL(request.url);
@@ -30,10 +32,12 @@ export async function GET(request: Request) {
       _count: { _all: true },
     });
     const openBy = new Map(open.map((o) => [o.assignedToId, o._count._all]));
+    const canManage = canManageAvailability(user.role) || permissions.manageStaffAvailability;
     return ok({
       employees: employees.map(({ passwordHash: _omit, ...e }) => ({ ...e, openTickets: openBy.get(e.id) ?? 0 })),
       branches,
       restricted: false,
+      canManage,
     });
   });
 }

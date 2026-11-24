@@ -23,6 +23,7 @@ import { ViewsMenu, BUILT_IN_VIEWS } from "@/components/tickets/views-menu";
 import { cachedFetch } from "@/lib/client-cache";
 import { PRIORITIES, STATUS_LABELS, TICKET_STATUSES } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import type { RolePermissions } from "@/lib/permissions";
 import {
   Activity, ArrowDown, ArrowUp, CheckCircle2, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight,
   Clock, Download, Filter, Inbox, Info, Loader2, Menu, PauseCircle, Plus,
@@ -197,6 +198,7 @@ function ListInner() {
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [canReassign, setCanReassign] = useState(false);
+  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [bulkMode, setBulkMode] = useState<BulkMode | null>(null);
 
   // Summary counts for KPI metrics strip
@@ -257,6 +259,7 @@ function ListInner() {
         setRows(body.data.tickets);
         setTotal(body.data.total);
         setCanAllBranches(!!body.data.canSearchAllBranches);
+        if (body.data.permissions) setPermissions(body.data.permissions);
         setSelected(new Set());
       } else {
         setRows([]);
@@ -283,6 +286,7 @@ function ListInner() {
     cachedFetch<any>("/api/v1/auth/me", { ttlMs: 60000 }).then((d) => {
       const u = d?.data?.user;
       if (u) setMe({ id: u.id, role: u.role, branchId: u.branchId ?? null, branchName: u.branchName ?? null });
+      if (d?.data?.permissions) setPermissions(d.data.permissions);
     });
     cachedFetch<any>("/api/v1/support/staff-directory", { ttlMs: 60000 }).then((d) => {
       setStaff(d?.data?.staff ?? []);
@@ -558,11 +562,18 @@ function ListInner() {
     }
   };
 
+  const canBulk = !permissions || permissions.bulkOperations;
+  const canExport = !permissions || permissions.exportTickets;
+  const canReassignPerm = permissions ? permissions.reassignTickets : canReassign;
+  const canDeptPerm = permissions ? permissions.changeDepartment : canReassign;
+  const canStatusPerm = permissions ? permissions.updateStatus : true;
+  const canEscalatePerm = permissions ? permissions.escalateTickets : true;
+
   const bulkOptions: { mode: BulkMode; label: string; show: boolean }[] = [
-    { mode: "assign", label: "Reassign selected…", show: canReassign },
-    { mode: "department", label: "Change assignment group…", show: canReassign },
-    { mode: "status", label: "Update ticket state…", show: true },
-    { mode: "escalate", label: "Escalate selected…", show: true },
+    { mode: "assign", label: "Reassign selected…", show: canBulk && canReassignPerm },
+    { mode: "department", label: "Change assignment group…", show: canBulk && canDeptPerm },
+    { mode: "status", label: "Update ticket state…", show: canBulk && canStatusPerm },
+    { mode: "escalate", label: "Escalate selected…", show: canBulk && canEscalatePerm },
   ];
 
   return (
@@ -594,7 +605,9 @@ function ListInner() {
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild><a href={exportHref} download><Download className="mr-2 h-4 w-4" aria-hidden />Export to CSV</a></DropdownMenuItem>
+                {canExport && (
+                  <DropdownMenuItem asChild><a href={exportHref} download><Download className="mr-2 h-4 w-4" aria-hidden />Export to CSV</a></DropdownMenuItem>
+                )}
                 <DropdownMenuItem onSelect={() => load()}><RefreshCw className="mr-2 h-4 w-4" aria-hidden />Refresh Queue</DropdownMenuItem>
                 <DropdownMenuItem onSelect={clearAll}><X className="mr-2 h-4 w-4" aria-hidden />Reset All Filters</DropdownMenuItem>
               </DropdownMenuContent>
@@ -662,24 +675,26 @@ function ListInner() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                  disabled={!selected.size}
-                >
-                  <span>{selected.size ? `Actions on ${selected.size} row${selected.size === 1 ? "" : "s"}` : "Actions on selected rows"}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {bulkOptions.filter((o) => o.show).map((o) => (
-                  <DropdownMenuItem key={o.mode} onSelect={() => setBulkMode(o.mode)}>{o.label}</DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setSelected(new Set())} className="text-red-600">Clear selection</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {canBulk && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                    disabled={!selected.size}
+                  >
+                    <span>{selected.size ? `Actions on ${selected.size} row${selected.size === 1 ? "" : "s"}` : "Actions on selected rows"}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {bulkOptions.filter((o) => o.show).map((o) => (
+                    <DropdownMenuItem key={o.mode} onSelect={() => setBulkMode(o.mode)}>{o.label}</DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setSelected(new Set())} className="text-red-600">Clear selection</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             <Link
               href="/complaint"
@@ -826,14 +841,16 @@ function ListInner() {
               <thead className="border-b border-border bg-muted/50 font-semibold text-muted-foreground">
                 <tr>
                   <th scope="col" className="w-10 px-3 py-2.5 text-center">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all tickets on this page"
-                      className="rounded border-border text-primary focus:ring-primary"
-                      checked={allOnPage}
-                      onChange={toggleAll}
-                      disabled={!pageIds.length}
-                    />
+                    {canBulk ? (
+                      <input
+                        type="checkbox"
+                        aria-label="Select all tickets on this page"
+                        className="rounded border-border text-primary focus:ring-primary"
+                        checked={allOnPage}
+                        onChange={toggleAll}
+                        disabled={!pageIds.length}
+                      />
+                    ) : null}
                   </th>
                   <th scope="col" className="w-8 px-1 py-2.5 text-center">
                     <button
@@ -901,13 +918,15 @@ function ListInner() {
                 ) : rows.map((t) => (
                   <tr key={t.id} className={cn("transition-colors hover:bg-muted/40", selected.has(t.id) && "bg-muted/60")}>
                     <td className="px-3 py-2.5 text-center">
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${t.ticketNumber}`}
-                        className="rounded border-border text-primary focus:ring-primary"
-                        checked={selected.has(t.id)}
-                        onChange={() => toggleOne(t.id)}
-                      />
+                      {canBulk ? (
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${t.ticketNumber}`}
+                          className="rounded border-border text-primary focus:ring-primary"
+                          checked={selected.has(t.id)}
+                          onChange={() => toggleOne(t.id)}
+                        />
+                      ) : null}
                     </td>
                     <td className="px-1 py-2.5 text-center">
                       <Popover>
@@ -998,18 +1017,20 @@ function ListInner() {
         </section>
       </main>
 
-      <BulkBar
-        hideBar
-        mode={bulkMode}
-        onModeChange={setBulkMode}
-        selectedIds={[...selected]}
-        staff={staff}
-        departments={departments}
-        preferBranchId={me?.branchId}
-        canReassign={canReassign}
-        onClear={() => setSelected(new Set())}
-        onDone={() => { setSelected(new Set()); setBulkMode(null); load(); }}
-      />
+      {canBulk && (
+        <BulkBar
+          hideBar
+          mode={bulkMode}
+          onModeChange={setBulkMode}
+          selectedIds={[...selected]}
+          staff={staff}
+          departments={departments}
+          preferBranchId={me?.branchId}
+          canReassign={canReassign}
+          onClear={() => setSelected(new Set())}
+          onDone={() => { setSelected(new Set()); setBulkMode(null); load(); }}
+        />
+      )}
     </div>
   );
 }

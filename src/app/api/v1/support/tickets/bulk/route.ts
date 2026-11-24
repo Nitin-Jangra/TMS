@@ -14,6 +14,7 @@ import { logAudit } from "@/lib/audit";
 import { AssignmentError, assignTicketRoundRobin, manuallyAssignTicket } from "@/lib/assignment";
 import { applyStatusChange, canAccessTicket, canReassignTicket, escalateTicket, getAccessPolicy, TicketError } from "@/lib/tickets";
 import { canUpdateTicketStatus, isCentralRole, TICKET_STATUSES, type TicketStatus } from "@/lib/types";
+import { getUserPermissions } from "@/lib/permissions";
 
 const ACTIONS = ["assign", "department", "status", "escalate"] as const;
 type Action = (typeof ACTIONS)[number];
@@ -21,6 +22,11 @@ type Action = (typeof ACTIONS)[number];
 export async function POST(request: Request) {
   return handleErrors(async () => {
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
+    if (!permissions.bulkOperations) {
+      return fail("FORBIDDEN", "Your role or designation does not have permission to perform bulk operations.", 403);
+    }
+
     const body = ((await request.json().catch(() => null)) || {}) as Record<string, unknown>;
     const action = String(body.action || "") as Action;
     if (!ACTIONS.includes(action)) return fail("VALIDATION_ERROR", `action must be one of: ${ACTIONS.join(", ")}.`, 422);
@@ -34,7 +40,7 @@ export async function POST(request: Request) {
     let toStatus: TicketStatus | null = null;
     let department: { id: string; name: string } | null = null;
     if (action === "status") {
-      if (!canUpdateTicketStatus(user.role)) return fail("FORBIDDEN", "Your role cannot update ticket status.", 403);
+      if (!permissions.updateStatus || !canUpdateTicketStatus(user.role)) return fail("FORBIDDEN", "Your role or designation cannot update ticket status.", 403);
       toStatus = String(body.toStatus || "") as TicketStatus;
       if (!TICKET_STATUSES.includes(toStatus) || toStatus === "CLOSED" || toStatus === "NEW_COMPLAINT") {
         return fail("VALIDATION_ERROR", "toStatus must be IN_PROGRESS, ON_HOLD or RESOLVED.", 422);
@@ -42,12 +48,18 @@ export async function POST(request: Request) {
       if (toStatus === "ON_HOLD" && !String(body.reason || "").trim()) return fail("VALIDATION_ERROR", "A hold reason is required.", 422);
       if (toStatus === "RESOLVED" && !String(body.resolution || "").trim()) return fail("VALIDATION_ERROR", "A resolution note is required.", 422);
     }
-    if (action === "escalate" && !canUpdateTicketStatus(user.role)) return fail("FORBIDDEN", "Your role cannot escalate tickets.", 403);
-    if (action === "assign" && !String(body.employeeId || "")) return fail("VALIDATION_ERROR", "employeeId is required.", 422);
-    if (action === "department" && body.departmentId) {
-      const d = await db.department.findUnique({ where: { id: String(body.departmentId) } });
-      if (!d || !d.isActive) return fail("NOT_FOUND", "Department not found or inactive.", 404);
-      department = { id: d.id, name: d.name };
+    if (action === "escalate" && (!permissions.escalateTickets || !canUpdateTicketStatus(user.role))) return fail("FORBIDDEN", "Your role or designation cannot escalate tickets.", 403);
+    if (action === "assign") {
+      if (!permissions.reassignTickets) return fail("FORBIDDEN", "Your role or designation cannot reassign tickets.", 403);
+      if (!String(body.employeeId || "")) return fail("VALIDATION_ERROR", "employeeId is required.", 422);
+    }
+    if (action === "department") {
+      if (!permissions.changeDepartment) return fail("FORBIDDEN", "Your role or designation cannot change assignment groups.", 403);
+      if (body.departmentId) {
+        const d = await db.department.findUnique({ where: { id: String(body.departmentId) } });
+        if (!d || !d.isActive) return fail("NOT_FOUND", "Department not found or inactive.", 404);
+        department = { id: d.id, name: d.name };
+      }
     }
 
     const tickets = await db.ticket.findMany({

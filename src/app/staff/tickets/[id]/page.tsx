@@ -28,6 +28,7 @@ import { CannedPicker } from "@/components/canned-picker";
 import { pushHistory } from "@/components/sn/modules";
 import { cn } from "@/lib/utils";
 import { cachedFetch } from "@/lib/client-cache";
+import type { RolePermissions } from "@/lib/permissions";
 import {
   ArrowLeft, ChevronLeft, Copy,
   FileText, Info, Link2, Loader2, Mail, Menu, MessageSquare, Paperclip,
@@ -76,20 +77,7 @@ interface Detail {
     branchId: string | null;
     canReassign?: boolean;
     canAssignAcrossBranches?: boolean;
-    permissions?: {
-      viewAllBranchTickets: boolean;
-      searchGlobally: boolean;
-      reassignTickets: boolean;
-      transferBranch: boolean;
-      updateStatus: boolean;
-      changePriority: boolean;
-      changeDepartment: boolean;
-      addWorkNotes: boolean;
-      addCustomerComments: boolean;
-      viewReports: boolean;
-      viewEmployees: boolean;
-      exportTickets: boolean;
-    };
+    permissions?: RolePermissions;
   };
 }
 
@@ -369,6 +357,10 @@ export default function TicketDetailPage() {
   const canChangeDept = (perms ? perms.changeDepartment : canAssign) && !isClosed;
   const canWorkNote = (perms ? perms.addWorkNotes : true) && !isClosed;
   const canComment = (perms ? perms.addCustomerComments : true) && !isClosed;
+  const canMail = (perms ? perms.sendCustomerEmail : true) && !isClosed;
+  const canManageAttachments = perms ? perms.manageAttachments : true;
+  const canUseCanned = perms ? perms.useCannedResponses : true;
+  const canViewAudit = perms ? perms.viewAuditLogs : true;
   const acrossBranches = (perms ? perms.transferBranch : !!detail.viewer.canAssignAcrossBranches) && !isClosed;
   const overdue = !!t.slaResolutionDueAt && !["RESOLVED", "CLOSED"].includes(t.status) && new Date(t.slaResolutionDueAt) < new Date();
   const shortDescription = t.description.split(/\r?\n/)[0].slice(0, 160);
@@ -652,20 +644,22 @@ export default function TicketDetailPage() {
               <span className="hidden sm:inline">Discuss</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMailSubject(`[${t.ticketNumber}] Regarding your ticket: ${t.category.name}`);
-                setMailBody("");
-                setMailFiles([]);
-                setMailModalOpen(true);
-              }}
-              className="inline-flex h-8 items-center gap-1.5 rounded border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted"
-              title="Reply to customer via Email"
-            >
-              <Mail className="h-3.5 w-3.5 text-blue-600" aria-hidden />
-              <span className="hidden sm:inline">Mail</span>
-            </button>
+            {canMail && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMailSubject(`[${t.ticketNumber}] Regarding your ticket: ${t.category.name}`);
+                  setMailBody("");
+                  setMailFiles([]);
+                  setMailModalOpen(true);
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                title="Reply to customer via Email"
+              >
+                <Mail className="h-3.5 w-3.5 text-blue-600" aria-hidden />
+                <span className="hidden sm:inline">Mail</span>
+              </button>
+            )}
 
             {canSelfAssign ? (
               <button
@@ -918,10 +912,12 @@ export default function TicketDetailPage() {
                             <label className="font-semibold text-emerald-900 block">
                               Resolution Notes <span className="text-red-500">*</span>
                             </label>
-                            <CannedPicker
-                              context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
-                              onInsert={(text) => setStatusResolution((cur) => cur ? `${cur}\n${text}` : text)}
-                            />
+                            {canUseCanned && (
+                              <CannedPicker
+                                context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                                onInsert={(text) => setStatusResolution((cur) => cur ? `${cur}\n${text}` : text)}
+                              />
+                            )}
                           </div>
                           <textarea
                             rows={2}
@@ -1053,7 +1049,7 @@ export default function TicketDetailPage() {
                       ) : null}
                     </div>
 
-                    {noteType === "comment" ? (
+                    {noteType === "comment" && canUseCanned ? (
                       <CannedPicker
                         context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
                         onInsert={(text) => setComments((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text))}
@@ -1217,14 +1213,16 @@ export default function TicketDetailPage() {
             >
               <span>Attachments ({t.attachments.length})</span>
             </button>
-            <button
-              role="tab"
-              aria-selected={activeRelatedTab === "audit"}
-              onClick={() => setActiveRelatedTab("audit")}
-              className={cn("inline-flex items-center gap-1.5 px-4 py-3 border-b-2 transition-colors", activeRelatedTab === "audit" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
-            >
-              <span>Audit Trail ({t.auditLogs?.length || 0})</span>
-            </button>
+            {canViewAudit && (
+              <button
+                role="tab"
+                aria-selected={activeRelatedTab === "audit"}
+                onClick={() => setActiveRelatedTab("audit")}
+                className={cn("inline-flex items-center gap-1.5 px-4 py-3 border-b-2 transition-colors", activeRelatedTab === "audit" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
+              >
+                <span>Audit Trail ({t.auditLogs?.length || 0})</span>
+              </button>
+            )}
           </div>
 
           {/* Panel: Task SLAs Table with Visual Progress Bar */}
@@ -1382,7 +1380,7 @@ export default function TicketDetailPage() {
           )}
 
           {/* Panel: Audit Trail */}
-          {activeRelatedTab === "audit" && (
+          {activeRelatedTab === "audit" && canViewAudit && (
             <div className="overflow-x-auto text-xs">
               <table className="w-full border-collapse text-left">
                 <thead className="border-b border-border bg-muted/40 font-semibold text-muted-foreground">
@@ -1421,7 +1419,7 @@ export default function TicketDetailPage() {
           </DialogHeader>
 
           {/* Upload Drop Zone */}
-          {!isClosed && (
+          {!isClosed && canManageAttachments && (
             <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 p-4 text-center">
               <input
                 type="file"
@@ -1479,7 +1477,7 @@ export default function TicketDetailPage() {
                     >
                       Download
                     </a>
-                    {!isClosed && (
+                    {!isClosed && canManageAttachments && (
                       <button
                         type="button"
                         disabled={deletingAttachmentId === a.id}
@@ -1552,10 +1550,12 @@ export default function TicketDetailPage() {
                 <label className="font-semibold text-foreground">
                   Email Message Body <span className="text-red-500">*</span>
                 </label>
-                <CannedPicker
-                  context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
-                  onInsert={(text) => setMailBody((cur) => cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text)}
-                />
+                {canUseCanned && (
+                  <CannedPicker
+                    context={{ customerName: t.customerName, ticketNumber: t.ticketNumber, branchName: t.branch.name, categoryName: t.category.name, categoryId: t.category.id }}
+                    onInsert={(text) => setMailBody((cur) => cur.trim() ? `${cur.trimEnd()}\n\n${text}` : text)}
+                  />
+                )}
               </div>
               <textarea
                 rows={5}
@@ -1567,54 +1567,56 @@ export default function TicketDetailPage() {
             </div>
 
             {/* Email Attachments Area */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-border">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-foreground flex items-center gap-1.5">
-                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                  Email Attachments ({mailFiles.length})
-                </span>
-                <label
-                  htmlFor="mail-attachment-upload-input"
-                  className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                >
-                  + Add attachments
-                </label>
-                <input
-                  id="mail-attachment-upload-input"
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      setMailFiles((cur) => [...cur, ...Array.from(e.target.files!)]);
-                      e.target.value = "";
-                    }
-                  }}
-                />
-              </div>
-
-              {mailFiles.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {mailFiles.map((f, idx) => (
-                    <div key={idx} className="inline-flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1 text-xs">
-                      <FileText className="h-3 w-3 text-muted-foreground" />
-                      <span className="max-w-[150px] truncate" title={f.name}>{f.name}</span>
-                      <span className="text-muted-foreground text-[10px]">({Math.max(1, Math.round(f.size / 1024))} KB)</span>
-                      <button
-                        type="button"
-                        onClick={() => setMailFiles((cur) => cur.filter((_, i) => i !== idx))}
-                        className="text-muted-foreground hover:text-red-600 ml-1"
-                        aria-label="Remove attached file"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+            {canManageAttachments && (
+              <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                    Email Attachments ({mailFiles.length})
+                  </span>
+                  <label
+                    htmlFor="mail-attachment-upload-input"
+                    className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    + Add attachments
+                  </label>
+                  <input
+                    id="mail-attachment-upload-input"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setMailFiles((cur) => [...cur, ...Array.from(e.target.files!)]);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
                 </div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground italic">No files attached to this email.</p>
-              )}
-            </div>
+
+                {mailFiles.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {mailFiles.map((f, idx) => (
+                      <div key={idx} className="inline-flex items-center gap-1.5 rounded border border-border bg-muted/40 px-2 py-1 text-xs">
+                        <FileText className="h-3 w-3 text-muted-foreground" />
+                        <span className="max-w-[150px] truncate" title={f.name}>{f.name}</span>
+                        <span className="text-muted-foreground text-[10px]">({Math.max(1, Math.round(f.size / 1024))} KB)</span>
+                        <button
+                          type="button"
+                          onClick={() => setMailFiles((cur) => cur.filter((_, i) => i !== idx))}
+                          className="text-muted-foreground hover:text-red-600 ml-1"
+                          aria-label="Remove attached file"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground italic">No files attached to this email.</p>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">

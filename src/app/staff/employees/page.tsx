@@ -46,6 +46,7 @@ export default function EmployeesPage() {
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [busy, setBusy] = useState("");
   const [restricted, setRestricted] = useState(false);
+  const [canManage, setCanManage] = useState(true);
   const [q, setQ] = useState("");
 
   const load = useCallback(async () => {
@@ -54,6 +55,7 @@ export default function EmployeesPage() {
     if (body.success) {
       setEmployees(body.data.employees);
       setRestricted(body.data.restricted);
+      setCanManage(body.data.canManage !== false);
     } else setEmployees([]);
   }, []);
 
@@ -165,7 +167,7 @@ export default function EmployeesPage() {
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-slate-600">Department</span>
-                  <Select value={e.department?.id || "none"} onValueChange={(v) => setDepartment(e, v)} disabled={busy === e.id}>
+                  <Select value={e.department?.id || "none"} onValueChange={(v) => setDepartment(e, v)} disabled={!canManage || busy === e.id}>
                     <SelectTrigger size="sm" className="h-8 w-[200px] text-xs" aria-label={`Department for ${e.name}`}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Generalist (all categories)</SelectItem>
@@ -183,7 +185,7 @@ export default function EmployeesPage() {
                       <span className={`text-[11px] font-medium ${e.isActive ? (e.availabilityEnabled ? "text-emerald-700" : "text-amber-700") : "text-red-600"}`}>
                         {e.isActive ? (e.availabilityEnabled ? "Available" : "Away / on leave") : "Inactive"}
                       </span>
-                      <Switch checked={e.availabilityEnabled} disabled={!e.isActive} onCheckedChange={(v) => toggle(e, v)} aria-label={`Toggle availability for ${e.name}`} />
+                      <Switch checked={e.availabilityEnabled} disabled={!canManage || !e.isActive} onCheckedChange={(v) => toggle(e, v)} aria-label={`Toggle availability for ${e.name}`} />
                     </div>
                   )}
                 </div>

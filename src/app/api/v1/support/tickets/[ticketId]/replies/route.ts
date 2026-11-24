@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tic
     const { ticketId } = await params;
     const user = await requireUser();
     const permissions = await getUserPermissions(user);
-    if (!permissions.addCustomerComments) {
+    if (!permissions.addCustomerComments && !permissions.sendCustomerEmail) {
       return fail("FORBIDDEN", "Your role or designation does not have permission to reply to customers.", 403);
     }
 
