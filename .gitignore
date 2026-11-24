@@ -58,3 +58,9 @@ server.log
 /.wrangler/
 .dev.vars
 cloudflare-env.d.ts
+
+# Scratch & backups
+tool-results/
+*.backup*
+upload/*.zip
+
