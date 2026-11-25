@@ -56,7 +56,7 @@ CREATE TABLE "Ticket" (
     "branchId" TEXT NOT NULL,
     "categoryId" TEXT NOT NULL,
     "description" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'NEW_COMPLAINT',
+    "status" TEXT NOT NULL DEFAULT 'IN_PROGRESS',
     "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
     "source" TEXT NOT NULL DEFAULT 'PORTAL',
     "assignedToId" TEXT,

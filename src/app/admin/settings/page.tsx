@@ -66,7 +66,8 @@ export default function AdminSettingsPage() {
             notification_branch_enabled: settings.notification_branch_enabled,
             notification_central_enabled: settings.notification_central_enabled,
             maintenance_mode: settings.maintenance_mode,
-            staff_cross_branch_access: settings.staff_cross_branch_access ?? "true",
+            staff_cross_branch_access: settings.staff_cross_branch_access ?? "false",
+            support_agent_branch_overview: settings.support_agent_branch_overview ?? "false",
             agents_can_reassign: settings.agents_can_reassign ?? "true",
           },
           reason: "Updated via settings panel",
@@ -168,7 +169,7 @@ export default function AdminSettingsPage() {
         <p className="mt-0.5 text-sm text-slate-500">Every change is audited with previous value, new value, actor and timestamp.</p>
       </div>
 
-      <Tabs defaultValue="general">
+      <Tabs defaultValue="general" onValueChange={(v) => { if (v === "general") load(); }}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="general" className="gap-1.5"><Settings2 className="h-3.5 w-3.5" aria-hidden />General</TabsTrigger>
           <TabsTrigger value="permissions" className="gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-[#1F70C1]" aria-hidden />Roles &amp; Permissions</TabsTrigger>
@@ -220,7 +221,8 @@ export default function AdminSettingsPage() {
                   { key: "notification_branch_enabled", label: "Branch notifications", desc: "New complaint alerts to branch mailbox" },
                   { key: "notification_central_enabled", label: "Central support notifications", desc: "New complaint + escalation alerts to central mailbox" },
                   { key: "maintenance_mode", label: "Maintenance mode", desc: "Show maintenance notice on the customer portal" },
-                  { key: "staff_cross_branch_access", label: "Cross-branch ticket access", desc: "Branch staff can search, view and work on tickets of every branch (cover for colleagues on leave)" },
+                  { key: "support_agent_branch_overview", label: "Support agents: Branch Overview (own branch)", desc: "Enable 'Branch Overview' so support agents can browse all tickets in their own branch (Default: OFF — assigned tickets only)" },
+                  { key: "staff_cross_branch_access", label: "Cross-branch ticket access (all branches)", desc: "Allow branch staff to view and filter tickets across ALL branches (Default: OFF — own branch only)" },
                   { key: "agents_can_reassign", label: "Support agents can reassign", desc: "Support agents can hand a ticket to another employee or branch (branch managers and central staff always can)" },
                 ].map((row) => (
                   <div key={row.key} className="flex items-center justify-between rounded-md border border-slate-100 px-3 py-2.5">

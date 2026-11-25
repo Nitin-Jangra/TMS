@@ -53,10 +53,10 @@ interface TicketRow {
 type SortField = "ticketNumber" | "customer" | "branch" | "category" | "department" | "assignee" | "status" | "priority" | "createdAt" | "updatedAt";
 type SortOrder = "asc" | "desc";
 
-const COL_KEYS = ["ticketSearch", "customerSearch", "branchSearch", "categorySearch", "assigneeSearch"] as const;
+const COL_KEYS = ["ticketSearch", "customerSearch", "categorySearch", "assigneeSearch"] as const;
 type ColKey = (typeof COL_KEYS)[number];
 type ColFilters = Record<ColKey, string>;
-const emptyCols = (): ColFilters => ({ ticketSearch: "", customerSearch: "", branchSearch: "", categorySearch: "", assigneeSearch: "" });
+const emptyCols = (): ColFilters => ({ ticketSearch: "", customerSearch: "", categorySearch: "", assigneeSearch: "" });
 
 interface View {
   q: string;
@@ -167,7 +167,6 @@ const GOTO_FIELDS: { id: "q" | ColKey; label: string }[] = [
   { id: "q", label: "Keywords" },
   { id: "customerSearch", label: "Requester" },
   { id: "assigneeSearch", label: "Assigned to" },
-  { id: "branchSearch", label: "Branch" },
   { id: "categorySearch", label: "Category" },
 ];
 
@@ -193,7 +192,6 @@ function ListInner() {
 
   const [me, setMe] = useState<{ id: string; role: string; branchId: string | null; branchName: string | null } | null>(null);
   const [staff, setStaff] = useState<StaffEntry[]>([]);
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -258,7 +256,11 @@ function ListInner() {
       if (body.success) {
         setRows(body.data.tickets);
         setTotal(body.data.total);
-        setCanAllBranches(!!body.data.canSearchAllBranches);
+        const allowCross = !!body.data.canSearchAllBranches;
+        setCanAllBranches(allowCross);
+        if (!allowCross) {
+          setView((cur) => (cur.scope === "all" ? { ...cur, scope: "" } : cur));
+        }
         if (body.data.permissions) setPermissions(body.data.permissions);
         setSelected(new Set());
       } else {
@@ -293,7 +295,6 @@ function ListInner() {
       const role = d?.data?.me?.role as string | undefined;
       setCanReassign(!!role && (role !== "SUPPORT_AGENT" || !!d?.data?.policy?.agentsReassign));
     });
-    cachedFetch<any>("/api/v1/public/branches", { ttlMs: 300000 }).then((d) => setBranches(d?.data?.branches ?? []));
     cachedFetch<any>("/api/v1/public/categories", { ttlMs: 300000 }).then((d) => setCategories(d?.data?.categories ?? []));
     cachedFetch<any>("/api/v1/support/departments", { ttlMs: 300000 }).then((d) => setDepartments(d?.data?.departments ?? []));
 
@@ -304,7 +305,7 @@ function ListInner() {
         const openTotal = (c.NEW_COMPLAINT || 0) + (c.IN_PROGRESS || 0) + (c.ON_HOLD || 0);
         setSummaryCounts({
           open: openTotal || c.open || 0,
-          inProgress: c.IN_PROGRESS || 0,
+          inProgress: (c.NEW_COMPLAINT || 0) + (c.IN_PROGRESS || 0),
           onHold: c.ON_HOLD || 0,
           resolved: c.RESOLVED || 0,
         });
@@ -323,9 +324,11 @@ function ListInner() {
   };
   const exportHref = `/api/v1/support/tickets/export?${viewToQuery(view, false)}`;
 
+  const canViewBranch = isCentral || !permissions || permissions.viewAllBranchTickets;
+
   const setAssigned = (value: string) => {
     const person = staffById.get(value);
-    const otherBranch = !!person && isBranchUser && person.branchId !== me?.branchId;
+    const otherBranch = canAllBranches && !!person && isBranchUser && person.branchId !== me?.branchId;
     update({ assigned: value, ...(otherBranch ? { scope: "all" as const } : {}) });
   };
 
@@ -352,11 +355,11 @@ function ListInner() {
   // Breadcrumb conditions
   const crumbs = useMemo(() => {
     const list: { key: string; label: string; clear: Partial<View> }[] = [];
-    if (view.scope === "all" && !isCentral) list.push({ key: "scope", label: "Branch = any", clear: { scope: "" } });
+    if (view.scope === "all" && !isCentral && canAllBranches) list.push({ key: "scope", label: "Branch = any", clear: { scope: "" } });
     if (view.status) list.push({ key: "status", label: `State is ${view.status === "OPEN" ? "Open" : STATUS_LABELS[view.status] || view.status}`, clear: { status: "" } });
     if (view.assigned) {
       const label = view.assigned === "me" ? "Assigned to me" : view.assigned === "unassigned" ? "Unassigned" : `Assigned to ${staffById.get(view.assigned)?.name || "Agent"}`;
-      list.push({ key: "assigned", label, clear: { assigned: "" } });
+      list.push({ key: "assigned", label, clear: { assigned: canViewBranch ? "" : "me" } });
     }
     if (view.priority) list.push({ key: "priority", label: `Priority is ${PRIORITY_TEXT[view.priority] || view.priority}`, clear: { priority: "" } });
     if (view.department) list.push({ key: "department", label: `Group is ${view.department === "none" ? "None" : deptName.get(view.department) || "Department"}`, clear: { department: "" } });
@@ -365,12 +368,12 @@ function ListInner() {
     if (view.from) list.push({ key: "from", label: `Opened ≥ ${view.from}`, clear: { from: "" } });
     if (view.to) list.push({ key: "to", label: `Opened ≤ ${view.to}`, clear: { to: "" } });
     if (view.q.trim()) list.push({ key: "q", label: `"${view.q.trim()}"`, clear: { q: "" } });
-    const colLabel: Record<ColKey, string> = { ticketSearch: "Number", customerSearch: "Requester", branchSearch: "Branch", categorySearch: "Category", assigneeSearch: "Assigned" };
+    const colLabel: Record<ColKey, string> = { ticketSearch: "Number", customerSearch: "Requester", categorySearch: "Category", assigneeSearch: "Assigned" };
     for (const k of COL_KEYS) {
       if (view.cols[k].trim()) list.push({ key: k, label: `${colLabel[k]}: ${view.cols[k].trim()}`, clear: { cols: { ...view.cols, [k]: "" } } });
     }
     return list;
-  }, [view, staffById, deptName, isCentral]);
+  }, [view, staffById, deptName, isCentral, canAllBranches, canViewBranch]);
 
   const keepCrumbs = (i: number) => {
     let next: View = { ...view, page: 1 };
@@ -392,7 +395,13 @@ function ListInner() {
   const clearAll = () => {
     setColDraft(emptyCols());
     setQDraft("");
-    setView((v) => ({ ...emptyView(v.pageSize), assigned: "", scope: v.scope, sort: v.sort, order: v.order }));
+    setView((v) => ({
+      ...emptyView(v.pageSize),
+      assigned: canViewBranch ? "" : "me",
+      scope: canAllBranches ? v.scope : "",
+      sort: v.sort,
+      order: v.order,
+    }));
   };
 
   const pageIds = rows?.map((r) => r.id) ?? [];
@@ -409,7 +418,12 @@ function ListInner() {
     });
   };
 
-  const scopeText = isCentral || view.scope === "all" ? "All branches" : `Your branch${me?.branchName ? ` (${me.branchName})` : ""}`;
+  const scopeText =
+    isCentral || (canAllBranches && view.scope === "all")
+      ? "All branches"
+      : !canViewBranch
+      ? `My assigned queue${me?.branchName ? ` (${me.branchName})` : ""}`
+      : `Your branch${me?.branchName ? ` (${me.branchName})` : ""}`;
 
   const colSearch = (k: ColKey, placeholder: string, list?: string) => (
     <input
@@ -432,7 +446,7 @@ function ListInner() {
           onKeyDown={(e) => { if (e.key === "Enter") update({ q: qDraft }); }} onBlur={() => qDraft !== view.q && update({ q: qDraft })} aria-label="Search short description" />
       );
       case "member": return colSearch("customerSearch", "Filter requester…");
-      case "branch": return isCentral || view.scope === "all" ? colSearch("branchSearch", "Filter branch…", "fc-branch-options") : null;
+      case "branch": return null;
       case "category": return colSearch("categorySearch", "Filter category…", "fc-category-options");
       case "assigned": return colSearch("assigneeSearch", "Filter assignee…");
       case "state": return (
@@ -476,11 +490,12 @@ function ListInner() {
             {STATUS_LABELS[status] || status}
           </span>
         );
+      case "NEW_COMPLAINT":
       case "IN_PROGRESS":
         return (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-800 border border-blue-200">
             <span className="h-1.5 w-1.5 rounded-full bg-blue-600" aria-hidden />
-            {STATUS_LABELS[status] || status}
+            In Progress
           </span>
         );
       default:
@@ -715,7 +730,7 @@ function ListInner() {
         <section aria-label="Queue overview metrics" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <button
             type="button"
-            onClick={() => update({ status: view.status === "OPEN" ? "" : "OPEN", assigned: "" })}
+            onClick={() => update({ status: view.status === "OPEN" ? "" : "OPEN", assigned: canViewBranch ? "" : "me" })}
             className={cn("flex items-center justify-between rounded-lg border border-border bg-card p-3.5 text-left transition hover:border-primary/50 shadow-sm", view.status === "OPEN" && "border-primary ring-1 ring-primary")}
           >
             <div className="flex flex-col">
@@ -808,9 +823,20 @@ function ListInner() {
             </label>
             <div className="space-y-1">
               <span className="block font-medium text-muted-foreground">Assigned to</span>
-              <StaffPicker staff={staff} value={view.assigned} onChange={setAssigned} preferBranchId={me?.branchId}
-                special={[{ value: "", label: "Anyone" }, { value: "me", label: "Me (My tickets)" }, { value: "unassigned", label: "(empty) — Unassigned" }]}
-                placeholder="Anyone" className="!h-8 w-full text-xs" ariaLabel="Assigned to" />
+              <StaffPicker
+                staff={canViewBranch ? staff : staff.filter((s) => s.id === me?.id)}
+                value={view.assigned}
+                onChange={setAssigned}
+                preferBranchId={me?.branchId}
+                special={
+                  canViewBranch
+                    ? [{ value: "", label: "Anyone" }, { value: "me", label: "Me (My tickets)" }, { value: "unassigned", label: "(empty) — Unassigned" }]
+                    : [{ value: "me", label: "Me (My tickets)" }]
+                }
+                placeholder={canViewBranch ? "Anyone" : "Me (My tickets)"}
+                className="!h-8 w-full text-xs"
+                ariaLabel="Assigned to"
+              />
             </div>
             <label className="space-y-1">
               <span className="block font-medium text-muted-foreground">Opened on or after</span>
@@ -831,7 +857,6 @@ function ListInner() {
           </div>
         ) : null}
 
-        <datalist id="fc-branch-options">{branches.map((b) => <option key={b.id} value={b.name} />)}</datalist>
         <datalist id="fc-category-options">{categories.map((c) => <option key={c.id} value={c.name} />)}</datalist>
 
         {/* Selectable Ticket Queue Table */}
@@ -878,7 +903,9 @@ function ListInner() {
                                 <DropdownMenuItem onSelect={() => setSort(c.sort!, "desc")}><ArrowDown className="mr-2 h-3.5 w-3.5" aria-hidden />Sort Z to A</DropdownMenuItem>
                                 {sorted ? <DropdownMenuItem onSelect={() => setSort(c.sort!, "")}><X className="mr-2 h-3.5 w-3.5" aria-hidden />Remove sort</DropdownMenuItem> : null}
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onSelect={() => setShowSearchRow(true)}><Search className="mr-2 h-3.5 w-3.5" aria-hidden />Search this column</DropdownMenuItem>
+                                {c.id !== "branch" ? (
+                                  <DropdownMenuItem onSelect={() => setShowSearchRow(true)}><Search className="mr-2 h-3.5 w-3.5" aria-hidden />Search this column</DropdownMenuItem>
+                                ) : null}
                                 <DropdownMenuItem onSelect={() => toggleColumn(c.id)} disabled={c.id === "number"}><X className="mr-2 h-3.5 w-3.5" aria-hidden />Hide column</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

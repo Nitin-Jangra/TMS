@@ -17,7 +17,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   notification_central_enabled: "true",
   webhook_url: "", // LMS endpoint that receives ticket events (blank = disabled)
   webhook_secret: "", // HMAC secret used to sign webhook deliveries
-  staff_cross_branch_access: "true", // branch staff can find/view/work tickets of every branch
+  staff_cross_branch_access: "false", // branch staff can find/view/work tickets of every branch (default OFF)
   agents_can_reassign: "true", // support agents can reassign / transfer tickets
   assignment_strategy: "least_busy", // least_busy | round_robin
   auto_handover_on_leave: "true", // marking someone away hands their open tickets to colleagues

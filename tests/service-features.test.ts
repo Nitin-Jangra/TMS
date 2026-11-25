@@ -175,7 +175,6 @@ describe("Member feedback", () => {
     const t = await mkTicket(categoryPlain, "9000000301");
     await expect(submitFeedback({ ticketNumber: t.ticketNumber, rating: 5, token: feedbackToken(t.ticketNumber) })).rejects.toBeInstanceOf(FeedbackError);
 
-    await applyStatusChange(t.id, { toStatus: "IN_PROGRESS" }, admin);
     await applyStatusChange(t.id, { toStatus: "RESOLVED", resolution: "Fixed during the test." }, admin);
 
     await expect(submitFeedback({ ticketNumber: t.ticketNumber, rating: 4, token: "wrong-token" })).rejects.toThrow(/could not find/);

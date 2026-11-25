@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tic
     if (!canReassignTicket(user, ticket, policy, permissions)) {
       return fail("FORBIDDEN", "You are not allowed to assign or transfer this ticket.", 403);
     }
-    const acrossBranches = isCentralRole(user.role) || policy.crossBranch || permissions.transferBranch;
+    const acrossBranches = isCentralRole(user.role) || !!permissions.transferBranch;
 
     try {
       if (transferBranchId) {

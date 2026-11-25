@@ -554,11 +554,12 @@ export default function TicketDetailPage() {
             {STATUS_LABELS[status] || status}
           </span>
         );
+      case "NEW_COMPLAINT":
       case "IN_PROGRESS":
         return (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-800 border border-blue-200">
             <span className="h-1.5 w-1.5 rounded-full bg-blue-600" aria-hidden />
-            {STATUS_LABELS[status] || status}
+            In Progress
           </span>
         );
       default:
@@ -796,7 +797,7 @@ export default function TicketDetailPage() {
                         className="w-full h-8 rounded border border-border bg-background pl-8 pr-2.5 text-xs text-foreground"
                       />
                       <Link
-                        href={`/staff/tickets?customerSearch=${encodeURIComponent(t.customerPhone)}&scope=all`}
+                        href={`/staff/tickets?customerSearch=${encodeURIComponent(t.customerPhone)}`}
                         className="absolute right-2 text-primary hover:underline text-[11px]"
                         title="View other tickets from this member"
                       >
@@ -879,7 +880,6 @@ export default function TicketDetailPage() {
                           )}
                           aria-label="Ticket state"
                         >
-                          <option value="NEW_COMPLAINT">New Complaint</option>
                           <option value="IN_PROGRESS">In Progress</option>
                           <option value="ON_HOLD">On Hold</option>
                           <option value="RESOLVED">Resolved</option>

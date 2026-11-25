@@ -163,10 +163,10 @@ describe("Branch-wise round-robin assignment", () => {
     expect(res2.ticket.assignedToId).toBe(resumed.id);
   });
 
-  it("leaves ticket NEW_COMPLAINT + unassigned when nobody is eligible, then retry assigns", async () => {
+  it("leaves ticket IN_PROGRESS + unassigned when nobody is eligible, then retry assigns", async () => {
     employees = [await mkEmployee("Gone Agent", false)];
     const res = await mkComplaint("Nobody Home", "9123400021");
-    expect(res.ticket.status).toBe("NEW_COMPLAINT");
+    expect(res.ticket.status).toBe("IN_PROGRESS");
     expect(res.ticket.assignedToId).toBeNull();
 
     // Make someone available → retry sweep assigns
@@ -185,7 +185,6 @@ describe("Branch-wise round-robin assignment", () => {
     const admin = (await db.staffUser.findFirstOrThrow({ where: { role: "ROOT_ADMIN" } })) as unknown as AdminUser;
 
     // resolve then reopen
-    await applyStatusChange(res.ticket.id, { toStatus: "IN_PROGRESS", note: "start" }, admin);
     await applyStatusChange(res.ticket.id, { toStatus: "RESOLVED", resolution: "Fixed during test." }, admin);
     await reopenTicket(res.ticket.ticketNumber, "9123400031", "Problem came back during testing.");
 
@@ -204,9 +203,9 @@ describe("Status transitions and closed-ticket protection", () => {
     admin = (await db.staffUser.findFirstOrThrow({ where: { role: "ROOT_ADMIN" } })) as unknown as AdminUser;
   });
 
-  it("allows the documented happy path: new → in_progress → on_hold → in_progress → resolved", async () => {
+  it("allows the documented happy path: in_progress → on_hold → in_progress → resolved", async () => {
     const res = await mkComplaint("Flow Test", "9123400041");
-    await applyStatusChange(res.ticket.id, { toStatus: "IN_PROGRESS", note: "start" }, admin);
+    expect(res.ticket.status).toBe("IN_PROGRESS");
     await applyStatusChange(res.ticket.id, { toStatus: "ON_HOLD", reason: "waiting for part" }, admin);
     await applyStatusChange(res.ticket.id, { toStatus: "IN_PROGRESS", note: "resume" }, admin);
     await applyStatusChange(res.ticket.id, { toStatus: "RESOLVED", resolution: "Part replaced and verified." }, admin);
@@ -216,17 +215,15 @@ describe("Status transitions and closed-ticket protection", () => {
     expect(fresh.resolvedAt).toBeTruthy();
   });
 
-  it("rejects invalid transitions (new → resolved, on_hold → closed, resolved → new)", async () => {
+  it("rejects invalid transitions (in_progress → closed, on_hold → closed, resolved → resolved)", async () => {
     const res = await mkComplaint("Invalid Flow", "9123400042");
-    await expect(applyStatusChange(res.ticket.id, { toStatus: "RESOLVED", resolution: "too early" }, admin)).rejects.toThrow(TicketError);
-    await applyStatusChange(res.ticket.id, { toStatus: "IN_PROGRESS", note: "start" }, admin);
+    await expect(applyStatusChange(res.ticket.id, { toStatus: "CLOSED" }, admin)).rejects.toThrow(TicketError);
     await applyStatusChange(res.ticket.id, { toStatus: "ON_HOLD", reason: "hold" }, admin);
     await expect(applyStatusChange(res.ticket.id, { toStatus: "CLOSED" }, admin)).rejects.toThrow(TicketError);
   });
 
   it("makes closed tickets permanently read-only for every role (incl. Root Admin)", async () => {
     const res = await mkComplaint("Readonly Test", "9123400043");
-    await applyStatusChange(res.ticket.id, { toStatus: "IN_PROGRESS", note: "start" }, admin);
     await applyStatusChange(res.ticket.id, { toStatus: "RESOLVED", resolution: "Resolved for readonly test." }, admin);
 
     // force the deadline into the past and sweep
@@ -244,7 +241,6 @@ describe("Status transitions and closed-ticket protection", () => {
 
   it("closure sweep is idempotent and does not close reopened tickets", async () => {
     const res = await mkComplaint("Sweep Test", "9123400044");
-    await applyStatusChange(res.ticket.id, { toStatus: "IN_PROGRESS", note: "start" }, admin);
     await applyStatusChange(res.ticket.id, { toStatus: "RESOLVED", resolution: "Resolved for sweep test." }, admin);
     await db.ticket.update({ where: { id: res.ticket.id }, data: { autoCloseAt: new Date(Date.now() - 1000) } });
     await db.ticketClosureJob.updateMany({ where: { ticketId: res.ticket.id }, data: { runAt: new Date(Date.now() - 1000) } });

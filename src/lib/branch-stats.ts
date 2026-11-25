@@ -84,16 +84,18 @@ export async function getMasterOverview(forceRefresh = false): Promise<MasterOve
   const empResolved = new Map<string, number>();
 
   for (const t of tickets) {
+    const normalizedStatus = t.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : t.status;
+    const isUnassigned = !t.assignedToId && (normalizedStatus === "IN_PROGRESS" || normalizedStatus === "ON_HOLD");
     const b = branchMap.get(t.branchId);
     if (b) {
-      b.counts[t.status] = (b.counts[t.status] || 0) + 1;
+      b.counts[normalizedStatus] = (b.counts[normalizedStatus] || 0) + 1;
       b.total += 1;
-      if (!t.assignedToId && t.status === "NEW_COMPLAINT") b.unassigned += 1;
+      if (isUnassigned) b.unassigned += 1;
       if (isTicketOverdue(t)) b.overdue += 1;
     }
-    totals[t.status] = (totals[t.status] || 0) + 1;
+    totals[normalizedStatus] = (totals[normalizedStatus] || 0) + 1;
     totals.total += 1;
-    if (!t.assignedToId && t.status === "NEW_COMPLAINT") totals.unassigned += 1;
+    if (isUnassigned) totals.unassigned += 1;
     if (isTicketOverdue(t)) totals.overdue += 1;
     if (t.assignedToId) {
       empTotal.set(t.assignedToId, (empTotal.get(t.assignedToId) || 0) + 1);
@@ -175,7 +177,6 @@ export async function getUserAccountStats(userId: string): Promise<{
 
   const now = new Date();
   const myCounts: StatusCounts & { total: number; unassigned: number; overdue: number; open: number } = {
-    NEW_COMPLAINT: 0,
     IN_PROGRESS: 0,
     ON_HOLD: 0,
     RESOLVED: 0,
@@ -187,10 +188,11 @@ export async function getUserAccountStats(userId: string): Promise<{
   };
 
   for (const t of userTickets) {
-    if (myCounts[t.status] !== undefined) {
-      myCounts[t.status]++;
+    const normalizedStatus = t.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : t.status;
+    if (myCounts[normalizedStatus] !== undefined) {
+      myCounts[normalizedStatus]++;
     }
-    const isOpen = t.status === "NEW_COMPLAINT" || t.status === "IN_PROGRESS" || t.status === "ON_HOLD";
+    const isOpen = normalizedStatus === "IN_PROGRESS" || normalizedStatus === "ON_HOLD";
     if (isOpen) {
       myCounts.open++;
       if (t.slaResolutionDueAt && new Date(t.slaResolutionDueAt) < now) {
@@ -205,7 +207,7 @@ export async function getUserAccountStats(userId: string): Promise<{
     customerName: t.customerName,
     customerPhone: t.customerPhone,
     description: t.description,
-    status: t.status,
+    status: t.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : t.status,
     priority: t.priority,
     createdAt: t.createdAt.toISOString(),
     slaResolutionDueAt: t.slaResolutionDueAt ? t.slaResolutionDueAt.toISOString() : null,
@@ -236,7 +238,7 @@ export async function getCentralSummary(user?: SessionUser): Promise<{
     avgResolutionHours: overview.avgResolutionHours,
     branchBreakdown: overview.branches.map((b) => ({
       branchName: b.branchName,
-      open: (b.counts.NEW_COMPLAINT || 0) + (b.counts.IN_PROGRESS || 0) + (b.counts.ON_HOLD || 0),
+      open: (b.counts.IN_PROGRESS || 0) + (b.counts.ON_HOLD || 0),
       total: b.total,
     })),
     canViewAllBranch: true,
@@ -323,7 +325,6 @@ export async function getBranchSummary(
 
   const { myCounts, myRecentTickets } = await getUserAccountStats(user.id);
   const branchCounts = {
-    NEW_COMPLAINT: branch.counts.NEW_COMPLAINT || 0,
     IN_PROGRESS: branch.counts.IN_PROGRESS || 0,
     ON_HOLD: branch.counts.ON_HOLD || 0,
     RESOLVED: branch.counts.RESOLVED || 0,

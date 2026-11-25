@@ -97,7 +97,7 @@ export async function runClosureSweep(): Promise<{ closed: number; checked: numb
 }
 
 /**
- * Retry unassigned NEW_COMPLAINT tickets (runs periodically and whenever an
+ * Retry unassigned open tickets (runs periodically and whenever an
  * employee's availability is turned back on).
  */
 export async function runAssignmentRetrySweep(): Promise<{ assigned: number; remaining: number }> {

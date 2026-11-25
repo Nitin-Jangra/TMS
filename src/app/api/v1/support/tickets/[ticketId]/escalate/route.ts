@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tic
 
     const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return fail("NOT_FOUND", "Ticket not found.", 404);
-    if (!canAccessTicket(user, ticket, await getAccessPolicy())) return fail("FORBIDDEN", "You do not have permission to update this ticket.", 403);
+    if (!canAccessTicket(user, ticket, await getAccessPolicy(), permissions)) return fail("FORBIDDEN", "You do not have permission to update this ticket.", 403);
 
     try {
       await escalateTicket(ticketId, reason, user);

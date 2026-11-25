@@ -5,6 +5,7 @@
 import { handleErrors, ok, fail } from "@/lib/api-response";
 import { requireRole } from "@/lib/auth";
 import { getSettings, updateSettings } from "@/lib/settings";
+import { getPermissionsMatrix, savePermissionsMatrix } from "@/lib/permissions";
 
 const ALLOWED_KEYS = [
   "central_support_email",
@@ -19,6 +20,7 @@ const ALLOWED_KEYS = [
   "notification_central_enabled",
   "webhook_url",
   "staff_cross_branch_access",
+  "support_agent_branch_overview",
   "agents_can_reassign",
   "assignment_strategy",
   "auto_handover_on_leave",
@@ -35,8 +37,14 @@ const ALLOWED_KEYS = [
 export async function GET() {
   return handleErrors(async () => {
     await requireRole(["ROOT_ADMIN"]);
-    const settings = await getSettings();
-    return ok({ settings });
+    const [settings, matrix] = await Promise.all([getSettings(), getPermissionsMatrix()]);
+    return ok({
+      settings: {
+        ...settings,
+        staff_cross_branch_access: String(Boolean(matrix.SUPPORT_AGENT?.viewCrossBranchTickets)),
+        support_agent_branch_overview: String(Boolean(matrix.SUPPORT_AGENT?.viewAllBranchTickets)),
+      },
+    });
   });
 }
 
@@ -53,7 +61,36 @@ export async function PUT(request: Request) {
 
     if (!changes.length) return fail("VALIDATION_ERROR", "No valid settings provided.", 422);
     await updateSettings(changes, { id: user.id, name: user.name });
-    const settings = await getSettings();
-    return ok({ settings });
+
+    // Keep Permissions Matrix synchronized with the General feature switches
+    const hasCrossBranchChange = "staff_cross_branch_access" in incoming;
+    const hasBranchOverviewChange = "support_agent_branch_overview" in incoming;
+    if (hasCrossBranchChange || hasBranchOverviewChange) {
+      const matrix = await getPermissionsMatrix();
+      if (hasCrossBranchChange) {
+        const allowCross = incoming.staff_cross_branch_access === "true";
+        for (const roleKey of ["SUPPORT_AGENT", "BRANCH_MANAGER", "Senior Support Agent", "Junior Support Agent"]) {
+          if (matrix[roleKey]) {
+            matrix[roleKey] = { ...matrix[roleKey], viewCrossBranchTickets: allowCross };
+          }
+        }
+      }
+      if (hasBranchOverviewChange && matrix.SUPPORT_AGENT) {
+        matrix.SUPPORT_AGENT = {
+          ...matrix.SUPPORT_AGENT,
+          viewAllBranchTickets: incoming.support_agent_branch_overview === "true",
+        };
+      }
+      await savePermissionsMatrix(matrix, { id: user.id, name: user.name }, reason || "Synced access toggles from general settings");
+    }
+
+    const [settings, matrix] = await Promise.all([getSettings(), getPermissionsMatrix()]);
+    return ok({
+      settings: {
+        ...settings,
+        staff_cross_branch_access: String(Boolean(matrix.SUPPORT_AGENT?.viewCrossBranchTickets)),
+        support_agent_branch_overview: String(Boolean(matrix.SUPPORT_AGENT?.viewAllBranchTickets)),
+      },
+    });
   });
 }

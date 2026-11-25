@@ -26,7 +26,6 @@ interface Overview {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  NEW_COMPLAINT: "bg-[#0084D1]",
   IN_PROGRESS: "bg-[#D97706]",
   ON_HOLD: "bg-[#7C3AED]",
   RESOLVED: "bg-[#059669]",

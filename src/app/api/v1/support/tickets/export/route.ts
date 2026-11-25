@@ -6,7 +6,7 @@ import { fail, handleErrors } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { getAccessPolicy } from "@/lib/tickets";
 import { exportTickets, parseFilters, roleScope } from "@/lib/ticket-query";
-import { PRIORITY_LABELS, STATUS_LABELS } from "@/lib/types";
+import { PRIORITY_LABELS, STATUS_LABELS, isCentralRole } from "@/lib/types";
 import { getUserPermissions } from "@/lib/permissions";
 
 const ist = (d: Date | null) =>
@@ -29,7 +29,16 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const filters = parseFilters(url.searchParams);
     if (filters.mine) filters.assignedToId = user.id;
-    const scope = roleScope(user, { policy: await getAccessPolicy(), allBranches: url.searchParams.get("scope") === "all" });
+    const allowCrossBranch = isCentralRole(user.role) || !!permissions.viewCrossBranchTickets;
+    if (!allowCrossBranch) {
+      filters.branchId = undefined;
+      filters.branchSearch = undefined;
+    }
+    const scope = roleScope(user, {
+      policy: await getAccessPolicy(),
+      allBranches: allowCrossBranch && url.searchParams.get("scope") === "all",
+      permissions,
+    });
     const { rows } = await exportTickets(filters, scope);
 
     const header = [

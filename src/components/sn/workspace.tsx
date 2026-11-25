@@ -80,7 +80,7 @@ export function Workspace({ user, modules, children }: { user: WorkspaceUser; mo
               className="mr-1 flex items-center"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (q.trim()) router.push(`/staff/tickets?q=${encodeURIComponent(q.trim())}&scope=all`);
+                if (q.trim()) router.push(`/staff/tickets?q=${encodeURIComponent(q.trim())}`);
                 setSearchOpen(false);
                 setQ("");
               }}

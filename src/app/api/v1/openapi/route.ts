@@ -83,7 +83,7 @@ const spec = {
       get: {
         tags: ["Support"], summary: "Role-scoped ticket list",
         parameters: [
-          { name: "status", in: "query", schema: { type: "string", enum: ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"] } },
+          { name: "status", in: "query", schema: { type: "string", enum: ["IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"] } },
           { name: "branchId", in: "query", schema: { type: "string" } },
           { name: "assignedToId", in: "query", schema: { type: "string" } },
           { name: "categoryId", in: "query", schema: { type: "string" } },
@@ -147,7 +147,7 @@ const spec = {
       get: {
         tags: ["Integration"], summary: "List tickets",
         parameters: [
-          { name: "status", in: "query", schema: { type: "string", enum: ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"] } },
+          { name: "status", in: "query", schema: { type: "string", enum: ["IN_PROGRESS", "ON_HOLD", "RESOLVED", "CLOSED"] } },
           { name: "priority", in: "query", schema: { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] } },
           { name: "source", in: "query", schema: { type: "string", enum: ["PORTAL", "API_LMS", "API_CRM"] } },
           { name: "branch", in: "query", schema: { type: "string" }, description: "Branch id, code, external id or name" },

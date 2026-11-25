@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     if (action === "status") {
       if (!permissions.updateStatus || !canUpdateTicketStatus(user.role)) return fail("FORBIDDEN", "Your role or designation cannot update ticket status.", 403);
       toStatus = String(body.toStatus || "") as TicketStatus;
-      if (!TICKET_STATUSES.includes(toStatus) || toStatus === "CLOSED" || toStatus === "NEW_COMPLAINT") {
+      if (!TICKET_STATUSES.includes(toStatus) || toStatus === "CLOSED") {
         return fail("VALIDATION_ERROR", "toStatus must be IN_PROGRESS, ON_HOLD or RESOLVED.", 422);
       }
       if (toStatus === "ON_HOLD" && !String(body.reason || "").trim()) return fail("VALIDATION_ERROR", "A hold reason is required.", 422);
@@ -75,8 +75,8 @@ export async function POST(request: Request) {
       const push = (okFlag: boolean, message: string) => results.push({ ticketId: id, ticketNumber: t.ticketNumber, ok: okFlag, message });
       try {
         if (action === "assign" || action === "department") {
-          if (!canReassignTicket(user, t, policy)) { push(false, "Not allowed to reassign this ticket."); continue; }
-        } else if (!canAccessTicket(user, t, policy)) {
+          if (!canReassignTicket(user, t, policy, permissions)) { push(false, "Not allowed to reassign this ticket."); continue; }
+        } else if (!canAccessTicket(user, t, policy, permissions)) {
           push(false, "No access to this ticket."); continue;
         }
         if (t.status === "CLOSED") { push(false, "Closed tickets are read-only."); continue; }
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
         if (action === "assign") {
           if (t.assignedToId === String(body.employeeId)) { push(true, "Already assigned."); continue; }
           const r = await manuallyAssignTicket(id, String(body.employeeId), user, note || "Bulk reassignment", {
-            allowBranchMove: isCentralRole(user.role) || policy.crossBranch,
+            allowBranchMove: isCentralRole(user.role) || !!permissions.transferBranch,
           });
           push(true, r.movedToBranch ? `Assigned and moved to ${r.movedToBranch}.` : "Assigned.");
         } else if (action === "department") {

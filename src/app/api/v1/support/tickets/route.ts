@@ -29,7 +29,12 @@ export async function GET(request: Request) {
     );
 
     const policy = await getAccessPolicy();
-    const allBranches = url.searchParams.get("scope") === "all" || (hasGlobalQuery && permissions.searchGlobally);
+    const allowCrossBranch = isCentralRole(user.role) || !!permissions.viewCrossBranchTickets;
+    if (!allowCrossBranch) {
+      filters.branchId = undefined;
+      filters.branchSearch = undefined;
+    }
+    const allBranches = allowCrossBranch && (url.searchParams.get("scope") === "all" || (hasGlobalQuery && permissions.searchGlobally));
     const scope = roleScope(user, {
       policy,
       allBranches,
@@ -45,7 +50,7 @@ export async function GET(request: Request) {
       pageSize: page.pageSize,
       totalPages: Math.max(1, Math.ceil(total / page.pageSize)),
       scope: scope.branchId ? "branch" : "all",
-      canSearchAllBranches: isCentralRole(user.role) || policy.crossBranch || permissions.searchGlobally,
+      canSearchAllBranches: allowCrossBranch,
       permissions,
     });
   });

@@ -7,9 +7,10 @@ import { type SessionUser } from "./types";
 
 export interface RolePermissions {
   // 1. Ticket Access & Visibility
-  viewAllBranchTickets: boolean; // if false, can only view complaints assigned to them (or found via search)
-  searchGlobally: boolean;       // can search complaints globally by ticket # or phone
-  viewAuditLogs: boolean;        // can view audit trail tabs and system change logs
+  viewAllBranchTickets: boolean;   // allows Branch Overview & viewing all tickets in their OWN branch; if false, only assigned tickets
+  viewCrossBranchTickets: boolean; // allows viewing tickets across ALL branches ("All branches" scope)
+  searchGlobally: boolean;         // allows searching all tickets within allowed branch(es) even when scoped to own queue
+  viewAuditLogs: boolean;          // can view audit trail tabs and system change logs
 
   // 2. Ticket Workflow & Lifecycle
   updateStatus: boolean;         // can change ticket status (Start Work, On Hold, Resolve)
@@ -58,13 +59,18 @@ export const PERMISSION_CATEGORIES: Record<PermissionCategory, string> = {
 
 export const PERMISSION_DESCRIPTIONS: Record<keyof RolePermissions, PermissionMeta> = {
   viewAllBranchTickets: {
-    label: "View All Branch Tickets",
-    description: "Allows browsing all complaints in the branch with filters. If OFF, user can ONLY view complaints assigned to them.",
+    label: "Branch Overview (Own Branch Tickets)",
+    description: "Enables the 'Branch Overview' switcher and lets the user view all tickets inside their own branch. If OFF, user ONLY sees complaints assigned to them.",
+    category: "access",
+  },
+  viewCrossBranchTickets: {
+    label: "View All Branches Tickets (Cross-Branch)",
+    description: "Allows accessing and filtering tickets from ALL branches instead of being locked to the user's assigned branch. Keep OFF for standard branch isolation.",
     category: "access",
   },
   searchGlobally: {
-    label: "Global Ticket Search",
-    description: "Allows looking up any complaint across branches/system by ticket number, member phone, or keyword.",
+    label: "Extended Queue Search",
+    description: "Allows searching unassigned or colleague tickets within allowed branch(es) by ticket number or mobile, even if Branch Overview is OFF.",
     category: "access",
   },
   viewAuditLogs: {
@@ -162,6 +168,7 @@ export const PERMISSION_DESCRIPTIONS: Record<keyof RolePermissions, PermissionMe
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   ROOT_ADMIN: {
     viewAllBranchTickets: true,
+    viewCrossBranchTickets: true,
     searchGlobally: true,
     viewAuditLogs: true,
     updateStatus: true,
@@ -184,6 +191,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   },
   CENTRAL_ADMIN: {
     viewAllBranchTickets: true,
+    viewCrossBranchTickets: true,
     searchGlobally: true,
     viewAuditLogs: true,
     updateStatus: true,
@@ -206,6 +214,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   },
   CENTRAL_AGENT: {
     viewAllBranchTickets: true,
+    viewCrossBranchTickets: true,
     searchGlobally: true,
     viewAuditLogs: true,
     updateStatus: true,
@@ -228,11 +237,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   },
   BRANCH_MANAGER: {
     viewAllBranchTickets: true,
-    searchGlobally: true,
+    viewCrossBranchTickets: false,
+    searchGlobally: false,
     viewAuditLogs: true,
     updateStatus: true,
     reassignTickets: true,
-    transferBranch: true,
+    transferBranch: false,
     changePriority: true,
     changeDepartment: true,
     escalateTickets: true,
@@ -249,8 +259,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     manageStaffAvailability: true,
   },
   SUPPORT_AGENT: {
-    viewAllBranchTickets: true,
-    searchGlobally: true,
+    viewAllBranchTickets: false,
+    viewCrossBranchTickets: false,
+    searchGlobally: false,
     viewAuditLogs: false,
     updateStatus: true,
     reassignTickets: true,
@@ -272,11 +283,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   },
   // Specific designation presets
   "Senior Support Agent": {
-    viewAllBranchTickets: true, // Senior can see all tickets in the branch with filters
-    searchGlobally: true,
+    viewAllBranchTickets: true,    // Senior can see all tickets in their OWN branch
+    viewCrossBranchTickets: false, // Locked to own branch unless Root Admin enables cross-branch
+    searchGlobally: false,
     viewAuditLogs: true,
     reassignTickets: true,
-    transferBranch: true,
+    transferBranch: false,
     updateStatus: true,
     changePriority: true,
     changeDepartment: true,
@@ -294,10 +306,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     manageStaffAvailability: true,
   },
   "Junior Support Agent": {
-    viewAllBranchTickets: false, // Junior can ONLY see complaints assigned to them
-    searchGlobally: true,        // but CAN search a complaint globally
+    viewAllBranchTickets: false,   // Junior can ONLY see complaints assigned to them
+    viewCrossBranchTickets: false, // Never cross-branch by default
+    searchGlobally: false,
     viewAuditLogs: false,
-    reassignTickets: true,       // and CAN assign tickets to other group emps if mistaken
+    reassignTickets: true,         // Can assign tickets to other group emps if mistaken
     transferBranch: false,
     updateStatus: true,
     changePriority: false,

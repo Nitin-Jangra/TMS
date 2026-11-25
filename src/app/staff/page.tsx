@@ -73,7 +73,6 @@ interface Summary {
 }
 
 const STATUS_TITLES: Record<string, string> = {
-  NEW_COMPLAINT: "New Complaints",
   IN_PROGRESS: "In Progress",
   ON_HOLD: "On Hold",
   RESOLVED: "Resolved",
@@ -120,8 +119,8 @@ export default function StaffDashboardPage() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-64" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28" />
           ))}
         </div>
@@ -208,7 +207,7 @@ export default function StaffDashboardPage() {
           <span>{isAccountView ? "My Assigned Incidents by State" : "Branch Incident State Breakdown"}</span>
           <span className="text-[11px] font-medium lowercase text-slate-400">Click any card to filter list</span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {TICKET_STATUSES.map((s) => {
             const count = activeCounts[s] ?? 0;
             const targetUrl = isAccountView
@@ -263,10 +262,10 @@ export default function StaffDashboardPage() {
                 <div className="flex items-center justify-between rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2">
                   <span className="flex items-center gap-2 font-medium text-amber-900">
                     <Clock3 className="h-4 w-4 text-amber-600" aria-hidden />
-                    Active Worklist (Open / WIP / Hold)
+                    Active Worklist (In Progress / Hold)
                   </span>
                   <span className="font-bold tabular-nums text-amber-900">
-                    {(activeCounts as any).open ?? ((activeCounts.NEW_COMPLAINT || 0) + (activeCounts.IN_PROGRESS || 0) + (activeCounts.ON_HOLD || 0))}
+                    {(activeCounts as any).open ?? ((activeCounts.IN_PROGRESS || 0) + (activeCounts.ON_HOLD || 0))}
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-md border border-slate-200/60 bg-slate-50 px-3 py-2">
@@ -523,12 +522,14 @@ export default function StaffDashboardPage() {
                 All assigned work has been completed, or new complaints are waiting in the round-robin queue.
               </p>
               <div className="mt-4 flex justify-center gap-2">
-                <Link
-                  href="/staff/tickets?all=true"
-                  className="rounded border border-[#D1D7DC] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Browse Branch Incidents
-                </Link>
+                {data.canViewAllBranch ? (
+                  <Link
+                    href="/staff/tickets?all=true"
+                    className="rounded border border-[#D1D7DC] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Browse Branch Incidents
+                  </Link>
+                ) : null}
                 <Link
                   href="/complaint"
                   target="_blank"

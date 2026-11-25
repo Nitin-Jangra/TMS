@@ -282,7 +282,7 @@ Consider calling the member to recover the experience.
 Branch: ${branch}
 Reason: ${reason || "No eligible support employee is currently available in this branch."}
 
-The ticket is in the unassigned queue with status New Complaint. Assign it manually from the dashboard, or make an employee available to retry the round-robin queue.
+The ticket is in the unassigned queue with status In Progress. Assign it manually from the dashboard, or make an employee available to retry the round-robin queue.
 
 — FitClass CMS`;
     default:

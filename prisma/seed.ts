@@ -193,6 +193,7 @@ async function main() {
     { key: "notification_customer_enabled", value: "true" },
     { key: "notification_branch_enabled", value: "true" },
     { key: "notification_central_enabled", value: "true" },
+    { key: "staff_cross_branch_access", value: "false" },
   ];
   for (const s of settings) await db.systemSetting.create({ data: s });
 
@@ -222,7 +223,7 @@ async function main() {
     phone: string;
     email: string;
     description: string;
-    status: "NEW_COMPLAINT" | "IN_PROGRESS" | "ON_HOLD" | "RESOLVED" | "CLOSED";
+    status: "IN_PROGRESS" | "ON_HOLD" | "RESOLVED" | "CLOSED";
     priority?: string;
     assignee?: { id: string; name: string } | null;
     createdAt: Date;
@@ -251,7 +252,7 @@ async function main() {
         source: "PORTAL",
         assignedToId: assigned?.id || null,
         assignedAt: assigned ? new Date(createdAt.getTime() + 5 * 60000) : null,
-        firstResponseAt: opts.status === "NEW_COMPLAINT" ? null : new Date(createdAt.getTime() + 40 * 60000),
+        firstResponseAt: opts.notes?.length || opts.status !== "IN_PROGRESS" ? new Date(createdAt.getTime() + 40 * 60000) : null,
         resolvedAt,
         autoCloseAt: opts.status === "RESOLVED" ? autoCloseAt : opts.status === "CLOSED" ? null : null,
         closedAt,
@@ -262,11 +263,8 @@ async function main() {
     });
 
     const history: { fromStatus: string | null; toStatus: string; note: string; at: Date; by: string }[] = [
-      { fromStatus: null, toStatus: "NEW_COMPLAINT", note: "Complaint registered", at: createdAt, by: "System" },
+      { fromStatus: null, toStatus: "IN_PROGRESS", note: "Complaint registered (In Progress)", at: createdAt, by: "System" },
     ];
-    if (opts.status !== "NEW_COMPLAINT") {
-      history.push({ fromStatus: "NEW_COMPLAINT", toStatus: "IN_PROGRESS", note: "Support started working on the ticket", at: new Date(createdAt.getTime() + 3600000), by: assigned?.name || "Support" });
-    }
     if (opts.status === "ON_HOLD") {
       history.push({ fromStatus: "IN_PROGRESS", toStatus: "ON_HOLD", note: "Waiting for replacement part from vendor", at: new Date(createdAt.getTime() + 4 * 3600000), by: assigned?.name || "Support" });
     }
@@ -399,14 +397,14 @@ async function main() {
     n: 7, branch: br49, category: "Staff Behaviour",
     customer: "Deepak Chawla", phone: "9123456707", email: "deepak.chawla@example.com",
     description: "The front desk staff was rude when I asked about guest passes and refused to escalate to a manager.",
-    status: "NEW_COMPLAINT", priority: "HIGH", assignee: { id: empD.id, name: empD.name },
+    status: "IN_PROGRESS", priority: "HIGH", assignee: { id: empD.id, name: empD.name },
     createdAt: daysAgo(0, 5),
   });
   await mk({
     n: 8, branch: br49, category: "Facility Maintenance",
     customer: "Ishita Bose", phone: "9123456708", email: "ishita.bose@example.com",
     description: "The steam room in the ladies changing area has been out of order for three days with no update displayed.",
-    status: "NEW_COMPLAINT", assignee: null, // unassigned queue demo
+    status: "IN_PROGRESS", assignee: null, // unassigned queue demo
     createdAt: daysAgo(0, 3),
   });
 
@@ -434,7 +432,7 @@ async function main() {
     n: 11, branch: brSR, category: "Other",
     customer: "Gaurav Pillai", phone: "9123456711", email: "gaurav.pillai@example.com",
     description: "Visitors are parking in member slots and there is no attendant after 8 PM.",
-    status: "NEW_COMPLAINT", assignee: null,
+    status: "IN_PROGRESS", assignee: null,
     createdAt: daysAgo(0, 8),
   });
 

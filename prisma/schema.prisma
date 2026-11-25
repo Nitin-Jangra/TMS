@@ -130,7 +130,7 @@ model Ticket {
   categoryId     String
   departmentId   String?
   description    String
-  status         String   @default("NEW_COMPLAINT")
+  status         String   @default("IN_PROGRESS")
   priority       String   @default("MEDIUM")
   source         String   @default("PORTAL") // PORTAL | API_CRM | API_LMS | SEED
   assignedToId   String?

@@ -3,6 +3,7 @@
 
 import { handleErrors, ok, fail } from "@/lib/api-response";
 import { requireRole } from "@/lib/auth";
+import { updateSettings } from "@/lib/settings";
 import {
   getPermissionsMatrix,
   savePermissionsMatrix,
@@ -38,6 +39,21 @@ export async function PUT(request: Request) {
     incomingMatrix.ROOT_ADMIN = { ...DEFAULT_ROLE_PERMISSIONS.ROOT_ADMIN };
 
     await savePermissionsMatrix(incomingMatrix, { id: user.id, name: user.name }, reason);
+    await updateSettings(
+      [
+        {
+          key: "staff_cross_branch_access",
+          value: String(Boolean(incomingMatrix.SUPPORT_AGENT?.viewCrossBranchTickets)),
+          reason,
+        },
+        {
+          key: "support_agent_branch_overview",
+          value: String(Boolean(incomingMatrix.SUPPORT_AGENT?.viewAllBranchTickets)),
+          reason,
+        },
+      ],
+      { id: user.id, name: user.name }
+    );
     const updated = await getPermissionsMatrix();
     return ok({ matrix: updated });
   });

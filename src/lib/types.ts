@@ -1,7 +1,6 @@
 // Shared domain types, roles, statuses and permission helpers for FC-CMS.
 
 export const TICKET_STATUSES = [
-  "NEW_COMPLAINT",
   "IN_PROGRESS",
   "ON_HOLD",
   "RESOLVED",
@@ -31,7 +30,6 @@ export const ROLE_LABELS: Record<string, string> = {
 
 /** Allowed status transitions (spec section 7). Any transition not listed here is rejected. */
 export const ALLOWED_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
-  NEW_COMPLAINT: ["IN_PROGRESS"],
   IN_PROGRESS: ["ON_HOLD", "RESOLVED"],
   ON_HOLD: ["IN_PROGRESS", "RESOLVED"],
   RESOLVED: ["IN_PROGRESS", "CLOSED"], // IN_PROGRESS = customer reopening, CLOSED = automatic closure
@@ -39,12 +37,13 @@ export const ALLOWED_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
 };
 
 export function canTransition(from: string, to: string): boolean {
-  const allowed = ALLOWED_TRANSITIONS[from as TicketStatus];
+  const normalized = from === "NEW_COMPLAINT" ? "IN_PROGRESS" : from;
+  const allowed = ALLOWED_TRANSITIONS[normalized as TicketStatus];
   return !!allowed && allowed.includes(to as TicketStatus);
 }
 
 export const STATUS_LABELS: Record<string, string> = {
-  NEW_COMPLAINT: "New Complaint",
+  NEW_COMPLAINT: "In Progress",
   IN_PROGRESS: "In Progress",
   ON_HOLD: "On Hold",
   RESOLVED: "Resolved",
@@ -53,7 +52,7 @@ export const STATUS_LABELS: Record<string, string> = {
 
 /** Tailwind classes for status badges (ServiceNow Polaris ITIL theme). */
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
-  NEW_COMPLAINT: "bg-[#EBF4FA] text-[#00639B] ring-[#BCE0F5]",
+  NEW_COMPLAINT: "bg-[#FEF3C7] text-[#92400E] ring-[#FDE68A]",
   IN_PROGRESS: "bg-[#FEF3C7] text-[#92400E] ring-[#FDE68A]",
   ON_HOLD: "bg-[#EDE9FE] text-[#5B21B6] ring-[#DDD6FE]",
   RESOLVED: "bg-[#D1FAE5] text-[#065F46] ring-[#A7F3D0]",
@@ -151,7 +150,8 @@ export function isTicketReadOnlyForStaff(ticketStatus: string, role: Role): bool
   return ticketStatus === "CLOSED";
 }
 
-export const OPEN_STATUSES: TicketStatus[] = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"];
+export const OPEN_STATUSES: TicketStatus[] = ["IN_PROGRESS", "ON_HOLD"];
+export const DB_OPEN_STATUSES = ["NEW_COMPLAINT", "IN_PROGRESS", "ON_HOLD"] as const;
 
 export function normalizePhone(raw: string): string {
   return (raw || "").replace(/[^\d]/g, "").replace(/^0+/, (m, off) => (off === 0 ? "" : m)).slice(-12);

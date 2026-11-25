@@ -75,13 +75,10 @@ export function parseFilters(searchParams: URLSearchParams): TicketFilters {
 
 /**
  * Dynamic role and permission-based scoping:
- * - ROOT_ADMIN: whole tenant.
- * - If global query is present and `permissions.searchGlobally === true`:
- *   user can search tickets globally across the system.
- * - If `permissions.viewAllBranchTickets === false` (e.g. Junior Support Agent):
- *   user is strictly scoped to tickets assigned to them (`assignedToId = user.id`).
- * - SUPPORT_AGENT / BRANCH_MANAGER: their own branch (or all branches when cross-branch is allowed).
- * - Central roles: whole tenant.
+ * - ROOT_ADMIN / CENTRAL_ADMIN / CENTRAL_AGENT: whole tenant.
+ * - Cross-branch access (`All branches`): ONLY permitted if `permissions.viewCrossBranchTickets` is enabled.
+ * - Branch Overview (`viewAllBranchTickets`): all tickets in the user's own branch.
+ * - Restricted Support Agent (`!viewAllBranchTickets`): strictly assigned to them (`assignedToId = user.id`) in their branch.
  */
 export function roleScope(
   user: SessionUser,
@@ -92,33 +89,31 @@ export function roleScope(
     hasGlobalQuery?: boolean;
   } = {},
 ): { branchId?: string; assignedToId?: string } {
-  if (user.role === "ROOT_ADMIN") return {};
-
-  const perms = opts.permissions;
-
-  // Global search capability: if query provided and user has permission, do not restrict to assigned
-  if (opts.hasGlobalQuery && perms?.searchGlobally) {
-    if (opts.allBranches || opts.policy?.crossBranch || user.role === "CENTRAL_ADMIN" || user.role === "CENTRAL_AGENT") {
-      return {};
-    }
-    // If restricted to branch without crossBranch
-    return user.branchId ? { branchId: user.branchId } : {};
+  if (user.role === "ROOT_ADMIN" || user.role === "CENTRAL_ADMIN" || user.role === "CENTRAL_AGENT") {
+    return {};
   }
 
-  // If user is restricted from viewing all branch tickets (e.g. Junior agent)
+  const perms = opts.permissions;
+  const allowCrossBranch = perms ? !!perms.viewCrossBranchTickets : !!opts.policy?.crossBranch;
+  const branchScope: { branchId?: string } =
+    allowCrossBranch && opts.allBranches
+      ? {}
+      : { branchId: user.branchId || "__no_branch__" };
+
+  // Extended queue lookup within allowed branch(es) ONLY when explicitly granted searchGlobally
+  if (opts.hasGlobalQuery && perms?.searchGlobally) {
+    return branchScope;
+  }
+
+  // Strictly scoped to user's own assigned tickets inside their branch unless Branch Overview is enabled
   if (perms && !perms.viewAllBranchTickets) {
     return {
-      ...(user.branchId ? { branchId: user.branchId } : {}),
+      ...branchScope,
       assignedToId: user.id,
     };
   }
 
-  if (user.role === "SUPPORT_AGENT" || user.role === "BRANCH_MANAGER") {
-    if (opts.allBranches && opts.policy?.crossBranch) return {};
-    return { branchId: user.branchId || "__no_branch__" };
-  }
-
-  return {};
+  return branchScope;
 }
 
 /** YYYY-MM-DD → Date at the start / end of that day in India time (IST). */
@@ -138,8 +133,16 @@ export function buildWhere(filters: TicketFilters, scope: { branchId?: string; a
   if (scope.branchId) and.push({ branchId: scope.branchId });
   if (scope.assignedToId) and.push({ assignedToId: scope.assignedToId });
 
-  // "OPEN" = any not-yet-resolved status (new, in progress, on hold)
-  if (filters.status) and.push({ status: filters.status === "OPEN" ? { in: OPEN_STATUSES } : filters.status });
+  // "OPEN" = any not-yet-resolved status (in progress or on hold; plus legacy NEW_COMPLAINT rows)
+  if (filters.status) {
+    if (filters.status === "OPEN") {
+      and.push({ status: { in: OPEN_STATUSES } });
+    } else if (filters.status === "IN_PROGRESS") {
+      and.push({ status: { in: ["IN_PROGRESS", "NEW_COMPLAINT"] } });
+    } else {
+      and.push({ status: filters.status });
+    }
+  }
   if (filters.branchId) and.push({ branchId: filters.branchId });
   if (filters.assignedToId) and.push({ assignedToId: filters.assignedToId });
   if (filters.categoryId) and.push({ categoryId: filters.categoryId });
@@ -214,7 +217,7 @@ export const TICKET_INCLUDE = {
 
 // Lifecycle / severity order used when sorting by status or priority
 // (alphabetical order would be meaningless for these).
-const STATUS_RANK: Record<string, number> = { NEW_COMPLAINT: 0, IN_PROGRESS: 1, ON_HOLD: 2, RESOLVED: 3, CLOSED: 4 };
+const STATUS_RANK: Record<string, number> = { NEW_COMPLAINT: 0, IN_PROGRESS: 0, ON_HOLD: 1, RESOLVED: 2, CLOSED: 3 };
 const PRIORITY_RANK: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
 
 function orderByFor(sort: SortField | undefined, dir: "asc" | "desc") {
@@ -260,14 +263,20 @@ export async function listTickets(
     const rows = ids.length ? await db.ticket.findMany({ where: { id: { in: ids } }, include: TICKET_INCLUDE }) : [];
     const pos = new Map(ids.map((id, i) => [id, i]));
     rows.sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
-    return { rows, total: light.length };
+    return {
+      rows: rows.map((r) => ({ ...r, status: r.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : r.status })),
+      total: light.length,
+    };
   }
 
   const [rows, total] = await Promise.all([
     db.ticket.findMany({ where, include: TICKET_INCLUDE, orderBy: orderByFor(filters.sort, dir), skip: page.skip, take: page.take }),
     db.ticket.count({ where }),
   ]);
-  return { rows, total };
+  return {
+    rows: rows.map((r) => ({ ...r, status: r.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : r.status })),
+    total,
+  };
 }
 
 /** All matching tickets for CSV export (capped). */

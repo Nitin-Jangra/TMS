@@ -7,8 +7,8 @@
 //   PostgreSQL (Supabase) deployment the same transaction maps to
 //   SELECT ... FOR UPDATE row locking on the cursor row.
 // - Unavailable employees (inactive / availability off) are skipped.
-// - If no eligible employee exists the ticket stays NEW_COMPLAINT in the
-//   unassigned queue and branch manager + central support are notified.
+// - If no eligible employee exists the ticket stays IN_PROGRESS (unassigned)
+//   in the unassigned queue and branch manager + central support are notified.
 
 import { db, runInTransaction } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -356,7 +356,7 @@ export async function transferTicketBranch(
 export async function retryUnassignedTickets(branchId?: string): Promise<{ assigned: number; remaining: number }> {
   const tickets = await db.ticket.findMany({
     where: {
-      status: "NEW_COMPLAINT",
+      status: { in: ["IN_PROGRESS", "NEW_COMPLAINT"] },
       assignedToId: null,
       ...(branchId ? { branchId } : {}),
     },
@@ -373,7 +373,7 @@ export async function retryUnassignedTickets(branchId?: string): Promise<{ assig
     }
   }
   const remaining = await db.ticket.count({
-    where: { status: "NEW_COMPLAINT", assignedToId: null, ...(branchId ? { branchId } : {}) },
+    where: { status: { in: ["IN_PROGRESS", "NEW_COMPLAINT"] }, assignedToId: null, ...(branchId ? { branchId } : {}) },
   });
   return { assigned, remaining };
 }

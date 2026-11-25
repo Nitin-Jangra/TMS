@@ -7,13 +7,14 @@ import { handleErrors, ok } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getAccessPolicy } from "@/lib/tickets";
+import { getUserPermissions } from "@/lib/permissions";
 import { isCentralRole } from "@/lib/types";
 
 export async function GET() {
   return handleErrors(async () => {
     const user = await requireUser();
-    const policy = await getAccessPolicy();
-    const allBranches = isCentralRole(user.role) || policy.crossBranch;
+    const [policy, permissions] = await Promise.all([getAccessPolicy(), getUserPermissions(user)]);
+    const allBranches = isCentralRole(user.role) || !!permissions.viewCrossBranchTickets || !!permissions.transferBranch;
     const branchScope = allBranches ? {} : { branchId: user.branchId ?? "__none__" };
 
     const [staff, open] = await Promise.all([

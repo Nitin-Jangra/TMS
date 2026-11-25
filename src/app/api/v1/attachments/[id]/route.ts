@@ -13,10 +13,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return handleErrors(async () => {
     const { id } = await params;
     const user = await requireUser();
+    const permissions = await getUserPermissions(user);
 
     const attachment = await db.ticketAttachment.findUnique({ where: { id }, include: { ticket: { select: { branchId: true, assignedToId: true } } } });
     if (!attachment) return fail("NOT_FOUND", "Attachment not found.", 404);
-    if (!canAccessTicket(user, attachment.ticket, await getAccessPolicy())) return fail("FORBIDDEN", "You do not have access to this attachment.", 403);
+    if (!canAccessTicket(user, attachment.ticket, await getAccessPolicy(), permissions)) return fail("FORBIDDEN", "You do not have access to this attachment.", 403);
 
     // Path traversal protection: storedName is a server-generated UUID file.
     if (!/^[a-f0-9-]{36}\.bin$/.test(attachment.storedName)) return fail("NOT_FOUND", "Attachment not found.", 404);
@@ -46,7 +47,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       include: { ticket: { select: { id: true, branchId: true, assignedToId: true, status: true } } },
     });
     if (!attachment) return fail("NOT_FOUND", "Attachment not found.", 404);
-    if (!canAccessTicket(user, attachment.ticket, await getAccessPolicy())) {
+    if (!canAccessTicket(user, attachment.ticket, await getAccessPolicy(), permissions)) {
       return fail("FORBIDDEN", "You do not have access to delete this attachment.", 403);
     }
     if (attachment.ticket.status === "CLOSED") {

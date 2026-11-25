@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tic
       select: { id: true, branchId: true, assignedToId: true, status: true },
     });
     if (!ticket) return fail("NOT_FOUND", "Ticket not found.", 404);
-    if (!canAccessTicket(user, ticket, await getAccessPolicy())) {
+    if (!canAccessTicket(user, ticket, await getAccessPolicy(), permissions)) {
       return fail("FORBIDDEN", "You do not have access to this ticket.", 403);
     }
     if (ticket.status === "CLOSED") {

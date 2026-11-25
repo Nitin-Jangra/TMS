@@ -134,13 +134,13 @@ export async function createComplaint(
         categoryId: input.categoryId,
         departmentId: categoryRow.departmentId ?? null,
         description: input.description.trim(),
-        status: "NEW_COMPLAINT",
+        status: "IN_PROGRESS",
         priority: input.priority || "MEDIUM",
         source: input.source || "PORTAL",
       },
     });
     await tx.ticketStatusHistory.create({
-      data: { ticketId: created.id, fromStatus: null, toStatus: "NEW_COMPLAINT", changedByName: "System", note: "Complaint registered" },
+      data: { ticketId: created.id, fromStatus: null, toStatus: "IN_PROGRESS", changedByName: "System", note: "Complaint registered (In Progress)" },
     });
     await initSlaTracking(tx, created.id, created.priority, now);
     return created;
@@ -236,7 +236,7 @@ export async function applyStatusChange(
     await tx.ticketStatusHistory.create({
       data: {
         ticketId,
-        fromStatus: ticket.status,
+        fromStatus: ticket.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : ticket.status,
         toStatus: input.toStatus,
         changedById: actor.id || null,
         changedByName: actor.name,
@@ -252,7 +252,7 @@ export async function applyStatusChange(
     ticketId,
     actor,
     action: input.toStatus === "RESOLVED" ? "RESOLUTION" : "STATUS_CHANGED",
-    previousValue: ticket.status,
+    previousValue: ticket.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : ticket.status,
     newValue: input.toStatus,
     details: input.note || input.reason || input.resolution || "",
     correlationId: meta.correlationId,
@@ -266,7 +266,7 @@ export async function applyStatusChange(
     feedbackUrl: input.toStatus === "RESOLVED" ? await feedbackUrl(ticket.ticketNumber) : "",
   });
 
-  if (input.toStatus === "IN_PROGRESS" && ticket.status === "NEW_COMPLAINT") {
+  if (!ticket.firstResponseAt && (input.toStatus === "ON_HOLD" || input.toStatus === "RESOLVED" || input.toStatus === "IN_PROGRESS")) {
     await markFirstResponse(ticketId);
   }
   if (input.toStatus === "RESOLVED") {
@@ -328,7 +328,7 @@ export async function addTicketMessage(
 
   // Public replies notify the customer; internal notes never trigger emails.
   if (input.visibility === "PUBLIC") {
-    if (ticket.status === "NEW_COMPLAINT") await markFirstResponse(ticketId);
+    if (!ticket.firstResponseAt) await markFirstResponse(ticketId);
     await queueNotification({
       ticketId,
       ticketNumber: ticket.ticketNumber,
@@ -394,24 +394,29 @@ export async function trackTicket(ticketNumberInput: string, phoneInput: string)
   }
 
   const { STATUS_LABELS } = await import("@/lib/types");
-  const timeline = ticket.statusHistory.map((h) => ({
-    from: h.fromStatus,
-    to: h.toStatus,
-    label: STATUS_LABELS[h.toStatus] || h.toStatus,
-    at: h.createdAt.toISOString(),
-    note: h.note,
-  }));
+  const normalizedStatus = ticket.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : ticket.status;
+  const timeline = ticket.statusHistory.map((h) => {
+    const from = h.fromStatus === "NEW_COMPLAINT" ? "IN_PROGRESS" : h.fromStatus;
+    const to = h.toStatus === "NEW_COMPLAINT" ? "IN_PROGRESS" : h.toStatus;
+    return {
+      from,
+      to,
+      label: STATUS_LABELS[to] || to,
+      at: h.createdAt.toISOString(),
+      note: h.note,
+    };
+  });
 
   const latestPublic = ticket.messages[0]
     ? { body: ticket.messages[0].body, author: ticket.messages[0].authorName, at: ticket.messages[0].createdAt.toISOString() }
     : null;
 
-  const reopenOpen = ticket.status === "RESOLVED" && !!ticket.autoCloseAt && ticket.autoCloseAt.getTime() > Date.now();
+  const reopenOpen = normalizedStatus === "RESOLVED" && !!ticket.autoCloseAt && ticket.autoCloseAt.getTime() > Date.now();
 
   return {
     ticketNumber: ticket.ticketNumber,
-    status: ticket.status,
-    statusLabel: STATUS_LABELS[ticket.status] || ticket.status,
+    status: normalizedStatus,
+    statusLabel: STATUS_LABELS[normalizedStatus] || normalizedStatus,
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
     branchName: ticket.branch.name,
@@ -572,7 +577,7 @@ export const STRICT_POLICY: AccessPolicy = { crossBranch: false, agentsReassign:
 export async function getAccessPolicy(): Promise<AccessPolicy> {
   const settings = await getSettings();
   return {
-    crossBranch: settings.staff_cross_branch_access !== "false",
+    crossBranch: settings.staff_cross_branch_access === "true",
     agentsReassign: settings.agents_can_reassign !== "false",
   };
 }
@@ -589,10 +594,12 @@ export function canAccessTicket(
 
   if (permissions) {
     if (ticket.assignedToId && ticket.assignedToId === user.id) return true;
-    if (permissions.searchGlobally) return true;
-    if (permissions.viewAllBranchTickets) {
-      return policy.crossBranch || (!!user.branchId && user.branchId === ticket.branchId);
+    const sameBranch = !!user.branchId && user.branchId === ticket.branchId;
+    if (!sameBranch && !permissions.viewCrossBranchTickets) {
+      return false;
     }
+    if (permissions.searchGlobally) return true;
+    if (permissions.viewAllBranchTickets) return true;
     return false;
   }
 

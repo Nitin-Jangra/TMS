@@ -41,8 +41,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tic
     }
 
     const canReassign = canReassignTicket(user, ticket, policy, permissions);
+    const normalizedTicket = {
+      ...ticket,
+      status: ticket.status === "NEW_COMPLAINT" ? "IN_PROGRESS" : ticket.status,
+      statusHistory: ticket.statusHistory.map((h) => ({
+        ...h,
+        fromStatus: h.fromStatus === "NEW_COMPLAINT" ? "IN_PROGRESS" : h.fromStatus,
+        toStatus: h.toStatus === "NEW_COMPLAINT" ? "IN_PROGRESS" : h.toStatus,
+      })),
+    };
     return ok({
-      ticket,
+      ticket: normalizedTicket,
       viewer: {
         id: user.id,
         role: user.role,
@@ -50,7 +59,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tic
         branchId: user.branchId,
         permissions,
         canReassign,
-        canAssignAcrossBranches: canReassign && (isCentralRole(user.role) || policy.crossBranch || permissions.transferBranch),
+        canAssignAcrossBranches: canReassign && (isCentralRole(user.role) || permissions.transferBranch),
       },
     });
   });

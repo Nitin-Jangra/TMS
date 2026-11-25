@@ -30,7 +30,7 @@ export function LogoutButton() {
 
 export function StatusBadge({ status }: { status: string }) {
   const dotColor: Record<string, string> = {
-    NEW_COMPLAINT: "bg-[#0084D1]",
+    NEW_COMPLAINT: "bg-[#D97706]",
     IN_PROGRESS: "bg-[#D97706]",
     ON_HOLD: "bg-[#7C3AED]",
     RESOLVED: "bg-[#059669]",

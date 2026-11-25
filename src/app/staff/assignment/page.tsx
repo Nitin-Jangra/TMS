@@ -109,7 +109,7 @@ export default function AssignmentPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#0a2350]">Assignment queue</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Branch-wise round-robin assignment. Tickets stay New Complaint until an eligible employee is picked.</p>
+          <p className="mt-0.5 text-sm text-slate-500">Branch-wise round-robin assignment. Unassigned tickets remain In Progress until an eligible employee is picked.</p>
         </div>
         {!isManager && branches.length > 0 ? (
           <Select value={branchId} onValueChange={setBranchId}>
